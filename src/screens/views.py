@@ -308,11 +308,11 @@ class TemplateScreen(ModalScreen[tuple | None]):
     #tpl-box {
         width: 60;
         max-width: 92%;
-        max-height: 88%;
+        height: 90%;
+        max-height: 90%;
     }
     #tpl-list {
-        height: auto;
-        max-height: 24;
+        height: 1fr;
         margin-bottom: 1;
     }
     .tpl-row {
@@ -578,11 +578,11 @@ class TemplateProjectScreen(ModalScreen[str | None]):
     #tplp-box {
         width: 52;
         max-width: 90%;
-        max-height: 85%;
+        height: 90%;
+        max-height: 90%;
     }
     #tplp-list {
-        height: auto;
-        max-height: 20;
+        height: 1fr;
         margin-bottom: 1;
     }
     #tplp-list Button {
@@ -636,11 +636,11 @@ class ImportCsvScreen(ModalScreen[str | None]):
     #impcsv-box {
         width: 64;
         max-width: 92%;
-        max-height: 88%;
+        height: 90%;
+        max-height: 90%;
     }
     #impcsv-list {
-        height: auto;
-        max-height: 14;
+        height: 1fr;
         margin-bottom: 1;
     }
     #impcsv-list Button {
@@ -1173,6 +1173,7 @@ class DayScreen(CloseMixin, ModalScreen[None]):
     #day-box {
         width: 70;
         max-width: 90%;
+        height: 90%;
         max-height: 90%;
     }
     #day-title {
@@ -1182,8 +1183,7 @@ class DayScreen(CloseMixin, ModalScreen[None]):
         margin-bottom: 1;
     }
     #day-list {
-        height: auto;
-        max-height: 20;
+        height: 1fr;
         margin-bottom: 1;
     }
     #day-empty {

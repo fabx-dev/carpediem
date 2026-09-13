@@ -890,11 +890,11 @@ class RestoreScreen(ModalScreen[str | None]):
     #rst-box {
         width: 64;
         max-width: 92%;
-        max-height: 88%;
+        height: 90%;
+        max-height: 90%;
     }
     #rst-list {
-        height: auto;
-        max-height: 20;
+        height: 1fr;
         margin-bottom: 1;
     }
     #rst-list Button {

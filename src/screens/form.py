@@ -653,7 +653,8 @@ class ThemeListScreen(ModalScreen[str | None]):
     #theme-box {
         width: 52;
         max-width: 90%;
-        max-height: 85%;
+        height: 90%;
+        max-height: 90%;
     }
     #theme-title {
         text-align: center;
@@ -662,8 +663,7 @@ class ThemeListScreen(ModalScreen[str | None]):
         margin-bottom: 1;
     }
     #theme-list {
-        height: auto;
-        max-height: 20;
+        height: 1fr;
         margin-bottom: 1;
     }
     #theme-list Button {

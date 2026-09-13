@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import datetime
+from pathlib import Path
 
 from tests.conftest import make_app, make_todo
 
@@ -109,5 +110,86 @@ def test_calendar_layout_terminale_piccolo(tmp_files):
                 _assert_close_in_box(
                     app, size, "calendar-box", "calendar-close", ("calendar-scroll",)
                 )
+
+    asyncio.run(t())
+
+
+def test_template_layout_terminale_piccolo(tmp_files):
+    async def t():
+        for size in SIZES:
+            app = make_app([])
+            app.templates = {f"Tpl {i}": [{"title": "x"}] for i in range(20)}
+            async with app.run_test(size=size) as pilot:
+                await pilot.pause()
+                app._open_template_picker()
+                await pilot.pause()
+                await pilot.pause()
+                assert type(app.screen).__name__ == "TemplateScreen"
+                _assert_close_in_box(app, size, "tpl-box", "tpl-close", ("tpl-list",))
+
+    asyncio.run(t())
+
+
+def test_day_layout_terminale_piccolo(tmp_files):
+    async def t():
+        today = datetime.now().date()
+        todos = [
+            make_todo(f"T{i}", todo_id=i, due=today.strftime("%Y-%m-%d"))
+            for i in range(1, 31)
+        ]
+        for size in SIZES:
+            app = make_app(todos)
+            async with app.run_test(size=size) as pilot:
+                await pilot.pause()
+                app.action_open_day(today.year, today.month, today.day)
+                await pilot.pause()
+                await pilot.pause()
+                assert type(app.screen).__name__ == "DayScreen"
+                _assert_close_in_box(app, size, "day-box", "day-close", ("day-list",))
+
+    asyncio.run(t())
+
+
+def test_theme_templateproject_impcsv_restore_layout_piccolo(tmp_files):
+    from src.screens.form import ThemeListScreen
+    from src.screens.system import RestoreScreen
+    from src.screens.views import ImportCsvScreen, TemplateProjectScreen
+
+    async def t():
+        cases = [
+            (
+                ThemeListScreen([f"tema-{i}" for i in range(30)], "tema-0"),
+                "theme-box",
+                "theme-close",
+                "theme-list",
+            ),
+            (
+                TemplateProjectScreen([(f"prog-{i}", i) for i in range(20)]),
+                "tplp-box",
+                "tplp-close",
+                "tplp-list",
+            ),
+            (
+                ImportCsvScreen([Path(f"/tmp/f{i}.csv") for i in range(20)]),
+                "impcsv-box",
+                "impcsv-cancel",
+                "impcsv-list",
+            ),
+            (
+                RestoreScreen([Path(f"/tmp/s{i}.zip") for i in range(20)]),
+                "rst-box",
+                "rst-close",
+                "rst-list",
+            ),
+        ]
+        for size in SIZES:
+            for scr, box, close, lst in cases:
+                app = make_app([])
+                async with app.run_test(size=size) as pilot:
+                    await pilot.pause()
+                    app.push_screen(scr)
+                    await pilot.pause()
+                    await pilot.pause()
+                    _assert_close_in_box(app, size, box, close, (lst,))
 
     asyncio.run(t())
