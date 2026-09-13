@@ -3,15 +3,13 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
-## [Unreleased]
+## [0.5.1] - 2026-09-13
 
 ### Changed
 - Renamed the project to CarpeDiem (`tasko` is taken on PyPI): distribution,
   `carpediem` command, UI titles and generated file names. Data files
   (`~/.todo_app.json` and siblings), backups and `TASKO_*` variables are
   unchanged: updating loses nothing.
-
-## [0.5.1] - 2026-09-13
 
 ### Fixed
 - Persistence: recurrence clone inherits `stima_pomo`, so follow-up occurrences keep their estimate in the plan
