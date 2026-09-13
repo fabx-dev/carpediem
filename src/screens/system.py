@@ -32,6 +32,7 @@ from src.models import (
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
+    _escape_markup,
     _pomodoros_by_date,
     _streak_days,
 )
@@ -519,7 +520,8 @@ class StatsScreen(CloseMixin, ModalScreen[None]):
                     yield Label(T("stats_proj_t"), classes="stats-line")
                     for proj, nc, np in proj_rows:
                         yield Static(
-                            f"  [blue]{proj}[/]: {nc} · {np}", classes="stats-line"
+                            f"  [blue]{_escape_markup(proj)}[/]: {nc} · {np}",
+                            classes="stats-line",
                         )
                 yield Label(T("stats_when_t"), classes="stats-line")
                 slot_rows = {n: (c, p) for n, c, p in self._slot_counts(30)}
@@ -848,9 +850,9 @@ class ArchiveScreen(ModalScreen[tuple | None]):
                     yield Label(T("arc_empty"))
                 for i, t in enumerate(self.archived):
                     when = (t.completed_at or "?")[:10]
-                    proj = f" @{t.project}" if t.project else ""
+                    proj = f" @{_escape_markup(t.project)}" if t.project else ""
                     yield Button(
-                        f"#{t.id} {t.title[:36]}{proj} ({when})",
+                        f"#{t.id} {_escape_markup(t.title[:36])}{proj} ({when})",
                         id=f"arc-{i}",
                         variant="default",
                     )
@@ -1352,7 +1354,7 @@ class HealthScreen(CloseMixin, ModalScreen[None]):
                     yield Label(T("health_empty"))
                 for proj, verdict, color, done, tot, late, mom in rows:
                     sign = "+" if mom > 0 else ""
-                    yield Label(f"[{color}][b]{verdict}[/b][/] {proj}")
+                    yield Label(f"[{color}][b]{verdict}[/b][/] {_escape_markup(proj)}")
                     yield Static(
                         T(
                             "health_row",

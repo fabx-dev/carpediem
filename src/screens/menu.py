@@ -14,6 +14,7 @@ from textual.widgets import (
 from src.lang import (
     T,
 )
+from src.screens._shared import _escape_markup
 
 
 class MenuRow(Label):
@@ -325,10 +326,10 @@ class MenuScreen(ModalScreen[str | None]):
             count = self.query_one("#menu-count", Static)
             empty = self.query_one("#menu-empty", Static)
             if self._filter.strip():
-                count.update(T("menu_filter", q=self._filter, n=n))
+                count.update(T("menu_filter", q=_escape_markup(self._filter), n=n))
                 count.remove_class("hidden")
                 if n == 0:
-                    empty.update(T("menu_no_match", q=self._filter))
+                    empty.update(T("menu_no_match", q=_escape_markup(self._filter)))
                     empty.remove_class("hidden")
                 else:
                     empty.add_class("hidden")

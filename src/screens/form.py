@@ -31,6 +31,7 @@ from src.models import (
 from src.nlparse import parse_with_found
 from src.screens._shared import (
     CloseMixin,
+    _escape_markup,
 )
 
 
@@ -301,10 +302,10 @@ class TodoFormScreen(ModalScreen[dict | None]):
     def _nl_summary(res: dict, found: set | None = None) -> str:
         parts = []
         if res["due"]:
-            parts.append(res["due"])
+            parts.append(_escape_markup(res["due"]))
         if res["project"]:
-            parts.append(f"*{res['project']}")
-        parts.extend(f"#{t}" for t in res["tags"])
+            parts.append(f"*{_escape_markup(res['project'])}")
+        parts.extend(f"#{_escape_markup(t)}" for t in res["tags"])
         if res["priority"] != Priority.MEDIUM:
             parts.append(f"!{res['priority'].value}")
         if res["recurrence"] != Recurrence.NONE:
@@ -560,7 +561,11 @@ class StateChoiceScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="state-box"):
             yield Label(
-                T("state_title", title=self.todo_title, current=self.current),
+                T(
+                    "state_title",
+                    title=_escape_markup(self.todo_title),
+                    current=self.current,
+                ),
                 id="state-msg",
             )
             with Vertical(id="state-buttons"):

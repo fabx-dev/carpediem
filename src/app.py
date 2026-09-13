@@ -66,6 +66,7 @@ from src.screens import (
     WelcomeScreen,
     WorkflowScreen,
 )
+from src.screens._shared import _escape_markup
 from src.storage import (
     FILTER_STATES,
     POMO_PHASE_PRESETS,
@@ -602,11 +603,11 @@ class TodoApp(App):
         if self.filter_state is not None:
             parts.append(T("bar_filter", v=self.filter_state.replace("_", " ")))
         if self.filter_tag is not None:
-            parts.append(T("bar_tag", v=self.filter_tag))
+            parts.append(T("bar_tag", v=_escape_markup(self.filter_tag)))
         if getattr(self, "filter_project", None):
-            parts.append(T("bar_proj", v=self.filter_project))
+            parts.append(T("bar_proj", v=_escape_markup(self.filter_project)))
         if getattr(self, "filter_search", ""):
-            parts.append(T("bar_search", v=self.filter_search))
+            parts.append(T("bar_search", v=_escape_markup(self.filter_search)))
         return f"{base} | [black on yellow] {' + '.join(parts)} [/]"
 
     def _kanban_text(self) -> str:
@@ -615,7 +616,7 @@ class TodoApp(App):
             items = sorted(items, key=self._sort_key)[:3]
             if not items:
                 return "-"
-            return " · ".join(f"#{t.id} {t.title[:18]}" for t in items)
+            return " · ".join(f"#{t.id} {_escape_markup(t.title[:18])}" for t in items)
 
         n_att = sum(1 for t in self.todos if not t.is_subtask and t.state == "attivo")
         n_sos = sum(
@@ -746,21 +747,26 @@ class TodoApp(App):
         notes_preview = (
             (raw_notes[:30] + "...") if len(raw_notes) > 30 else (raw_notes or "-")
         )
+        notes_preview = _escape_markup(notes_preview)
         recurrence_str = (
             f"[cyan]{rec_disp(todo.recurrence.value)}[/]"
             if todo.recurrence != Recurrence.NONE
             else "-"
         )
         tags_str = (
-            ", ".join(f"[magenta]#{t}[/]" for t in todo.tags) if todo.tags else "-"
+            ", ".join(f"[magenta]#{_escape_markup(t)}[/]" for t in todo.tags)
+            if todo.tags
+            else "-"
         )
-        project_str = f"[blue]{todo.project}[/]" if todo.project else "-"
+        project_str = (
+            f"[blue]{_escape_markup(todo.project)}[/]" if todo.project else "-"
+        )
 
         if depth == 0:
-            title_display = todo.title
+            title_display = _escape_markup(todo.title)
         else:
             connector = "└── " if is_last else "├── "
-            title_display = f"{prefix}{connector}{todo.title}"
+            title_display = f"{prefix}{connector}{_escape_markup(todo.title)}"
         # Progresso figli + pomodori
         children = self._get_subtasks(todo.id)
         if children:
@@ -827,7 +833,7 @@ class TodoApp(App):
                     todo_id=self.store.allocate_id(),
                 )
                 self.store.add(todo)
-                self._commit_refresh("n_added", t=todo.title)
+                self._commit_refresh("n_added", t=_escape_markup(todo.title))
 
         self.push_screen(TodoFormScreen(title=T("form_new")), on_submit)
 
@@ -842,7 +848,7 @@ class TodoApp(App):
         def on_submit(result: dict | None) -> None:
             if result:
                 domain.apply_form(todo, result)
-                self._commit_refresh("n_updated", t=todo.title)
+                self._commit_refresh("n_updated", t=_escape_markup(todo.title))
                 if reopen_detail:
                     self.push_screen(
                         DetailScreen(todo, self.todos), self._on_detail_closed
@@ -862,7 +868,7 @@ class TodoApp(App):
             return
 
         descendants = self._get_all_descendants(todo.id)
-        msg = T("n_del_t", t=todo.title)
+        msg = T("n_del_t", t=_escape_markup(todo.title))
         if descendants:
             msg += T("n_del_sub", n=len(descendants))
 
@@ -871,7 +877,7 @@ class TodoApp(App):
                 desc_ids = {d.id for d in descendants}
                 removed = self.store.remove_ids({todo.id} | desc_ids)
                 self._undo_stack.append(removed)
-                self._commit_refresh("n_deleted", t=todo.title)
+                self._commit_refresh("n_deleted", t=_escape_markup(todo.title))
 
         self.push_screen(ConfirmScreen(msg), on_confirm)
 
@@ -907,8 +913,8 @@ class TodoApp(App):
         new_todo = domain.apply_state(todo, choice, now)
         if new_todo is not None:
             self.store.add(new_todo)
-            self.notify(T("n_recur", t=new_todo.title, d=new_todo.due))
-        self._commit_refresh("n_state", t=todo.title, s=labels[choice])
+            self.notify(T("n_recur", t=_escape_markup(new_todo.title), d=new_todo.due))
+        self._commit_refresh("n_state", t=_escape_markup(todo.title), s=labels[choice])
 
     def action_add_subtask(self) -> None:
         todo = self._get_selected_todo()
@@ -1092,7 +1098,7 @@ class TodoApp(App):
         if self.filter_tag is None:
             self.notify(T("n_ftag_all"))
         else:
-            self.notify(T("n_ftag", t=self.filter_tag))
+            self.notify(T("n_ftag", t=_escape_markup(self.filter_tag)))
         self._populate_table()
 
     def action_filter_by_project(self) -> None:
@@ -1109,7 +1115,7 @@ class TodoApp(App):
         self.notify(
             T("n_fproj_all")
             if self.filter_project is None
-            else T("n_fproj", p=self.filter_project)
+            else T("n_fproj", p=_escape_markup(self.filter_project))
         )
         self._populate_table()
 
@@ -1118,7 +1124,11 @@ class TodoApp(App):
             if result is None:
                 return
             self.filter_search = result
-            self.notify(T("n_search_clear") if not result else T("n_search", q=result))
+            self.notify(
+                T("n_search_clear")
+                if not result
+                else T("n_search", q=_escape_markup(result))
+            )
             self._populate_table()
 
         self.push_screen(SearchScreen(self.filter_search), on_submit)
@@ -1165,7 +1175,9 @@ class TodoApp(App):
             self.notify(T("n_nosel"), severity="warning")
             return
         self._start_phase("focus", todo.id)
-        self.notify(T("n_pomo_start", t=todo.title, m=self.POMODORO_MIN))
+        self.notify(
+            T("n_pomo_start", t=_escape_markup(todo.title), m=self.POMODORO_MIN)
+        )
         self._open_pomodoro_popup()
 
     def action_pomodoro_pause(self) -> None:
@@ -1210,7 +1222,7 @@ class TodoApp(App):
 
     def _pomodoro_text(self) -> str:
         todo = self.store.by_id(self.focus_task_id)
-        name = todo.title[:28] if todo else f"#{self.focus_task_id}"
+        name = _escape_markup(todo.title[:28]) if todo else f"#{self.focus_task_id}"
         plbl = _pomo_label(todo) if todo else ""
         total = f" ({plbl})" if plbl else ""
         secs = self._pomodoro_remaining_secs()
@@ -1265,7 +1277,7 @@ class TodoApp(App):
         phase = self.focus_phase or "focus"
         is_break = phase in ("short", "long")
         total_min = max(1, self.focus_total_secs // 60)
-        name = todo.title if todo else "-"
+        name = _escape_markup(todo.title) if todo else "-"
         plbl = _pomo_label(todo) if todo else ""
         count = f"  {plbl}" if plbl else ""
         dots = self._cycle_dots()
@@ -1380,7 +1392,7 @@ class TodoApp(App):
                 if phase in ("short", "long")
                 else T("pomo_what_focus")
             )
-            self.notify(T("n_rest_paused", w=what, t=todo.title))
+            self.notify(T("n_rest_paused", w=what, t=_escape_markup(todo.title)))
             return
         try:
             end = datetime.fromisoformat(str(session.get("end")))
@@ -1421,7 +1433,9 @@ class TodoApp(App):
             if break_done:
                 bits.append(T("n_rest_breakdone"))
             head = ". ".join(bits) + ". " if bits else T("n_rest_expired") + ". "
-            self.notify(head + T("n_rest_total", t=todo.title, n=todo.pomodoros))
+            self.notify(
+                head + T("n_rest_total", t=_escape_markup(todo.title), n=todo.pomodoros)
+            )
             return
         self.focus_phase = phase
         self.focus_total_secs = total
@@ -1438,7 +1452,7 @@ class TodoApp(App):
                 "n_rest_active",
                 icon="☕" if phase in ("short", "long") else "🍅",
                 w=what,
-                t=todo.title,
+                t=_escape_markup(todo.title),
                 extra=extra,
             )
         )
@@ -1474,7 +1488,7 @@ class TodoApp(App):
         self._start_phase(kind, task_id)
         dots = self._cycle_dots()
         mins = self.POMO_LONG_MIN if kind == "long" else self.POMO_SHORT_MIN
-        name = f"su '{todo.title}'" if todo else ""
+        name = f"su '{_escape_markup(todo.title)}'" if todo else ""
         self.notify(
             T(
                 "n_focus_done",
@@ -1639,7 +1653,9 @@ class TodoApp(App):
                 archive.extend([t.to_dict() for t in removed])
                 save_archive(archive)
             except Exception as exc:
-                self.notify(T("n_arc_err", e=exc), severity="error")
+                self.notify(
+                    T("n_arc_err", e=_escape_markup(str(exc))), severity="error"
+                )
                 return
             self._undo_stack.append(removed)
             self.store.remove_ids(all_ids)
@@ -1737,7 +1753,7 @@ class TodoApp(App):
             )
             self.store.add(todo)
             created.append(todo)
-        self._commit_refresh("n_tpl_made", n=name, c=len(created))
+        self._commit_refresh("n_tpl_made", n=_escape_markup(name), c=len(created))
 
     def _confirm_delete_template(self, name: str) -> None:
         if name not in self.templates:
@@ -1749,10 +1765,12 @@ class TodoApp(App):
                 return
             del self.templates[name]
             self._persist_templates()
-            self.notify(T("n_tpl_del", n=name))
+            self.notify(T("n_tpl_del", n=_escape_markup(name)))
             self._open_template_picker()
 
-        self.push_screen(ConfirmScreen(T("n_tpl_confirm", n=name)), on_confirm)
+        self.push_screen(
+            ConfirmScreen(T("n_tpl_confirm", n=_escape_markup(name))), on_confirm
+        )
 
     def _on_template_created(self, result: dict | None) -> None:
         if not result:
@@ -1764,7 +1782,7 @@ class TodoApp(App):
             self._open_template_picker()
             return
         if name in self.templates:
-            self.notify(T("n_tpl_dup", n=name), severity="error")
+            self.notify(T("n_tpl_dup", n=_escape_markup(name)), severity="error")
             self._open_template_picker()
             return
         items = result.get("items", [])
@@ -1774,7 +1792,7 @@ class TodoApp(App):
             return
         self.templates[name] = items
         self._persist_templates()
-        self.notify(T("n_tpl_created", n=name, c=len(items)))
+        self.notify(T("n_tpl_created", n=_escape_markup(name), c=len(items)))
         self._open_template_picker()
 
     def _open_template_editor(self, name: str) -> None:
@@ -1793,14 +1811,16 @@ class TodoApp(App):
                 self._open_template_picker()
                 return
             if new_name != name and new_name in self.templates:
-                self.notify(T("n_tpl_dup", n=new_name), severity="error")
+                self.notify(
+                    T("n_tpl_dup", n=_escape_markup(new_name)), severity="error"
+                )
                 self._open_template_picker()
                 return
             if new_name != name:
                 del self.templates[name]
             self.templates[new_name] = items
             self._persist_templates()
-            self.notify(T("n_tpl_updated", n=new_name, c=len(items)))
+            self.notify(T("n_tpl_updated", n=_escape_markup(new_name), c=len(items)))
             self._open_template_picker()
 
         self.push_screen(
@@ -1833,7 +1853,9 @@ class TodoApp(App):
             key=self._sort_key,
         )
         if not source:
-            self.notify(T("n_tpl_emptyproj", p=project), severity="warning")
+            self.notify(
+                T("n_tpl_emptyproj", p=_escape_markup(project)), severity="warning"
+            )
             self._open_template_picker()
             return
         base = project.strip().capitalize() or project
@@ -1846,7 +1868,14 @@ class TodoApp(App):
             {"title": t.title, "priority": t.priority} for t in source
         ]
         self._persist_templates()
-        self.notify(T("n_tpl_fromproj", n=name, p=project, c=len(source)))
+        self.notify(
+            T(
+                "n_tpl_fromproj",
+                n=_escape_markup(name),
+                p=_escape_markup(project),
+                c=len(source),
+            )
+        )
         self._open_template_picker()
 
     def action_export_data(self) -> None:
@@ -1863,9 +1892,9 @@ class TodoApp(App):
                     f"- [{box}] {t.title}{proj} (scad: {t.due or '-'}, prio: {t.priority.value})"
                 )
             md.write_text("\n".join(lines), encoding="utf-8")
-            self.notify(T("n_exp_saved", p=md))
+            self.notify(T("n_exp_saved", p=_escape_markup(str(md))))
         except Exception as exc:
-            self.notify(T("n_exp_err", e=exc), severity="error")
+            self.notify(T("n_exp_err", e=_escape_markup(str(exc))), severity="error")
 
     def action_export_ical(self) -> None:
         """Export calendario iCal (.ics) dei task non completati con scadenza."""
@@ -1895,9 +1924,11 @@ class TodoApp(App):
                 lines.extend(self._ical_event_lines(t, date_part, time_part, stamp))
             lines.append("END:VCALENDAR")
             ics_path.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
-            self.notify(T("n_ical_saved", p=ics_path, n=len(items)))
+            self.notify(
+                T("n_ical_saved", p=_escape_markup(str(ics_path)), n=len(items))
+            )
         except Exception as exc:
-            self.notify(T("n_ical_err", e=exc), severity="error")
+            self.notify(T("n_ical_err", e=_escape_markup(str(exc))), severity="error")
 
     def _ical_event_lines(
         self, todo: TodoItem, date_part: str, time_part: str, stamp: str
@@ -1968,9 +1999,9 @@ class TodoApp(App):
                 writer.writerow(["data", "completati", "pomodori"])
                 for d in days:
                     writer.writerow([d, by_date.get(d, 0), pomo_by_date.get(d, 0)])
-            self.notify(T("n_stat_saved", p=csv_path, d=len(days)))
+            self.notify(T("n_stat_saved", p=_escape_markup(str(csv_path)), d=len(days)))
         except Exception as exc:
-            self.notify(T("n_stat_err", e=exc), severity="error")
+            self.notify(T("n_stat_err", e=_escape_markup(str(exc))), severity="error")
 
     def action_export_csv(self) -> None:
         """Export foglio di calcolo (CSV) in ~/Tasko_screenshots."""
@@ -2018,9 +2049,11 @@ class TodoApp(App):
                             (t.notes or "").replace("\r", " "),
                         ]
                     )
-            self.notify(T("n_csv_saved", p=csv_path, n=len(self.todos)))
+            self.notify(
+                T("n_csv_saved", p=_escape_markup(str(csv_path)), n=len(self.todos))
+            )
         except Exception as exc:
-            self.notify(T("n_csv_err", e=exc), severity="error")
+            self.notify(T("n_csv_err", e=_escape_markup(str(exc))), severity="error")
 
     def action_import_csv(self) -> None:
         try:
@@ -2041,7 +2074,9 @@ class TodoApp(App):
             try:
                 imported, skipped = self._import_csv_file(path)
             except Exception as exc:
-                self.notify(T("n_imp_err", e=exc), severity="error")
+                self.notify(
+                    T("n_imp_err", e=_escape_markup(str(exc))), severity="error"
+                )
                 return
             if imported:
                 self._save_data()
@@ -2203,7 +2238,9 @@ class TodoApp(App):
             try:
                 self.theme = result["theme"]
             except Exception as exc:
-                self.notify(T("n_theme_bad", e=exc), severity="error")
+                self.notify(
+                    T("n_theme_bad", e=_escape_markup(str(exc))), severity="error"
+                )
                 return
             self.config["theme"] = result["theme"]
             self.config["kanban_visible"] = result["kanban_visible"]
@@ -2252,9 +2289,9 @@ class TodoApp(App):
         try:
             path = create_backup()
         except Exception as exc:
-            self.notify(T("n_bak_fail", e=exc), severity="error")
+            self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
-        self.notify(T("n_bak_ok", n=path.name))
+        self.notify(T("n_bak_ok", n=_escape_markup(path.name)))
 
     def action_restore_backup(self) -> None:
         snaps = list_snapshots()
@@ -2273,7 +2310,10 @@ class TodoApp(App):
                 try:
                     restore_snapshot(Path(path))
                 except Exception as exc:
-                    self.notify(T("n_restore_fail", e=exc), severity="error")
+                    self.notify(
+                        T("n_restore_fail", e=_escape_markup(str(exc))),
+                        severity="error",
+                    )
                     return
                 if not state_readable():
                     self.notify(T("n_restore_badkey"), severity="error")
@@ -2322,7 +2362,7 @@ class TodoApp(App):
                 ).total_seconds() < 24 * 3600:
                     return
             path = create_backup()
-            self.notify(T("n_auto_bak", n=path.name))
+            self.notify(T("n_auto_bak", n=_escape_markup(path.name)))
         except Exception:
             pass
 
@@ -2402,14 +2442,14 @@ class TodoApp(App):
         try:
             create_backup()
         except Exception as exc:
-            self.notify(T("n_bak_fail", e=exc), severity="error")
+            self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
         _crypto.set_key(_crypto.encode_password(new))
         try:
             self._rewrite_all_state()
         except Exception as exc:
             _crypto.set_key(None)
-            self.notify(T("n_bak_fail", e=exc), severity="error")
+            self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
         self._populate_table()
         self.notify(T("n_sec_enabled"))
@@ -2442,7 +2482,7 @@ class TodoApp(App):
         try:
             self._rewrite_all_state()
         except Exception as exc:
-            self.notify(T("n_bak_fail", e=exc), severity="error")
+            self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
         self._populate_table()
         self.notify(T("n_sec_changed"))
@@ -2457,7 +2497,7 @@ class TodoApp(App):
         try:
             self._rewrite_all_state()
         except Exception as exc:
-            self.notify(T("n_bak_fail", e=exc), severity="error")
+            self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
         self._populate_table()
         self.notify(T("n_sec_disabled"))
@@ -2483,7 +2523,9 @@ class TodoApp(App):
             try:
                 self.theme = choice
             except Exception as exc:
-                self.notify(T("n_theme_bad", e=exc), severity="error")
+                self.notify(
+                    T("n_theme_bad", e=_escape_markup(str(exc))), severity="error"
+                )
                 return
             self.config["theme"] = choice
             self._save_config()
@@ -2496,7 +2538,7 @@ class TodoApp(App):
             path = self._save_screenshot_safe()
             self.notify(T("n_shot_saved", p=path))
         except Exception as exc:
-            self.notify(T("n_shot_err", e=exc), severity="error")
+            self.notify(T("n_shot_err", e=_escape_markup(str(exc))), severity="error")
 
     def _save_screenshot_safe(self) -> str:
         out_dir = _home() / "Tasko_screenshots"
@@ -2530,7 +2572,7 @@ class TodoApp(App):
             output = out_dir / name
             output.write_text(self.export_screenshot(title="Tasko"), encoding="utf-8")
         except Exception as exc:
-            self.notify(T("n_shot_err", e=exc), severity="error")
+            self.notify(T("n_shot_err", e=_escape_markup(str(exc))), severity="error")
             return None
         self.notify(T("n_shot_saved", p=output))
         return None

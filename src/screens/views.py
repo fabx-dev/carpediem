@@ -41,6 +41,7 @@ from src.models import (
 from src.screens._shared import (
     CloseMixin,
     _agenda_due,
+    _escape_markup,
     _parse_day,
 )
 
@@ -126,9 +127,9 @@ class AgendaScreen(CloseMixin, ModalScreen[None]):
             ),
         ):
             due = _agenda_due(t)
-            proj = f" @{t.project}" if t.project else ""
+            proj = f" @{_escape_markup(t.project)}" if t.project else ""
             yield Static(
-                f"  {_status(t)} {due}{t.title}{proj}  [{t.priority.color}]{prio_disp(t.priority.value)}[/]"
+                f"  {_status(t)} {due}{_escape_markup(t.title)}{proj}  [{t.priority.color}]{prio_disp(t.priority.value)}[/]"
             )
         yield Static("")
 
@@ -277,7 +278,7 @@ class WeekScreen(CloseMixin, ModalScreen[None]):
                                 else ""
                             )
                             yield Static(
-                                f"  {_status(t)} {t.title}{tm}  [{t.priority.color}]{prio_disp(t.priority.value)}[/]"
+                                f"  {_status(t)} {_escape_markup(t.title)}{tm}  [{t.priority.color}]{prio_disp(t.priority.value)}[/]"
                             )
                     else:
                         yield Static("  [dim]-[/]")
@@ -378,7 +379,7 @@ class TemplateScreen(ModalScreen[tuple | None]):
                 for i, (name, items) in enumerate(self.templates.items()):
                     with Horizontal(classes="tpl-row"):
                         yield Button(
-                            T("tpl_use", name=name, n=len(items)),
+                            T("tpl_use", name=_escape_markup(name), n=len(items)),
                             id=f"tpl-use-{i}",
                             variant="default",
                             classes="tpl-use-btn",
@@ -604,7 +605,7 @@ class TemplateProjectScreen(ModalScreen[str | None]):
             with VerticalScroll(id="tplp-list"):
                 for name, count in self.projects:
                     yield Button(
-                        T("tplp_row", name=name, n=count),
+                        T("tplp_row", name=_escape_markup(name), n=count),
                         id=f"tplp-{name}",
                         variant="default",
                     )
@@ -674,7 +675,9 @@ class ImportCsvScreen(ModalScreen[str | None]):
                 if not self.files:
                     yield Label(T("imp_empty"))
                 for i, p in enumerate(self.files):
-                    yield Button(f"{p.name}", id=f"impcsv-{i}", variant="default")
+                    yield Button(
+                        f"{_escape_markup(p.name)}", id=f"impcsv-{i}", variant="default"
+                    )
             yield Label(T("imp_path"))
             yield Input(placeholder=T("imp_path_ph"), id="impcsv-path")
             with Horizontal(id="impcsv-buttons", classes="btn-row"):
@@ -993,13 +996,15 @@ class KanbanScreen(CloseMixin, ModalScreen[None]):
                         if not items:
                             yield Static("[dim]—[/]")
                         for t in items[:30]:
-                            proj = f" @{t.project}" if t.project else ""
+                            proj = f" @{_escape_markup(t.project)}" if t.project else ""
                             tm = (
                                 f" {_due_date_part(t.due)}"
                                 if _due_date_part(t.due)
                                 else ""
                             )
-                            yield Static(f"#{t.id} {t.title[:28]}{proj}{tm}")
+                            yield Static(
+                                f"#{t.id} {_escape_markup(t.title[:28])}{proj}{tm}"
+                            )
                         if len(items) > 30:
                             yield Static(f"[dim]{T('kb_more', n=len(items) - 30)}[/]")
             yield Button(T("ui_close_esc"), id="kb-close", variant="default")
@@ -1070,10 +1075,10 @@ class DetailScreen(ModalScreen[str | None]):
         result = []
         status = _status(todo)
         if depth == 0:
-            display = f"  {status} {todo.title}"
+            display = f"  {status} {_escape_markup(todo.title)}"
         else:
             connector = "└── " if is_last else "├── "
-            display = f"  {prefix}{connector}{status} {todo.title}"
+            display = f"  {prefix}{connector}{status} {_escape_markup(todo.title)}"
         result.append((depth, display, todo))
 
         subtasks = self._get_subtasks(todo.id)
@@ -1085,18 +1090,22 @@ class DetailScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="detail-box"):
-            yield Label(f"[b]{self.todo.title}[/b]", id="detail-title")
+            yield Label(f"[b]{_escape_markup(self.todo.title)}[/b]", id="detail-title")
             yield Label(
                 f"{T('detail_prio')} [{self.todo.priority.color}]{prio_disp(self.todo.priority.value)}[/]"
             )
             if self.todo.project:
-                yield Label(f"{T('form_project')} [blue]{self.todo.project}[/]")
+                yield Label(
+                    f"{T('form_project')} [blue]{_escape_markup(self.todo.project)}[/]"
+                )
             if self.todo.pomodoros or getattr(self.todo, "stima_pomo", 0):
                 yield Label(f"{T('detail_pomo')} [red]{_pomo_label(self.todo)}[/]")
             if self.todo.tags:
                 yield Label(
                     f"{T('form_tags')} "
-                    + ", ".join(f"[magenta]#{t}[/]" for t in self.todo.tags)
+                    + ", ".join(
+                        f"[magenta]#{_escape_markup(t)}[/]" for t in self.todo.tags
+                    )
                 )
             yield Label(
                 T("detail_dueline", due=self.todo.due or "-", created=self.todo.created)
@@ -1119,7 +1128,7 @@ class DetailScreen(ModalScreen[str | None]):
                     .replace("- [X]", "☑")
                 )
                 with VerticalScroll(id="detail-scroll"):
-                    yield Static(pretty_notes, id="detail-notes")
+                    yield Static(_escape_markup(pretty_notes), id="detail-notes")
             tree_items = self._build_tree(self.todo)
             if len(tree_items) > 1:
                 yield Label(T("detail_subs"), id="detail-subtasks-label")
@@ -1194,7 +1203,7 @@ class DayScreen(CloseMixin, ModalScreen[None]):
                 with VerticalScroll(id="day-list"):
                     for t in self.todos:
                         yield Static(
-                            f"  {_status(t)} {t.title}  [{t.priority.color}]{prio_disp(t.priority.value)}[/]"
+                            f"  {_status(t)} {_escape_markup(t.title)}  [{t.priority.color}]{prio_disp(t.priority.value)}[/]"
                         )
             else:
                 yield Static(T("day_empty"), id="day-empty")

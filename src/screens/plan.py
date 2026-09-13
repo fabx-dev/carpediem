@@ -133,9 +133,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
     def _row(t: TodoItem, marker: str, extra: str = "") -> str:
         plbl = _pomo_label(t)
         pomo = f" [red]{plbl}[/]" if plbl else ""
-        return (
-            f"  [cyan]{marker}[/] {_status(t)} {t.title}{extra}  [dim]#{t.id}[/]{pomo}"
-        )
+        return f"  [cyan]{marker}[/] {_status(t)} {_escape_markup(t.title)}{extra}  [dim]#{t.id}[/]{pomo}"
 
     def compose(self) -> ComposeResult:
         today_display = _format_date_it(self.today)
@@ -226,7 +224,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             return
         domain.plan_add(todo, self.today)
         self._refresh_keep(tid)
-        self.notify(T("n_plan_added", t=todo.title))
+        self.notify(T("n_plan_added", t=_escape_markup(todo.title)))
 
     def action_remove_planned(self) -> None:
         tid, section = self._current()
@@ -781,6 +779,6 @@ class BriefingScreen(CloseMixin, ModalScreen[str | None]):
         try:
             path = self.on_print("evening", self.today, text)
         except Exception as exc:
-            self.notify(T("n_exp_err", e=exc), severity="error")
+            self.notify(T("n_exp_err", e=_escape_markup(str(exc))), severity="error")
             return
         self.notify(T("n_brief_printed", p=path))
