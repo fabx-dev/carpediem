@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tasko"
-version = "0.5.0"
+version = "0.5.1"
 description = "Tasko: terminal todo manager that turns quick notes into a realistic day plan — natural-language capture, smart planning, pomodoro, agenda, offline-first"
 readme = "README.md"
 requires-python = ">=3.12"

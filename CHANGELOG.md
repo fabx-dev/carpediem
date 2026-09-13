@@ -3,6 +3,19 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.5.1] - 2026-09-13
+
+### Fixed
+- Persistence: recurrence clone inherits `stima_pomo`, so follow-up occurrences keep their estimate in the plan
+- Persistence: `store.commit()` counts unparsable entries in `last_skipped` instead of dropping them silently
+- Persistence: after a same-id merge collision, our children follow the reassigned parent instead of sticking to the disk parent
+- Persistence: backups read under per-file lock with microsecond-unique names (no torn reads, no overwrites)
+- Persistence: restore validates JSON before touching disk, writes atomically per file, and rolls back on failure
+- UI: user text (`[...]`) is escaped in every markup-rendered widget — titles containing `[/]` no longer crash the detail view with MarkupError (toasts and error messages included)
+- UI: 11 more screens moved to the fixed-frame layout, holding at 70x20 and 80x24 terminals
+- UI: App actions are inert under modals, so single-key bindings can no longer stack screens over dialogs or quit from under a confirm (focus navigation and calendar-to-day still work)
+- UI: fixed dead click handlers (calendar day, pomodoro bar hints) and two misleading hints
+
 ## [0.5.0] - 2026-09-13
 
 ### Added
