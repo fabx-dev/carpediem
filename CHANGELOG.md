@@ -3,6 +3,12 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.5.2] - 2026-09-13
+
+### Fixed
+- Welcome screen body no longer overflows its frame (long Italian line
+  wrapped past the box instead of wrapping)
+
 ## [0.5.1] - 2026-09-13
 
 ### Changed
