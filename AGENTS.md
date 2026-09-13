@@ -271,6 +271,16 @@ Regole dure:
   lock per-file, tmp+fsync e rollback; guardrail `test_plain_mai_in_produzione`;
   lock: test contesa cross-thread. Nota: restore con entry non-JSON ora rifiuta
   con OSError senza toccare il disco (prima scriveva spazzatura).
+- **Bug-hunting UI giro 2 (2026-09-13, fatto)**: escape `_escape_markup` su OGNI
+  interpolazione utente (titoli/note/tag/progetti/nomi template/filtri/notify/errori):
+  `[/]` nei titoli sollevava `MarkupError` e crashava il dettaglio
+  (`tests/test_markup_escape.py`); 11 screen al pattern cornice fissa
+  (`tests/test_layout_small.py`, 70x20/80x24); `check_action` blocca le action App
+  sotto modale (tranne `focus_next/previous` — il Tab passa dal guard! — e `open_day`
+  calendario→giorno); click `[@click]` negli Static mai dispensati da Textual
+  (solo hover): handler rinominati sui metodi reali + test per parti. Nota: screen
+  che aprono altre screen usano `push_screen` diretto o dismiss+callback (mai action),
+  quindi il guard non rompe i flussi legittimi.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
