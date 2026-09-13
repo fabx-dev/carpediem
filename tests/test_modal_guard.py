@@ -60,6 +60,34 @@ def test_tab_naviga_anche_sotto_modale(tmp_files):
     run(t())
 
 
+def test_calendar_day_apre_giorno_sopra_calendario(tmp_files):
+    """open_day e' allowlistata: modale-sopra-modale calendario->giorno funziona.
+
+    Nota: i link [@click] negli Static non vengono dispensati da Textual
+    (solo stile hover), quindi il click si testa per parti: target del link
+    esistente + gate aperto + handler che impila DayScreen sopra CalendarScreen.
+    """
+
+    async def t():
+        app = make_app(
+            [make_todo("A", todo_id=1, due=datetime.now().strftime("%Y-%m-%d"))]
+        )
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.action_view_calendar()
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "CalendarScreen"
+            assert app.check_action("open_day", ()) is not False
+            today = datetime.now().date()
+            app.action_open_day(today.year, today.month, today.day)
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DayScreen"
+
+    run(t())
+
+
 def test_calendar_day_click_punta_a_handler_reale(tmp_files):
     async def t():
         app = make_app(

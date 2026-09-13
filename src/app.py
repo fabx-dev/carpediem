@@ -385,8 +385,9 @@ class TodoApp(App):
 
         self.push_screen(MenuScreen(menu_categories()), on_pick)
 
-    #: Action App sempre consentite sotto modale (navigazione focus di Textual).
-    _MODAL_SAFE_ACTIONS = frozenset({"focus_next", "focus_previous"})
+    #: Action App sempre consentite sotto modale: navigazione focus di Textual
+    #: + open_day (il calendario apre il giorno sopra di se': modale legittima).
+    _MODAL_SAFE_ACTIONS = frozenset({"focus_next", "focus_previous", "open_day"})
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Sotto una modale le action App sono inerti: niente screen impilate
