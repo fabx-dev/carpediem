@@ -1,0 +1,35 @@
+name: Bug report
+description: Something broken in CarpeDiem (segnalazioni in italiano o inglese)
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `carpediem --help` / versione PyPI installata
+      placeholder: 0.5.1
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [home/table, capture/form, planning, pomodoro, review/briefing, views, data/import-export, crash/startup, other]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / cosa è successo
+      description: Steps to reproduce if possible
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected / cosa ti aspettavi
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: Linux, Python 3.12, terminal 120x40

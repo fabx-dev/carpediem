@@ -1,5 +1,7 @@
 # CarpeDiem
 
+[![CI](https://github.com/fabx-dev/carpediem/actions/workflows/ci.yml/badge.svg)](https://github.com/fabx-dev/carpediem/actions) [![PyPI](https://img.shields.io/pypi/v/carpediem)](https://pypi.org/project/carpediem/)
+
 CarpeDiem (carpe diem — cogli il giorno) trasforma appunti veloci in un piano giornaliero realistico: inserimento in linguaggio naturale, proposta smart al mattino, pomodoro durante il giorno, chiusura serale. Offline, in italiano o inglese, senza account.
 
 ```text

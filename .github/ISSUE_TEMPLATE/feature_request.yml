@@ -1,0 +1,23 @@
+name: Idea / feature request
+description: Propose something (idee in italiano o inglese)
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Need / bisogno
+      description: What daily friction would this remove? / quale attrito quotidiano toglierebbe?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal / proposta
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Acceptable scope
+      options:
+        - local only, no network (preferred / preferito)
+        - needs network/auth
+        - not sure / non so

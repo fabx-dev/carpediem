@@ -1,5 +1,7 @@
 # CarpeDiem
 
+[![CI](https://github.com/fabx-dev/carpediem/actions/workflows/ci.yml/badge.svg)](https://github.com/fabx-dev/carpediem/actions) [![PyPI](https://img.shields.io/pypi/v/carpediem)](https://pypi.org/project/carpediem/)
+
 CarpeDiem (carpe diem — seize the day) turns quick notes into a realistic day plan: natural-language capture, a smart morning proposal, pomodoro focus during the day, evening closing. Offline-first, in English or Italian, no account.
 
 ```text
