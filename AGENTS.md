@@ -284,6 +284,14 @@ Regole dure:
   (solo hover): handler rinominati sui metodi reali + test per parti. Nota: screen
   che aprono altre screen usano `push_screen` diretto o dismiss+callback (mai action),
   quindi il guard non rompe i flussi legittimi.
+- **Rinomina CarpeDiem + prima pubblicazione PyPI (2026-09-13, fatto)**:
+  `tasko` occupato su PyPI (omonimo SQLite) → progetto/comando `carpediem`
+  (verificati liberi: xtasko/ytasko/mytasko/daydone/buondi valutati e scartati).
+  Invariati per continuita': dati `~/.todo_*`, backup `tasko_*.zip`+manifest,
+  env `TASKO_*`, dir `Tasko_backups/`. Publish via trusted publishing OIDC
+  (`.github/workflows/publish.yml`, zero token): release GitHub → PyPI auto,
+  dispatch manuale → TestPyPI. Prima release reale 0.5.1 su PyPI. Nota: repo
+  GitHub rinominato `fabx-dev/carpediem` (redirect automatici).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
