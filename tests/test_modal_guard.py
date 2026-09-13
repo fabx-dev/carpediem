@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 
 from src.lang import T
-from tests.conftest import make_app, make_todo, run
+from tests.conftest import make_app, make_todo, run, screen_texts
 
 
 def test_check_action_blocca_tutto_sotto_modale(tmp_files):
@@ -98,7 +98,7 @@ def test_calendar_day_click_punta_a_handler_reale(tmp_files):
             app.action_view_calendar()
             await pilot.pause()
             await pilot.pause()
-            grid = str(app.screen.query_one("#calendar-grid").content)
+            grid = screen_texts(app.screen)
             assert "app.action_open_day(" in grid
             assert callable(getattr(app, "action_open_day"))
 
