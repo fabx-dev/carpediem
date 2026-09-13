@@ -21,7 +21,7 @@ Dentro l'app, apri il menu (`m`) → `Giornata` → `Workflow consigliato` per l
 1. Serve Python 3.12+: verifica con `python3 --version`.
 2. Consigliato: installazione isolata con pipx (mette `carpediem` sul PATH):
 ```bash
-pipx install .
+pipx install carpediem
 ```
 Dal repo git:
 ```bash

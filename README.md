@@ -21,7 +21,7 @@ In the app, open the menu (`m`) → `Day` → `Recommended workflow` for the 5-s
 1. You need Python 3.12+: check with `python3 --version`.
 2. Recommended: isolated install with pipx (puts `carpediem` on your PATH):
 ```bash
-pipx install .
+pipx install carpediem
 ```
 From the git repo:
 ```bash
