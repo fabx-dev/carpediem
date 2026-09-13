@@ -1,6 +1,6 @@
-# Tasko
+# CarpeDiem
 
-Tasko trasforma appunti veloci in un piano giornaliero realistico: inserimento in linguaggio naturale, proposta smart al mattino, pomodoro durante il giorno, chiusura serale. Offline, in italiano o inglese, senza account.
+CarpeDiem (carpe diem — cogli il giorno) trasforma appunti veloci in un piano giornaliero realistico: inserimento in linguaggio naturale, proposta smart al mattino, pomodoro durante il giorno, chiusura serale. Offline, in italiano o inglese, senza account.
 
 ```text
 Segna tutto in secondi (n, linguaggio naturale) → al mattino Buongiorno con proposta da confermare (P)
@@ -11,19 +11,19 @@ Dentro l'app, apri il menu (`m`) → `Giornata` → `Workflow consigliato` per l
 
 [Read in English](README.md)
 
-![Tasko home](docs/screenshots/home.svg)
-![Tasko stats](docs/screenshots/stats.svg)
+![CarpeDiem home](docs/screenshots/home.svg)
+![CarpeDiem stats](docs/screenshots/stats.svg)
 
 ## Installazione in 2 minuti
 
 1. Serve Python 3.12+: verifica con `python3 --version`.
-2. Consigliato: installazione isolata con pipx (mette `tasko` sul PATH):
+2. Consigliato: installazione isolata con pipx (mette `carpediem` sul PATH):
 ```bash
 pipx install .
 ```
 Dal repo git:
 ```bash
-pipx install git+https://github.com/fabx-dev/tasko.git
+pipx install git+https://github.com/fabx-dev/carpediem.git
 ```
 3. Alternativa per sviluppatori (virtualenv):
 ```bash
@@ -32,17 +32,17 @@ python3 -m venv .venv
 ```
 4. Avvia la TUI:
 ```bash
-tasko
+carpediem
 ```
 Al primo avvio: carica i dati demo per esplorare, oppure inizia da zero.
 
 Verifica che funzioni:
 ```bash
-tasko --help
-tasko list
+carpediem --help
+carpediem list
 ```
 
-Problemi comuni: `pipx: command not found` (installa prima pipx), Python vecchio (<3.12), dati separati con `TASKO_HOME=/tmp/tasko-demo tasko`. Docker (`docker compose up`) solo per sviluppo, non come installazione principale.
+Problemi comuni: `pipx: command not found` (installa prima pipx), Python vecchio (<3.12), dati separati con `TASKO_HOME=/tmp/carpediem-demo carpediem`. Docker (`docker compose up`) solo per sviluppo, non come installazione principale.
 
 Serve Python 3.12+. Costruito con Textual; dati in JSON locali (vedi Dati sotto).
 
@@ -75,7 +75,7 @@ Tutto in JSON locali vicino alla home (offline-first):
 | `~/.todo_config.json` | Tema, filtri, obiettivi, lingua |
 | `~/.todo_archive.json` | Completati archiviati |
 | `~/Tasko_backups/` | Snapshot zip automatici (14 tenuti) |
-| `~/Tasko_screenshots/` | Screenshot SVG, export CSV/Markdown |
+| `~/CarpeDiem_screenshots/` | Screenshot SVG, export CSV/Markdown |
 
 Ripristino dal menu (`Backup: ripristina`). Lingua automatica dal sistema, forzabile con `TASKO_LANG=it|en` o dalle Impostazioni.
 

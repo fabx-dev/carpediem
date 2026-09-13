@@ -17,6 +17,7 @@ venv/
 *.json
 # Screenshot/export locali
 Tasko_screenshots/
+CarpeDiem_screenshots/
 Tasko_backups/
 # Documenti personali (mai nel repo)
 tasko-ai-scope.pdf

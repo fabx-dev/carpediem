@@ -1,4 +1,4 @@
-"""Tasko: entry point, init lingua, re-export compatibilita."""
+"""CarpeDiem: entry point, init lingua, re-export compatibilita."""
 
 import json
 import sys
@@ -42,7 +42,7 @@ _apply_startup_lang()
 # Import DOPO il set lingua: le classi valutano T() all'import.
 from src.app import TodoApp, _demo_todos, _needs_unlock
 from src.cli import _cli_main
-from src.commands import TaskoMenuProvider
+from src.commands import CarpeDiemMenuProvider
 from src.models import (
     Priority,
     Recurrence,
@@ -118,7 +118,7 @@ __all__ = [
     "_pomo_label",
     "_needs_unlock",
     "_demo_todos",
-    "TaskoMenuProvider",
+    "CarpeDiemMenuProvider",
     "ArchiveScreen",
     "BriefingScreen",
     "CalendarScreen",

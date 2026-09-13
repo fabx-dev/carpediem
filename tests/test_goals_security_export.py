@@ -63,7 +63,9 @@ def test_export_csv_scrive_file(tmp_files, monkeypatch):
             app.action_export_csv()
             await pilot.pause()
 
-            files = sorted((tmp_files / "Tasko_screenshots").glob("tasko_export_*.csv"))
+            files = sorted(
+                (tmp_files / "CarpeDiem_screenshots").glob("carpediem_export_*.csv")
+            )
             assert len(files) == 1
             content = files[0].read_text(encoding="utf-8")
             assert "A" in content and "casa" in content
@@ -82,9 +84,9 @@ def test_export_stats_csv_e_markdown(tmp_files, monkeypatch):
             app.action_export_stats_csv()
             app.action_export_data()
             await pilot.pause()
-            out = tmp_files / "Tasko_screenshots"
-            assert len(sorted(out.glob("tasko_stats_*.csv"))) == 1
-            md = sorted(out.glob("tasko_export_*.md"))
+            out = tmp_files / "CarpeDiem_screenshots"
+            assert len(sorted(out.glob("carpediem_stats_*.csv"))) == 1
+            md = sorted(out.glob("carpediem_export_*.md"))
             assert len(md) == 1
             assert "A" in md[0].read_text(encoding="utf-8")
 

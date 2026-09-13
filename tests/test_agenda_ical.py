@@ -56,7 +56,9 @@ def test_export_ical_scrive_eventi_con_scadenza(tmp_files, monkeypatch):
             await pilot.pause()
             app.action_export_ical()
             await pilot.pause()
-        files = sorted((tmp_files / "Tasko_screenshots").glob("tasko_calendar_*.ics"))
+        files = sorted(
+            (tmp_files / "CarpeDiem_screenshots").glob("carpediem_calendar_*.ics")
+        )
         assert len(files) == 1
         data = files[0].read_text(encoding="utf-8")
         assert "BEGIN:VCALENDAR" in data

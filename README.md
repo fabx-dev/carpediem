@@ -1,6 +1,6 @@
-# Tasko
+# CarpeDiem
 
-Tasko turns quick notes into a realistic day plan: natural-language capture, a smart morning proposal, pomodoro focus during the day, evening closing. Offline-first, in English or Italian, no account.
+CarpeDiem (carpe diem — seize the day) turns quick notes into a realistic day plan: natural-language capture, a smart morning proposal, pomodoro focus during the day, evening closing. Offline-first, in English or Italian, no account.
 
 ```text
 Capture in seconds (n, natural language) → morning briefing with proposal to confirm (P)
@@ -11,19 +11,19 @@ In the app, open the menu (`m`) → `Day` → `Recommended workflow` for the 5-s
 
 [Leggimi in italiano](README.it.md)
 
-![Tasko home](docs/screenshots/home.svg)
-![Tasko stats](docs/screenshots/stats.svg)
+![CarpeDiem home](docs/screenshots/home.svg)
+![CarpeDiem stats](docs/screenshots/stats.svg)
 
 ## Install in 2 minutes
 
 1. You need Python 3.12+: check with `python3 --version`.
-2. Recommended: isolated install with pipx (puts `tasko` on your PATH):
+2. Recommended: isolated install with pipx (puts `carpediem` on your PATH):
 ```bash
 pipx install .
 ```
 From the git repo:
 ```bash
-pipx install git+https://github.com/fabx-dev/tasko.git
+pipx install git+https://github.com/fabx-dev/carpediem.git
 ```
 3. Alternative for developers (virtualenv):
 ```bash
@@ -32,17 +32,17 @@ python3 -m venv .venv
 ```
 4. Start the TUI:
 ```bash
-tasko
+carpediem
 ```
 On first run: load the demo data to explore, or start empty.
 
 Check it works:
 ```bash
-tasko --help
-tasko list
+carpediem --help
+carpediem list
 ```
 
-Common issues: `pipx: command not found` (install pipx first), old Python (<3.12), separate data dir with `TASKO_HOME=/tmp/tasko-demo tasko`. Docker (`docker compose up`) is dev-only, not the main install path.
+Common issues: `pipx: command not found` (install pipx first), old Python (<3.12), separate data dir with `TASKO_HOME=/tmp/carpediem-demo carpediem`. Docker (`docker compose up`) is dev-only, not the main install path.
 
 Requires Python 3.12+. Built with Textual; data stays in local JSON (see Data below).
 
@@ -75,7 +75,7 @@ Everything lives in local JSON next to your home (offline-first):
 | `~/.todo_config.json` | Theme, filters, goals, language |
 | `~/.todo_archive.json` | Archived done tasks |
 | `~/Tasko_backups/` | Automatic zip snapshots (14 kept) |
-| `~/Tasko_screenshots/` | SVG screenshots, CSV/Markdown exports |
+| `~/CarpeDiem_screenshots/` | SVG screenshots, CSV/Markdown exports |
 
 Restore a backup any time from the menu (`Backup: ripristina`). Language follows the system (Italian or English), override with `TASKO_LANG=it|en` or in Settings.
 

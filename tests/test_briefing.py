@@ -128,8 +128,8 @@ def test_stampa_sera(tmp_files, monkeypatch, tmp_path):
             await pilot.pause()
             await pilot.press("p")
             await pilot.pause()
-            out = _P(str(tmp_path / "home")) / "Tasko_screenshots"
-            files = sorted(out.glob("tasko_briefing_evening_*.md"))
+            out = _P(str(tmp_path / "home")) / "CarpeDiem_screenshots"
+            files = sorted(out.glob("carpediem_briefing_evening_*.md"))
             assert len(files) == 1
             text = files[0].read_text(encoding="utf-8")
             assert T("brief_e_title", date=_day(0)) in text
@@ -144,7 +144,7 @@ def test_stampa_sera(tmp_files, monkeypatch, tmp_path):
 
 
 def test_vuoto_e_menu(tmp_files):
-    names = [action for _t, _h, action in commands_module.TaskoMenuProvider.MENU_IT]
+    names = [action for _t, _h, action in commands_module.CarpeDiemMenuProvider.MENU_IT]
     assert "action_briefing_evening" in names
     assert "action_briefing_morning" not in names
     assert "action_plan_day" in names

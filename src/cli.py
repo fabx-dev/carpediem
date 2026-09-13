@@ -45,9 +45,9 @@ def _cli_state_filter(value: str | None) -> str | None:
 
 
 def _cli_main(argv: list[str]) -> int:
-    """CLI non interattiva: tasko add|list|done|show. Ritorna exit code."""
+    """CLI non interattiva: carpediem add|list|done|show. Ritorna exit code."""
 
-    parser = argparse.ArgumentParser(prog="tasko", description="Tasko CLI")
+    parser = argparse.ArgumentParser(prog="carpediem", description="CarpeDiem CLI")
     sub = parser.add_subparsers(dest="cmd", required=True)
     p_add = sub.add_parser("add", help=T("cli_add_h"))
     p_add.add_argument("title", help=T("cli_title_h"))
@@ -73,7 +73,7 @@ def _cli_main(argv: list[str]) -> int:
         return int(exc.code or 0)
 
     def err(msg: str) -> None:
-        print(f"tasko: {msg}", file=sys.stderr)
+        print(f"carpediem: {msg}", file=sys.stderr)
 
     if args.cmd == "add":
         classic = bool(

@@ -24,7 +24,7 @@ python -m pytest tests/ -q
 - `storage.py` — paths, load/save, backup/restore, config
 - `screens.py` — tutte le schermate modali (dipendono solo da models/storage/lang)
 - `commands.py` — provider menu/palette
-- `cli.py` — `tasko add|list|done|show`
+- `cli.py` — `carpediem add|list|done|show`
 - `app.py` — TodoApp (l'unico che importa tutto)
 - `main.py` — entry point + re-export di compatibilità
 - `lang.py`, `crypto.py` — standalone, senza dipendenze interne

@@ -17,7 +17,7 @@ from textual.widgets import (
 
 from src import crypto as _crypto
 from src import domain
-from src.commands import TaskoMenuProvider, menu_categories
+from src.commands import CarpeDiemMenuProvider, menu_categories
 from src.lang import T, prio_disp, rec_disp
 from src.models import (
     MAX_DEPTH,
@@ -196,7 +196,7 @@ def _needs_unlock() -> bool:
 class TodoApp(App):
     """A TUI To-Do application."""
 
-    TITLE = "Tasko"
+    TITLE = "CarpeDiem"
     SUB_TITLE = "Gestisci le tue attivita'"
 
     CSS = """
@@ -351,7 +351,7 @@ class TodoApp(App):
 
     COMMAND_PALETTE_BINDING = "ctrl+p"
 
-    COMMANDS = App.COMMANDS | {TaskoMenuProvider}
+    COMMANDS = App.COMMANDS | {CarpeDiemMenuProvider}
 
     def get_system_commands(self, screen: Screen):
         """Comandi di sistema della palette, localizzati (senza ingrandisci: inutile qui)."""
@@ -1046,9 +1046,9 @@ class TodoApp(App):
             goal = 0
 
         def on_print(m: str, day: str, text: str):
-            out_dir = _home() / "Tasko_screenshots"
+            out_dir = _home() / "CarpeDiem_screenshots"
             out_dir.mkdir(parents=True, exist_ok=True)
-            path = out_dir / f"tasko_briefing_{m}_{day.replace('-', '')}.md"
+            path = out_dir / f"carpediem_briefing_{m}_{day.replace('-', '')}.md"
             path.write_text(text, encoding="utf-8")
             return path
 
@@ -1897,11 +1897,11 @@ class TodoApp(App):
 
     def action_export_data(self) -> None:
         try:
-            out_dir = _home() / "Tasko_screenshots"
+            out_dir = _home() / "CarpeDiem_screenshots"
             out_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            md = out_dir / f"tasko_export_{ts}.md"
-            lines = ["# Tasko export", ""]
+            md = out_dir / f"carpediem_export_{ts}.md"
+            lines = ["# CarpeDiem export", ""]
             for t in sorted(self.todos, key=self._sort_key):
                 box = "x" if t.done else " "
                 proj = f" @{t.project}" if t.project else ""
@@ -1916,10 +1916,10 @@ class TodoApp(App):
     def action_export_ical(self) -> None:
         """Export calendario iCal (.ics) dei task non completati con scadenza."""
         try:
-            out_dir = _home() / "Tasko_screenshots"
+            out_dir = _home() / "CarpeDiem_screenshots"
             out_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            ics_path = out_dir / f"tasko_calendar_{ts}.ics"
+            ics_path = out_dir / f"carpediem_calendar_{ts}.ics"
             items = [
                 t
                 for t in self.todos
@@ -1929,7 +1929,7 @@ class TodoApp(App):
             lines = [
                 "BEGIN:VCALENDAR",
                 "VERSION:2.0",
-                "PRODID:-//Tasko//Tasko//IT",
+                "PRODID:-//CarpeDiem//CarpeDiem//IT",
                 "CALSCALE:GREGORIAN",
             ]
             for t in sorted(items, key=lambda x: (x.due or "", self._sort_key(x))):
@@ -1950,7 +1950,9 @@ class TodoApp(App):
     def _ical_event_lines(
         self, todo: TodoItem, date_part: str, time_part: str, stamp: str
     ) -> list[str]:
-        uid = f"tasko-{todo.id or abs(hash((todo.title, todo.due)))}@tasko.local"
+        uid = (
+            f"carpediem-{todo.id or abs(hash((todo.title, todo.due)))}@carpediem.local"
+        )
         desc_bits = []
         if todo.project:
             desc_bits.append(f"Progetto: {todo.project}")
@@ -2007,10 +2009,10 @@ class TodoApp(App):
                     k = str(ts)[:10]
                     pomo_by_date[k] = pomo_by_date.get(k, 0) + 1
             days = sorted(set(by_date) | set(pomo_by_date))
-            out_dir = _home() / "Tasko_screenshots"
+            out_dir = _home() / "CarpeDiem_screenshots"
             out_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_path = out_dir / f"tasko_stats_{ts}.csv"
+            csv_path = out_dir / f"carpediem_stats_{ts}.csv"
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(["data", "completati", "pomodori"])
@@ -2021,14 +2023,14 @@ class TodoApp(App):
             self.notify(T("n_stat_err", e=_escape_markup(str(exc))), severity="error")
 
     def action_export_csv(self) -> None:
-        """Export foglio di calcolo (CSV) in ~/Tasko_screenshots."""
+        """Export foglio di calcolo (CSV) in ~/CarpeDiem_screenshots."""
         import csv
 
         try:
-            out_dir = _home() / "Tasko_screenshots"
+            out_dir = _home() / "CarpeDiem_screenshots"
             out_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_path = out_dir / f"tasko_export_{ts}.csv"
+            csv_path = out_dir / f"carpediem_export_{ts}.csv"
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(
@@ -2074,7 +2076,7 @@ class TodoApp(App):
 
     def action_import_csv(self) -> None:
         try:
-            out_dir = _home() / "Tasko_screenshots"
+            out_dir = _home() / "CarpeDiem_screenshots"
             files = (
                 sorted(
                     out_dir.glob("*.csv"), key=lambda p: p.stat().st_mtime, reverse=True
@@ -2558,11 +2560,11 @@ class TodoApp(App):
             self.notify(T("n_shot_err", e=_escape_markup(str(exc))), severity="error")
 
     def _save_screenshot_safe(self) -> str:
-        out_dir = _home() / "Tasko_screenshots"
+        out_dir = _home() / "CarpeDiem_screenshots"
         out_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = out_dir / f"tasko_{timestamp}.svg"
-        screenshot = self.export_screenshot(title="Tasko")
+        output = out_dir / f"carpediem_{timestamp}.svg"
+        screenshot = self.export_screenshot(title="CarpeDiem")
         output.write_text(screenshot, encoding="utf-8")
         return str(output)
 
@@ -2583,11 +2585,15 @@ class TodoApp(App):
             if path is not None:
                 self.notify(T("n_shot_saved", p=path))
                 return None
-            out_dir = Path(path) if path else (_home() / "Tasko_screenshots")
+            out_dir = Path(path) if path else (_home() / "CarpeDiem_screenshots")
             out_dir.mkdir(parents=True, exist_ok=True)
-            name = filename or f"tasko_{datetime.now().strftime('%Y%m%d_%H%M%S')}.svg"
+            name = (
+                filename or f"carpediem_{datetime.now().strftime('%Y%m%d_%H%M%S')}.svg"
+            )
             output = out_dir / name
-            output.write_text(self.export_screenshot(title="Tasko"), encoding="utf-8")
+            output.write_text(
+                self.export_screenshot(title="CarpeDiem"), encoding="utf-8"
+            )
         except Exception as exc:
             self.notify(T("n_shot_err", e=_escape_markup(str(exc))), severity="error")
             return None

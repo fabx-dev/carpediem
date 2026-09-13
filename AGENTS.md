@@ -1,4 +1,4 @@
-# Tasko — contesto per le sessioni agent
+# CarpeDiem — contesto per le sessioni agent
 
 > Leggere questo file all'inizio di ogni sessione di lavoro sul repo.
 > Se il tuo commit cambia fatti documentati qui (architettura, convenzioni,
@@ -8,12 +8,12 @@
 
 ## 1. Cos'è
 
-**Tasko** (`tasko` su PyPI concettuale, entry-point `tasko = src.main:main`) è una
+**CarpeDiem** (progetto `carpediem` su PyPI, entry-point `carpediem = src.main:main`) è una
 TUI todo-list in italiano/inglese costruita con **Textual** (>=0.86,<4; in venv: 8.2.8).
-Python >= 3.12. Repo: `git@github.com:fabx-dev/tasko.git`, branch `main`.
+Python >= 3.12. Repo: `git@github.com:fabx-dev/carpediem.git`, branch `main`.
 
-Avvio: `tasko` (TUI) oppure `python -m src.main ...` / `.venv/bin/python -m src.main ...`.
-CLI non interattiva: `tasko add|list|done|show` (+ `--porcelain`).
+Avvio: `carpediem` (TUI) oppure `python -m src.main ...` / `.venv/bin/python -m src.main ...`.
+CLI non interattiva: `carpediem add|list|done|show` (+ `--porcelain`).
 
 Feature principali: task con 3 stati, sotto-task annidati, ricorrenze, progetti/tag/priorità,
 kanban (mini in home + full), agenda cronologica, calendario, settimana, piano giornaliero,
@@ -48,7 +48,7 @@ src/storage.py   paths, load/save (todos/template/config/archive/pomodoro), lock
 src/crypto.py    Fernet + PBKDF2 (600k iter), chiave solo in RAM, envelope {"v","salt","data"}
 src/cli.py       add/list/done/show (add/done via TodoStore: lock+merge gratis); add senza flag = NL
 src/commands.py  MENU_STRUCTURE (4 categorie: giornata/viste/dati/sistema, chiavi i18n +
-                 action + shortcut) + TaskoMenuProvider (palette `ctrl+p`, titoli
+                 action + shortcut) + CarpeDiemMenuProvider (palette `ctrl+p`, titoli
                  "Categoria › Voce"); MENU_IT piatta tenuta per compatibilita'
 src/lang.py      catalogo STRINGS it/en + key_sections (help) — vedi §4
 tests/           ~146 test; conftest.py con fixture di isolamento (vedi §5)
@@ -158,7 +158,7 @@ Regole dure:
   `test_review.py`. Fix successivi: bottoni uniformati, box 100 col, label help "chiusura giornata".
 - **AI-1**: `src/nlparse.py` (`parse(text, lang)` → dict del form; `#tag *progetto !prio ~stima`,
   date it/en, regole ambiguità nel docstring) + `tests/test_nlparse.py` (57 it + 49 en).
-- **AI-2**: `ctrl+l` nel form (pre-compila + anteprima persistente) + `tasko add "<frase>"` NL
+- **AI-2**: `ctrl+l` nel form (pre-compila + anteprima persistente) + `carpediem add "<frase>"` NL
   (con flag = modalità classica, titolo alla lettera); chiavi `nl_*`, `cli_empty_title`;
   `tests/test_nl_integration.py`. Lezione: binding finito per sbaglio su ImportCsvScreen
   (blocchi BINDINGS duplicati) — vedi §4.
@@ -176,7 +176,7 @@ Regole dure:
   esc a stadi filtro/sottomenu/menu),
   categoria `Giornata` raggruppa le viste temporali (Agenda, piano giorno, piano smart,
   settimana, calendario, briefing/resoconto/review); `ctrl+p` resta palette
-  (`TaskoMenuProvider`, titoli "Categoria › Voce") ma è nascosto dal footer
+  (`CarpeDiemMenuProvider`, titoli "Categoria › Voce") ma è nascosto dal footer
   (`Footer(show_command_palette=False)`); nel footer si mostra solo `m` come `☰ Menu`;
   menu completo anche delle azioni con tasto; `tests/test_menu.py`.
   Lezioni: righe come `MenuRow` (Label focusable), non Button — il Click del
@@ -206,7 +206,7 @@ Regole dure:
   `Viste e analisi → Obiettivi`; `tests/test_workflow.py`.
 - **Release 0.4.0**: bump `pyproject` 0.3.0 → 0.4.0, CHANGELOG datato 2026-09-12,
   descrizione `pyproject`/README riscritte in tono pratico + installazione in 4 passi
-  (pipx consigliato, venv per dev, verifica con `tasko --help`/`list`).
+  (pipx consigliato, venv per dev, verifica con `carpediem --help`/`list`).
 - **Buongiorno unificato**: briefing mattina + piano smart fusi in un'unica
   `PlanProposalScreen` (voce `Buongiorno`, tasto `P`): contesto ex briefing
   (conteggi/carico/ieri/serie) + proposta con motivi inline, senza stampa
@@ -291,7 +291,7 @@ Regole dure:
   vs BaaS, vedi thread in chat. Non riaprire di iniziativa.
 - **AI provider / Sprint AI-6** (sostituito da AI-1, vedi sotto; non implementare
   il vecchio disegno: la condizione sui 5 giorni di briefing non esiste piu').
-- **Progetto AI-1** ("Chiedi a Tasko", pianificato 2026-09-12, non iniziato):
+- **Progetto AI-1** ("Chiedi a CarpeDiem", pianificato 2026-09-12, non iniziato):
   comandi NL (rimanda/concentra/cosa-ci-sta/scomponi) con diff da confermare +
   schermata "AI: connessioni" stile `/connect` + calibrazione stime personale.
   Provider in ordine Locale → ChatGPT-login (OAuth riuso Codex) → Copilot
@@ -311,7 +311,7 @@ Regole dure:
   comandi). Non partire senza via libera esplicito.
 - **Progetto Ponte-Calendario** (integrazione Calendario stile Todoist, pianificato
   2026-09-12, non iniziato): overlay eventi read-only solo in Agenda + push manuale
-  dei soli task con ora su calendario separato `Tasko` + reschedule-back limitato.
+  dei soli task con ora su calendario separato `CarpeDiem` + reschedule-back limitato.
   Google Calendar prima (BYO client-ID, loopback stdlib), Outlook dopo; mai sync
   Tasks/To Do come task-list, mai auto-sync. Dettagli in
   `docs/piano-ponte-calendario.md`. Non partire senza via libera esplicito.

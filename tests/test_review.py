@@ -169,7 +169,7 @@ def test_review_notify_con_rimossi_e_esc_no_write(tmp_files):
 
 
 def test_review_in_menu(tmp_files):
-    assert "Chiusura giornata" in [t for t, _, _ in m.TaskoMenuProvider.MENU_IT]
+    assert "Chiusura giornata" in [t for t, _, _ in m.CarpeDiemMenuProvider.MENU_IT]
 
 
 def test_review_layout_terminale_piccolo(tmp_files):

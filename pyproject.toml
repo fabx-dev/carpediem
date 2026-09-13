@@ -3,16 +3,16 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tasko"
+name = "carpediem"
 version = "0.5.1"
-description = "Tasko: terminal todo manager that turns quick notes into a realistic day plan — natural-language capture, smart planning, pomodoro, agenda, offline-first"
+description = "CarpeDiem: terminal todo manager that turns quick notes into a realistic day plan — natural-language capture, smart planning, pomodoro, agenda, offline-first"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = ["textual>=0.86.0,<4.0.0", "cryptography>=42"]
 
 [project.scripts]
-tasko = "src.main:main"
+carpediem = "src.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

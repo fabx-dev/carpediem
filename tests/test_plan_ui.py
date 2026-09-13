@@ -339,7 +339,7 @@ def test_buongiorno_prima_voce_giornata(tmp_files):
 
 
 def test_menu_palette_e_settings_ore(tmp_files):
-    names = [action for _t, _h, action in commands_module.TaskoMenuProvider.MENU_IT]
+    names = [action for _t, _h, action in commands_module.CarpeDiemMenuProvider.MENU_IT]
     assert "action_plan_day" in names
 
     async def t():

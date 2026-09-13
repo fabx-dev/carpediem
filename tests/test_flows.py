@@ -281,9 +281,9 @@ def test_settings_e_menu(tmp_files):
         app = make_app([make_todo("A")])
         async with app.run_test(size=(140, 50)) as pilot:
             await pilot.pause()
-            from src.main import SettingsScreen, TaskoMenuProvider
+            from src.main import CarpeDiemMenuProvider, SettingsScreen
 
-            names = [t for t, _, _ in TaskoMenuProvider.MENU_IT]
+            names = [t for t, _, _ in CarpeDiemMenuProvider.MENU_IT]
             assert "Impostazioni" in names and "Backup: crea ora" in names
             app.action_open_settings()
             await pilot.pause()

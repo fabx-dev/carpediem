@@ -73,9 +73,9 @@ def test_health_ui(tmp_files):
             assert "CRITICO" in content or "A RISCHIO" in content, content
             await pilot.press("escape")
             await pilot.pause()
-            from src.main import TaskoMenuProvider
+            from src.main import CarpeDiemMenuProvider
 
-            assert "Salute progetti" in [t for t, _, _ in TaskoMenuProvider.MENU_IT]
+            assert "Salute progetti" in [t for t, _, _ in CarpeDiemMenuProvider.MENU_IT]
 
     asyncio.run(t())
 

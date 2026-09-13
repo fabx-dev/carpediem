@@ -1034,7 +1034,7 @@ class LockScreen(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="lock-box"):
-            yield Label("[b]🔒 Tasko protetto[/b]", id="lock-title")
+            yield Label("[b]🔒 CarpeDiem protetto[/b]", id="lock-title")
             yield Label(T("lock_hint"), id="lock-hint")
             yield Input(placeholder="Password", password=True, id="lock-pw")
             with Horizontal(id="lock-buttons", classes="btn-row"):

@@ -26,8 +26,8 @@ def test_struttura_quattro_categorie_e_action_esistenti(tmp_files):
 
 
 def test_menu_it_legacy_contiene_chiavi_storiche(tmp_files):
-    names = [t for t, _, _ in commands_module.TaskoMenuProvider.MENU_IT]
-    actions = [a for _, _, a in commands_module.TaskoMenuProvider.MENU_IT]
+    names = [t for t, _, _ in commands_module.CarpeDiemMenuProvider.MENU_IT]
+    actions = [a for _, _, a in commands_module.CarpeDiemMenuProvider.MENU_IT]
     assert "Impostazioni" in names and "Backup: crea ora" in names
     assert "Chiusura giornata" in names and "Salute progetti" in names
     assert "action_plan_day" in actions
@@ -38,7 +38,7 @@ def test_provider_palette_prefissa_categoria(tmp_files):
         app = make_app([make_todo("A")])
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
-            prov = commands_module.TaskoMenuProvider(app.screen)
+            prov = commands_module.CarpeDiemMenuProvider(app.screen)
             seen = [t for t, _, _ in prov._iter()]
             assert any("›" in s for s in seen), seen
             assert len(seen) == sum(

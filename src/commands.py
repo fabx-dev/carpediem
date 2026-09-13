@@ -100,7 +100,7 @@ def _display(cat: str, title: str, shortcut: str | None) -> str:
     return f"{base} ({shortcut})" if shortcut else base
 
 
-class TaskoMenuProvider(Provider):
+class CarpeDiemMenuProvider(Provider):
     """Voci del menu per la palette (ctrl+p): piatte ma prefissate per categoria."""
 
     # Compatibilita' storica: vecchia lista piatta (test e import esterni).

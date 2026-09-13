@@ -145,7 +145,7 @@ class AgendaScreen(CloseMixin, ModalScreen[None]):
 
 
 class WorkflowScreen(CloseMixin, ModalScreen[None]):
-    """Guida operativa breve: come usare Tasko nel ciclo quotidiano."""
+    """Guida operativa breve: come usare CarpeDiem nel ciclo quotidiano."""
 
     CSS = """
     #workflow-box {
