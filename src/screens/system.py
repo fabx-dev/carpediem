@@ -960,6 +960,7 @@ class WelcomeScreen(ModalScreen[str | None]):
         height: auto;
     }
     #wel-body {
+        width: 100%;
         text-align: center;
         margin-bottom: 1;
         height: auto;

@@ -114,6 +114,38 @@ def test_calendar_layout_terminale_piccolo(tmp_files):
     asyncio.run(t())
 
 
+def test_welcome_body_non_sborda(tmp_files):
+    """Il testo del popup iniziale resta dentro la cornice (it + en)."""
+    import src.lang as lang
+    from src.screens.system import WelcomeScreen
+
+    async def t():
+        for language in ("it", "en"):
+            lang.set_lang(language)
+            try:
+                for size in SIZES:
+                    app = make_app([])
+                    async with app.run_test(size=size) as pilot:
+                        await pilot.pause()
+                        app.push_screen(WelcomeScreen())
+                        await pilot.pause()
+                        await pilot.pause()
+                        assert type(app.screen).__name__ == "WelcomeScreen"
+                        box = app.screen.query_one("#wel-box").region
+                        body = app.screen.query_one("#wel-body").region
+                        assert body.x >= box.x, (language, size, body, box)
+                        assert body.x + body.width <= box.x + box.width, (
+                            language,
+                            size,
+                            body,
+                            box,
+                        )
+            finally:
+                lang.set_lang("it")
+
+    asyncio.run(t())
+
+
 def test_template_layout_terminale_piccolo(tmp_files):
     async def t():
         for size in SIZES:
