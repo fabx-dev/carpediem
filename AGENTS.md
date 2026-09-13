@@ -115,6 +115,9 @@ Regole dure:
 - Test: `.venv/bin/python -m pytest tests/ -q`. Mai toccare i file reali di `~`:
   usare `TASKO_HOME` temporanea o la fixture `tmp_files` di conftest (autouse, redireziona
   tutti i path). Precedente grave: un test scrisse su `~/.todo_app.json` cancellando dati veri.
+- Gate completi prima del push: `pytest` + `ruff check` + `ruff format --check` +
+  `mypy src/` (la CI corre tutti e quattro; un push e' fallito solo per mypy mai
+  lanciato in locale: `getattr` non restringe `str | None` per mypy).
 - `conftest` fa `reload()` dei moduli a inizio sessione: nei test usare import di modulo
   (`import src.storage as s`) e non `from ... import nomi` (restano stali).
 - Pilot Textual: `async with app.run_test(size=(120, 40))`, `await pilot.pause()` doppia dopo

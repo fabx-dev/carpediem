@@ -622,7 +622,7 @@ class TodoApp(App):
         if self.filter_tag is not None:
             parts.append(T("bar_tag", v=_escape_markup(self.filter_tag)))
         if getattr(self, "filter_project", None):
-            parts.append(T("bar_proj", v=_escape_markup(self.filter_project)))
+            parts.append(T("bar_proj", v=_escape_markup(self.filter_project or "")))
         if getattr(self, "filter_search", ""):
             parts.append(T("bar_search", v=_escape_markup(self.filter_search)))
         return f"{base} | [black on yellow] {' + '.join(parts)} [/]"
