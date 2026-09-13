@@ -1,0 +1,67 @@
+# Pubblicazione su PyPI via trusted publishing (OIDC, nessun token nei secret).
+#
+# Setup una tantum (sul sito PyPI, da fare a mano):
+#   1. account su pypi.org (e test.pypi.org per le prove);
+#   2. pending publisher per il progetto `carpediem`:
+#      owner/repo = fabx-dev/carpediem, workflow = publish.yml
+#      (stesso su TestPyPI; il primo upload crea il progetto da solo).
+#
+# Uso: Release GitHub -> pubblica su PyPI in automatico;
+#      Actions -> Publish -> Run workflow -> testpypi per le prove.
+
+name: Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Dove pubblicare (manuale)"
+        required: true
+        default: "testpypi"
+        type: choice
+        options: [testpypi, pypi]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish-testpypi:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    needs: build
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
