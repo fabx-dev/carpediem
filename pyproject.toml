@@ -11,6 +11,11 @@ requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = ["textual>=0.86.0,<4.0.0", "cryptography>=42"]
 
+[project.urls]
+Homepage = "https://github.com/fabx-dev/carpediem"
+Repository = "https://github.com/fabx-dev/carpediem"
+Changelog = "https://github.com/fabx-dev/carpediem/blob/main/CHANGELOG.md"
+
 [project.scripts]
 carpediem = "src.main:main"
 
