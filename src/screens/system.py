@@ -595,11 +595,11 @@ class KeysScreen(CloseMixin, ModalScreen[None]):
     #keys-box {
         width: 66;
         max-width: 92%;
+        height: 90%;
         max-height: 90%;
     }
     #keys-list {
-        height: auto;
-        max-height: 24;
+        height: 1fr;
         margin-bottom: 1;
     }
     """
@@ -811,11 +811,11 @@ class ArchiveScreen(ModalScreen[tuple | None]):
     #arc-box {
         width: 64;
         max-width: 92%;
-        max-height: 88%;
+        height: 90%;
+        max-height: 90%;
     }
     #arc-list {
-        height: auto;
-        max-height: 22;
+        height: 1fr;
         margin-bottom: 1;
     }
     #arc-list Button {

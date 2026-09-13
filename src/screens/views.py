@@ -935,6 +935,7 @@ class KanbanScreen(CloseMixin, ModalScreen[None]):
     #kb-box {
         width: 96;
         max-width: 98%;
+        height: 90%;
         max-height: 92%;
     }
     #kb-title {
@@ -950,7 +951,8 @@ class KanbanScreen(CloseMixin, ModalScreen[None]):
     }
     #kb-cols {
         width: 100%;
-        height: 22;
+        height: 1fr;
+        margin-bottom: 1;
     }
     #kb-col-attivo, #kb-col-sospeso, #kb-col-fatto {
         width: 1fr;
@@ -1027,7 +1029,8 @@ class DetailScreen(ModalScreen[str | None]):
     #detail-box {
         width: 60;
         max-width: 90%;
-        max-height: 85%;
+        height: 90%;
+        max-height: 90%;
     }
     #detail-title {
         text-style: bold;
@@ -1036,18 +1039,15 @@ class DetailScreen(ModalScreen[str | None]):
     }
     #detail-notes {
         height: auto;
-        max-height: 10;
         margin-bottom: 1;
         padding: 0 1;
         border: solid $primary-darken-1;
     }
     #detail-scroll {
-        height: auto;
-        max-height: 22;
+        height: 1fr;
     }
-    #detail-subtasks {
-        height: auto;
-        max-height: 15;
+    #detail-subtasks-label {
+        margin-top: 1;
     }
     #detail-buttons {
         width: 100%;
@@ -1090,53 +1090,58 @@ class DetailScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="detail-box"):
-            yield Label(f"[b]{_escape_markup(self.todo.title)}[/b]", id="detail-title")
-            yield Label(
-                f"{T('detail_prio')} [{self.todo.priority.color}]{prio_disp(self.todo.priority.value)}[/]"
-            )
-            if self.todo.project:
+            with VerticalScroll(id="detail-scroll"):
                 yield Label(
-                    f"{T('form_project')} [blue]{_escape_markup(self.todo.project)}[/]"
+                    f"[b]{_escape_markup(self.todo.title)}[/b]", id="detail-title"
                 )
-            if self.todo.pomodoros or getattr(self.todo, "stima_pomo", 0):
-                yield Label(f"{T('detail_pomo')} [red]{_pomo_label(self.todo)}[/]")
-            if self.todo.tags:
                 yield Label(
-                    f"{T('form_tags')} "
-                    + ", ".join(
-                        f"[magenta]#{_escape_markup(t)}[/]" for t in self.todo.tags
+                    f"{T('detail_prio')} [{self.todo.priority.color}]{prio_disp(self.todo.priority.value)}[/]"
+                )
+                if self.todo.project:
+                    yield Label(
+                        f"{T('form_project')} [blue]{_escape_markup(self.todo.project)}[/]"
+                    )
+                if self.todo.pomodoros or getattr(self.todo, "stima_pomo", 0):
+                    yield Label(f"{T('detail_pomo')} [red]{_pomo_label(self.todo)}[/]")
+                if self.todo.tags:
+                    yield Label(
+                        f"{T('form_tags')} "
+                        + ", ".join(
+                            f"[magenta]#{_escape_markup(t)}[/]" for t in self.todo.tags
+                        )
+                    )
+                yield Label(
+                    T(
+                        "detail_dueline",
+                        due=self.todo.due or "-",
+                        created=self.todo.created,
                     )
                 )
-            yield Label(
-                T("detail_dueline", due=self.todo.due or "-", created=self.todo.created)
-            )
-            if self.todo.recurrence != Recurrence.NONE:
-                yield Label(
-                    f"{T('detail_ric')} [cyan]{rec_disp(self.todo.recurrence.value)}[/]"
-                )
-            stato_label = {
-                "attivo": f"[red]{T('state_attivo').capitalize()}[/red]",
-                "in_sospeso": f"[yellow]{T('state_sospeso').capitalize()}[/yellow]",
-                "completato": f"[green]{T('state_completato').capitalize()}[/green]",
-            }[self.todo.state]
-            yield Label(f"{T('detail_state')} {stato_label}")
-            if self.todo.notes:
-                yield Label(T("detail_notes"))
-                pretty_notes = (
-                    self.todo.notes.replace("- [ ]", "☐")
-                    .replace("- [x]", "☑")
-                    .replace("- [X]", "☑")
-                )
-                with VerticalScroll(id="detail-scroll"):
+                if self.todo.recurrence != Recurrence.NONE:
+                    yield Label(
+                        f"{T('detail_ric')} [cyan]{rec_disp(self.todo.recurrence.value)}[/]"
+                    )
+                stato_label = {
+                    "attivo": f"[red]{T('state_attivo').capitalize()}[/red]",
+                    "in_sospeso": f"[yellow]{T('state_sospeso').capitalize()}[/yellow]",
+                    "completato": f"[green]{T('state_completato').capitalize()}[/green]",
+                }[self.todo.state]
+                yield Label(f"{T('detail_state')} {stato_label}")
+                if self.todo.notes:
+                    yield Label(T("detail_notes"))
+                    pretty_notes = (
+                        self.todo.notes.replace("- [ ]", "☐")
+                        .replace("- [x]", "☑")
+                        .replace("- [X]", "☑")
+                    )
                     yield Static(_escape_markup(pretty_notes), id="detail-notes")
-            tree_items = self._build_tree(self.todo)
-            if len(tree_items) > 1:
-                yield Label(T("detail_subs"), id="detail-subtasks-label")
-                with VerticalScroll(id="detail-subtasks"):
+                tree_items = self._build_tree(self.todo)
+                if len(tree_items) > 1:
+                    yield Label(T("detail_subs"), id="detail-subtasks-label")
                     for depth, display, item in tree_items[1:]:
                         yield Static(display)
-            else:
-                yield Label(T("detail_nosubs"), id="detail-subtasks-label")
+                else:
+                    yield Label(T("detail_nosubs"), id="detail-subtasks-label")
             with Horizontal(id="detail-buttons", classes="btn-row"):
                 yield Button(T("detail_edit"), id="detail-edit", variant="default")
                 yield Button(T("ui_close_esc"), id="detail-close", variant="default")
@@ -1227,6 +1232,7 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
     #calendar-box {
         width: 80;
         max-width: 95%;
+        height: 90%;
         max-height: 90%;
     }
     #calendar-title {
@@ -1246,6 +1252,11 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
         width: 1fr;
         min-width: 14;
         height: 3;
+    }
+    #calendar-scroll {
+        height: 1fr;
+        width: 100%;
+        margin-bottom: 1;
     }
     #calendar-grid-wrap {
         height: auto;
@@ -1289,9 +1300,10 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
             with Horizontal(id="calendar-nav"):
                 yield Button(T("nav_prev"), id="prev-btn", variant="default")
                 yield Button(T("nav_next"), id="next-btn", variant="default")
-            with Horizontal(id="calendar-grid-wrap"):
-                yield Static(self._render_grid(), id="calendar-grid")
-            yield Static(T("cal_legend"), id="calendar-legend")
+            with VerticalScroll(id="calendar-scroll"):
+                with Horizontal(id="calendar-grid-wrap"):
+                    yield Static(self._render_grid(), id="calendar-grid")
+                yield Static(T("cal_legend"), id="calendar-legend")
             yield Button(T("ui_close_esc"), id="calendar-close", variant="default")
 
     def _render_grid(self) -> str:
