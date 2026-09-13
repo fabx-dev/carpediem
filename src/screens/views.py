@@ -302,7 +302,7 @@ class WeekScreen(CloseMixin, ModalScreen[None]):
 
 
 class TemplateScreen(ModalScreen[tuple | None]):
-    """Scelta template: Usa per creare i task, N nuovo, P da progetto, X elimina."""
+    """Scelta template: Usa per creare i task, N nuovo, P da progetto."""
 
     CSS = """
     #tpl-box {
@@ -1354,7 +1354,7 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
                     marks += f"[dim]{suffix}[/]"
                     plain_marks += suffix
                 day_cells.append(
-                    f"[@click=app.open_day({self.year},{self.month},{day})]{number_markup}[/]"
+                    f"[@click=app.action_open_day({self.year},{self.month},{day})]{number_markup}[/]"
                 )
                 task_cells.append(
                     self._center_markup(marks, len(plain_marks), 5)

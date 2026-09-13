@@ -400,7 +400,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # Template
         "tpl_title": "[b]Template — Usa per creare i task[/b]",
         "tpl_use": "Usa: {name} ({n} task)",
-        "tpl_empty": "Nessun template. Creane uno con [b]N[/b].",
+        "tpl_empty": "Nessun template. Creane uno con [b]n[/b].",
         "tpl_new": "Nuovo [n]",
         "tpl_fromproj": "Da progetto [p]",
         "tplc_new": "Nuovo template",
@@ -999,7 +999,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # Templates
         "tpl_title": "[b]Templates — Use to create tasks[/b]",
         "tpl_use": "Use: {name} ({n} tasks)",
-        "tpl_empty": "No templates. Create one with [b]N[/b].",
+        "tpl_empty": "No templates. Create one with [b]n[/b].",
         "tpl_new": "New [n]",
         "tpl_fromproj": "From project [p]",
         "tplc_new": "New template",

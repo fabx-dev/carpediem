@@ -6,7 +6,7 @@ from pathlib import Path
 from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
 from textual.command import CommandPalette
-from textual.screen import Screen
+from textual.screen import ModalScreen, Screen
 from textual.widgets import (
     DataTable,
     Footer,
@@ -384,6 +384,22 @@ class TodoApp(App):
                 callback()
 
         self.push_screen(MenuScreen(menu_categories()), on_pick)
+
+    #: Action App sempre consentite sotto modale (navigazione focus di Textual).
+    _MODAL_SAFE_ACTIONS = frozenset({"focus_next", "focus_previous"})
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Sotto una modale le action App sono inerti: niente screen impilate
+        sopra i dialoghi (le screen si chiudono da sole con dismiss+callback)."""
+        try:
+            if (
+                isinstance(self.screen, ModalScreen)
+                and action not in self._MODAL_SAFE_ACTIONS
+            ):
+                return False
+        except Exception:
+            pass
+        return super().check_action(action, parameters)
 
     def __init__(self) -> None:
         super().__init__()
@@ -1231,9 +1247,9 @@ class TodoApp(App):
         dots = self._cycle_dots()
         x_key = "pomo_hint_skip" if self._is_break() else "pomo_hint_done"
         hints = (
-            f" [dim][o] [@click=app.start_pomodoro][underline]{T('pomo_hint_open')}[/underline][/]"
-            f"  [O] [@click=app.pomodoro_pause][underline]{T('pomo_hint_pause')}[/underline][/]"
-            f"  [X] [@click=app.pomodoro_finish][underline]{T(x_key)}[/underline][/][/dim]"
+            f" [dim][o] [@click=app.action_start_pomodoro][underline]{T('pomo_hint_open')}[/underline][/]"
+            f"  [O] [@click=app.action_pomodoro_pause][underline]{T('pomo_hint_pause')}[/underline][/]"
+            f"  [X] [@click=app.action_pomodoro_finish][underline]{T(x_key)}[/underline][/][/dim]"
         )
         if self.focus_paused_secs is not None:
             state = f"[yellow]⏸ {T('pomo_paused')} {clock}/{total_min:02d}:00[/yellow]"
