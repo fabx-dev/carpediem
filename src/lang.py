@@ -207,6 +207,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "b_save": "Salva",
         "b_close": "Chiudi",
         "b_no": "No",
+        "app_subtitle": "Gestisci le tue attivita'",
         # Pannello aiuto (h)
         "help_l1": " [bold]TASK:[/bold] [b]n[/b] nuovo  [b]e[/b] modifica  [b]d[/b] elimina  [b]u[/b] annulla  [b]s[/b] sotto-task  [b]Space[/b] stato... [1/2/3]",
         "help_l2": " [bold]VEDI:[/bold] [b]Enter[/b] dettagli  [b]c[/b] calendario  [b]w[/b] settimana  [b]b[/b] mini-kanban  [b]B[/b] kanban-full  [b]p[/b] piano  [b]k[/b] stats  [b]y[/b] salute  [b]R[/b] chiusura giornata",
@@ -808,6 +809,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "b_save": "Save",
         "b_close": "Close",
         "b_no": "No",
+        "app_subtitle": "Manage your tasks",
         # Help panel (h)
         "help_l1": " [bold]TASKS:[/bold] [b]n[/b] new  [b]e[/b] edit  [b]d[/b] delete  [b]u[/b] undo  [b]s[/b] subtask  [b]Space[/b] status... [1/2/3]",
         "help_l2": " [bold]VIEWS:[/bold] [b]Enter[/b] details  [b]c[/b] calendar  [b]w[/b] week  [b]b[/b] mini-kanban  [b]B[/b] kanban-full  [b]p[/b] plan  [b]k[/b] stats  [b]y[/b] health  [b]R[/b] day closing",

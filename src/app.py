@@ -197,7 +197,7 @@ class TodoApp(App):
     """A TUI To-Do application."""
 
     TITLE = "CarpeDiem"
-    SUB_TITLE = "Gestisci le tue attivita'"
+    SUB_TITLE = T("app_subtitle")
 
     CSS = """
     Screen {

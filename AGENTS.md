@@ -96,8 +96,8 @@ Regole dure:
   eccezione approvata: `P` = piano smart, coppia di `p` = piano giorno).
 - **Nuove screen con lista scrollabile**: box ad altezza definita (`height: 90%`) + figlio
   flessibile (`height: 1fr`) — MAI box auto + `max-height` con figli auto (lezione stats:
-  il contenuto sborda o avanza cornice vuota). Vale anche per future revisioni di
-  plan-box/rev-box/arc-box (ancora al pattern vecchio).
+  il contenuto sborda o avanza cornice vuota). `plan-box`/`rev-box`/`arc-box`
+  verificati al pattern nuovo (pilot 70x20/80x24, Chiudi dentro la cornice).
 - **SelectionList**: le label interpretano il markup Rich — niente `[...]` nelle option
   (vengono mangiate come tag di stile); usare parentesi tonde. Precedente: motivo
   di taglio sparito dal piano smart.
@@ -296,8 +296,10 @@ Regole dure:
   (`TASKO_HOME` fresca per run, `set_lang`+reload come conftest per le stringhe
   all'import; lezione: impostare anche `TASKO_LANG` in env, altrimenti il reload
   di `src.main` riesegue `_apply_startup_lang()` che col locale non-it congela i
-  BINDINGS/footer in inglese mentre il resto resta italiano); README.it punta ai `-it`, README.md ai `-en`. Nota: `SUB_TITLE`
-  in app.py e' hardcoded in italiano (bug i18n noto, non fixato).
+  BINDINGS/footer in inglese mentre il resto resta italiano); README.it punta ai `-it`, README.md ai `-en`.
+- **SUB_TITLE i18n (2026-09-14, fatto)**: `TodoApp.SUB_TITLE` hardcoded it →
+  `T("app_subtitle")` (chiavi `app_subtitle` it/en); segue la lingua di avvio
+  come BINDINGS/footer (lingua a runtime richiede riavvio da Settings).
 - **Rinomina CarpeDiem + prima pubblicazione PyPI (2026-09-13, fatto)**:
   `tasko` occupato su PyPI (omonimo SQLite) → progetto/comando `carpediem`
   (verificati liberi: xtasko/ytasko/mytasko/daydone/buondi valutati e scartati).
