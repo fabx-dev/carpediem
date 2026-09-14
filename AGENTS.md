@@ -288,7 +288,9 @@ Regole dure:
   (mostravano ancora `Tasko` pre-rinomina) + 4 nuovi `buongiorno-it/en.svg`
   (`P`) e `review-it/en.svg` (`R`) da dati demo via pilot isolato
   (`TASKO_HOME` fresca per run, `set_lang`+reload come conftest per le stringhe
-  all'import); README.it punta ai `-it`, README.md ai `-en`. Nota: `SUB_TITLE`
+  all'import; lezione: impostare anche `TASKO_LANG` in env, altrimenti il reload
+  di `src.main` riesegue `_apply_startup_lang()` che col locale non-it congela i
+  BINDINGS/footer in inglese mentre il resto resta italiano); README.it punta ai `-it`, README.md ai `-en`. Nota: `SUB_TITLE`
   in app.py e' hardcoded in italiano (bug i18n noto, non fixato).
 - **Rinomina CarpeDiem + prima pubblicazione PyPI (2026-09-13, fatto)**:
   `tasko` occupato su PyPI (omonimo SQLite) → progetto/comando `carpediem`
