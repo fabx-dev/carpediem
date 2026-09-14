@@ -969,6 +969,13 @@ class WelcomeScreen(ModalScreen[str | None]):
         width: 100%;
         height: 3;
     }
+    #wel-sec {
+        width: 100%;
+        text-align: center;
+        color: $text-muted;
+        margin-top: 1;
+        height: auto;
+    }
     """
 
     BINDINGS = [Binding("escape", "empty", "Vuoto")]
@@ -980,6 +987,14 @@ class WelcomeScreen(ModalScreen[str | None]):
             with Horizontal(id="wel-buttons", classes="btn-row"):
                 yield Button(T("welcome_demo"), id="wel-demo", variant="default")
                 yield Button(T("welcome_empty"), id="wel-empty", variant="default")
+            yield Label(
+                T(
+                    "welcome_sec_hint",
+                    cat=T("menu_cat_sys_t"),
+                    voce=T("menu_security_t"),
+                ),
+                id="wel-sec",
+            )
 
     def on_mount(self) -> None:
         try:

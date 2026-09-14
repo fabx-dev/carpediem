@@ -84,3 +84,25 @@ def test_nessun_welcome_se_gia_visto(tmp_files):
             assert type(app.screen).__name__ != "WelcomeScreen"
 
     asyncio.run(t2())
+
+
+def test_welcome_mostra_hint_cifratura(tmp_files):
+    import asyncio
+
+    from src.lang import T
+    from tests.conftest import make_app, screen_texts
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(120, 45)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "WelcomeScreen"
+            hint = T(
+                "welcome_sec_hint",
+                cat=T("menu_cat_sys_t"),
+                voce=T("menu_security_t"),
+            )
+            assert hint in screen_texts(app.screen)
+
+    asyncio.run(t())
