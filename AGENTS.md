@@ -342,3 +342,8 @@ Regole dure:
   PyPI (repo AUR separato, test `makepkg` + `namcap` in container Arch fresco,
   `python-textual` gia' in `[extra]`), poi PPA/COPR; `[extra]` ufficiale solo dopo
   trazione AUR (10 voti/1% pkgstats) + sponsor Package Maintainer.
+- **Lancio/visibilita'** (discusso 2026-09-14, in attesa): testi annuncio it/en pronti
+  in chat + screenshot per lingua; r/commandline bloccato (progetti <30 giorni
+  rimossi + regola 8 alternative + disclosure AI) — candidati ora: r/tui,
+  r/SideProject (formato storia), Discord Textual; r/commandline dopo il mese
+  di vita del repo. Partire solo su via libera esplicito, senza fretta.
