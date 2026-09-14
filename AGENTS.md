@@ -129,6 +129,12 @@ Regole dure:
   la più recente <4, diversa dalla venv) — ha rotto la CI una volta.
 - Script ad-hoc (`python -c`, screenshot): senza `TASKO_LANG=it` l'app parte in inglese
   (auto→locale container). Per output italiani: `TASKO_LANG=it` davanti al comando.
+- Script ad-hoc con pilot (`make_app` + `run_test` fuori pytest): SEMPRE con `TASKO_HOME`
+  fresca e isolata (`export TASKO_HOME=$(mktemp -d)`), perché qualunque action che
+  chiama `store.commit()` (es. `+` nel piano) scrive sui path reali. Precedente
+  2026-09-14: script senza `TASKO_HOME` sovrascrisse `~/.todo_app.json` con 4 task
+  finti, recuperato dal backup zip del giorno prima (i test `pytest` erano salvi
+  grazie alla fixture `tmp_files`).
 - Screenshot SVG per cambi visivi: script con `TASKO_HOME` **fresca per run** (il restore del
   pomodoro altera i run successivi!), estrazione testo via regex `<text>` + `html.unescape`
   (gli spazi sono `&#160;`: normalizzare prima di cercare), verifica sopra+SOTTO il fold
