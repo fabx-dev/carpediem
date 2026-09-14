@@ -167,3 +167,74 @@ def test_week_layout_terminale_piccolo(tmp_files):
                     )
 
     asyncio.run(t())
+
+
+def test_prossimi_visibili_e_aggiungibili(tmp_files):
+    """Task con scadenza futura visibili in p e aggiungibili con +."""
+
+    async def t():
+        todos = [
+            make_todo("Futura", todo_id=1, due=_day(2)),
+            make_todo("Ritardo", todo_id=2, due=_day(-2)),
+        ]
+        app = make_app(todos)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.action_view_daily_plan()
+            await pilot.pause()
+            await pilot.pause()
+            lv = app.screen.query_one("#plan-section", ListView)
+            rows = [
+                (getattr(c, "task_id", None), getattr(c, "section", None))
+                for c in lv.children
+            ]
+            assert (1, "upcoming") in rows
+            assert (2, "overdue") in rows
+            for _ in range(10):
+                cur = lv.highlighted_child
+                if getattr(cur, "task_id", None) == 1:
+                    break
+                await pilot.press("down")
+                await pilot.pause()
+            assert _cur(app.screen) == (1, "upcoming")
+            await pilot.press("+")
+            await pilot.pause()
+            await pilot.pause()
+            by_id = {x.id: x for x in app.todos}
+            assert by_id[1].planned_for == _day(0)
+            lv2 = app.screen.query_one("#plan-section", ListView)
+            rows2 = [
+                (getattr(c, "task_id", None), getattr(c, "section", None))
+                for c in lv2.children
+            ]
+            assert (1, "planned") in rows2
+            assert (1, "upcoming") not in rows2
+
+    asyncio.run(t())
+
+
+def test_scaduto_pianificato_senza_duplicato(tmp_files):
+    """Dopo + lo scaduto sta solo in Pianificati, non anche in Ritardo."""
+
+    async def t():
+        app = make_app([make_todo("Ritardo", todo_id=1, due=_day(-2))])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.action_view_daily_plan()
+            await pilot.pause()
+            await pilot.pause()
+            assert _cur(app.screen) == (1, "overdue")
+            await pilot.press("+")
+            await pilot.pause()
+            await pilot.pause()
+            by_id = {x.id: x for x in app.todos}
+            assert by_id[1].planned_for == _day(0)
+            lv = app.screen.query_one("#plan-section", ListView)
+            rows = [
+                (getattr(c, "task_id", None), getattr(c, "section", None))
+                for c in lv.children
+            ]
+            assert (1, "planned") in rows
+            assert (1, "overdue") not in rows
+
+    asyncio.run(t())

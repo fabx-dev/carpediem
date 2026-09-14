@@ -114,12 +114,34 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         for t in self.all_todos:
             if t.state != "attivo" or not t.due:
                 continue
+            if t.planned_for == self.today:
+                continue
             try:
                 d = datetime.strptime(_due_date_part(t.due), "%Y-%m-%d").date()
             except ValueError:
                 continue
             if d < today_d:
                 result.append(t)
+        return result
+
+    def _upcoming(self) -> list[TodoItem]:
+        try:
+            today_d = datetime.strptime(self.today, "%Y-%m-%d").date()
+        except ValueError:
+            return []
+        result = []
+        for t in self.all_todos:
+            if t.state != "attivo" or not t.due:
+                continue
+            if t.planned_for == self.today:
+                continue
+            try:
+                d = datetime.strptime(_due_date_part(t.due), "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if d > today_d:
+                result.append(t)
+        result.sort(key=lambda t: (_due_date_part(t.due) or "9999", t.id or 0))
         return result
 
     def _unplanned(self) -> list[TodoItem]:
@@ -144,6 +166,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             planned = self._planned_todos()
             due = self._due_today()
             overdue = self._overdue()
+            upcoming = self._upcoming()
             unplanned = self._unplanned()
             load = ""
             if planned:
@@ -154,6 +177,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 (T("plan_sec_planned", load=load), "planned", planned, "x"),
                 (T("plan_sec_due"), "due", due, "+"),
                 (T("plan_sec_overdue"), "overdue", overdue, "+"),
+                (T("plan_sec_upcoming"), "upcoming", upcoming, "+"),
                 (T("plan_sec_unplanned"), "unplanned", unplanned, "+"),
             ]
             items = [t for _h, _k, todos, _m in sections for t in todos]
@@ -168,7 +192,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                     for t in todos:
                         extra = (
                             T("plan_overdue_row", due=t.due)
-                            if kind == "overdue"
+                            if kind in ("overdue", "upcoming")
                             else ""
                         )
                         row = PlanRow(
@@ -213,7 +237,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
 
     def action_add_planned(self) -> None:
         tid, section = self._current()
-        if tid is None or section not in ("due", "overdue", "unplanned"):
+        if tid is None or section not in ("due", "overdue", "upcoming", "unplanned"):
             self.notify(T("n_plan_noop"), severity="warning")
             return
         todo = next(
