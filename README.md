@@ -14,6 +14,8 @@ In the app, open the menu (`m`) → `Day` → `Recommended workflow` for the 5-s
 [Leggimi in italiano](README.it.md)
 
 ![CarpeDiem home](docs/screenshots/home.svg)
+![Morning: context + proposal](docs/screenshots/buongiorno-en.svg)
+![Day closing](docs/screenshots/review-en.svg)
 ![CarpeDiem stats](docs/screenshots/stats.svg)
 
 ## Install in 2 minutes

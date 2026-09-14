@@ -284,6 +284,12 @@ Regole dure:
   (solo hover): handler rinominati sui metodi reali + test per parti. Nota: screen
   che aprono altre screen usano `push_screen` diretto o dismiss+callback (mai action),
   quindi il guard non rompe i flussi legittimi.
+- **Screenshot README (2026-09-14, fatto)**: `home.svg`/`stats.svg` rigenerati
+  (mostravano ancora `Tasko` pre-rinomina) + 4 nuovi `buongiorno-it/en.svg`
+  (`P`) e `review-it/en.svg` (`R`) da dati demo via pilot isolato
+  (`TASKO_HOME` fresca per run, `set_lang`+reload come conftest per le stringhe
+  all'import); README.it punta ai `-it`, README.md ai `-en`. Nota: `SUB_TITLE`
+  in app.py e' hardcoded in italiano (bug i18n noto, non fixato).
 - **Rinomina CarpeDiem + prima pubblicazione PyPI (2026-09-13, fatto)**:
   `tasko` occupato su PyPI (omonimo SQLite) → progetto/comando `carpediem`
   (verificati liberi: xtasko/ytasko/mytasko/daydone/buondi valutati e scartati).
@@ -328,3 +334,9 @@ Regole dure:
   autostart invisibile? stack Python+template o altro? Slice A come validazione con stop se inutile.
 - Quick-win rimasti: da rivalutare dopo agenda/export iCal. ("Smart oggi" fatto dal planner; stime esistevano già.)
 - Pomodoro cross-device dichiarato fuori scope v1 (timer resta locale).
+- **Packaging distro** (discusso 2026-09-14, accantonato): PyPI/pipx resta l'unico
+  canale; niente `.deb`/PPA, `.rpm`/COPR, `PKGBUILD`/AUR per ora — rivalutare solo
+  su domanda reale o volontario per-distro. Se si riparte: prima slice AUR da sdist
+  PyPI (repo AUR separato, test `makepkg` + `namcap` in container Arch fresco,
+  `python-textual` gia' in `[extra]`), poi PPA/COPR; `[extra]` ufficiale solo dopo
+  trazione AUR (10 voti/1% pkgstats) + sponsor Package Maintainer.

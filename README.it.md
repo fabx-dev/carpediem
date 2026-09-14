@@ -14,6 +14,8 @@ Dentro l'app, apri il menu (`m`) → `Giornata` → `Workflow consigliato` per l
 [Read in English](README.md)
 
 ![CarpeDiem home](docs/screenshots/home.svg)
+![Buongiorno: contesto + proposta](docs/screenshots/buongiorno-it.svg)
+![Chiusura giornata](docs/screenshots/review-it.svg)
 ![CarpeDiem stats](docs/screenshots/stats.svg)
 
 ## Installazione in 2 minuti
