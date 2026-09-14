@@ -3,6 +3,12 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.5.4] - 2026-09-14
+
+### Fixed
+- App subtitle is now localized: English UI shows "Manage your tasks"
+  instead of the hardcoded Italian string
+
 ## [0.5.3] - 2026-09-14
 
 ### Added
