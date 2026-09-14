@@ -3,6 +3,19 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.5.3] - 2026-09-14
+
+### Added
+- Daily plan (`p`) shows an "Upcoming" section: tasks due after today are
+  now visible and can be added to today's plan with `+` (they were
+  invisible before, with no way to plan them)
+- Welcome screen hints that data is stored in plain text and points to
+  Menu → Sistema → Sicurezza to encrypt it
+
+### Fixed
+- Daily plan: overdue tasks already added to today's plan no longer show
+  up duplicated in the overdue section
+
 ## [0.5.2] - 2026-09-13
 
 ### Fixed
