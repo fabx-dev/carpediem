@@ -3,6 +3,12 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.6.1] - 2026-09-15
+
+### Fixed
+- Daily-plan keys `o`/`O` now start/pause the pomodoro as the recommended
+  workflow already promised (they only worked from home before)
+
 ## [0.6.0] - 2026-09-15
 
 ### Added
