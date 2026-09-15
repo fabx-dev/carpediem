@@ -1019,7 +1019,9 @@ class TodoApp(App):
         self.push_screen(DayScreen(date_str, todos))
 
     def action_view_daily_plan(self) -> None:
-        self.push_screen(DailyPlanScreen(self.todos, self._on_plan_changed))
+        self.push_screen(
+            DailyPlanScreen(self.todos, self._on_plan_changed, on_add=self.store.add)
+        )
 
     def action_open_review(self) -> None:
         try:

@@ -49,6 +49,24 @@ class PlanRow(ListItem):
         self.section = section
 
 
+class PlanListView(ListView):
+    """Lista del piano: Enter apre il dettaglio, il click sposta solo l'highlight.
+
+    ListView binda Enter a select_cursor (ombra i binding della screen) ed emette
+    Selected anche al click: per questo Enter e' ribindato qui a un dispatch verso
+    la screen, mentre il click resta invariato (nessun handler Selected).
+    """
+
+    BINDINGS = [
+        Binding("enter", "plan_detail", "Dettaglio", show=False),
+    ]
+
+    def action_plan_detail(self) -> None:
+        handler = getattr(self.screen, "action_view_detail", None)
+        if callable(handler):
+            handler()
+
+
 class DailyPlanScreen(CloseMixin, ModalScreen[None]):
     """Screen showing today's planned tasks with quick add/remove."""
 
@@ -78,15 +96,23 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         Binding("escape", "close", "Chiudi"),
         Binding("+", "add_planned", "Aggiungi al piano", show=False),
         Binding("x", "remove_planned", "Rimuovi", show=False),
-        Binding("space", "toggle_done", "Sospendi", show=False),
+        Binding("enter", "view_detail", "Dettaglio", show=False),
+        Binding("space", "toggle_done", "Stato", show=False),
     ]
 
     def __init__(
-        self, all_todos: list[TodoItem], on_change, today: str | None = None
+        self,
+        all_todos: list[TodoItem],
+        on_change,
+        today: str | None = None,
+        on_add=None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
         self.on_change = on_change
+        # store.add (per le ricorrenze create dal cambio stato); senza, fallback
+        # in lista (i test senza store restano comunque verificabili).
+        self.on_add = on_add
         self.today = today or datetime.now().strftime("%Y-%m-%d")
 
     def _planned_todos(self) -> list[TodoItem]:
@@ -183,8 +209,10 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             items = [t for _h, _k, todos, _m in sections for t in todos]
             if items:
                 keep = getattr(self, "_keep_id", None)
+                keep_section = getattr(self, "_keep_section", None)
                 children = []
                 found_keep: int | None = None
+                first_in_section: int | None = None
                 for header, kind, todos, marker in sections:
                     if not todos:
                         continue
@@ -202,9 +230,17 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                         )
                         if found_keep is None and t.id == keep:
                             found_keep = len(children)
+                        if (
+                            first_in_section is None
+                            and keep_section is not None
+                            and kind == keep_section
+                        ):
+                            first_in_section = len(children)
                         children.append(row)
+                if found_keep is None:
+                    found_keep = first_in_section
                 initial = found_keep if found_keep is not None else 1
-                yield ListView(*children, id="plan-section", initial_index=initial)
+                yield PlanListView(*children, id="plan-section", initial_index=initial)
             else:
                 yield Static(T("plan_empty"))
             yield Static(T("plan_legend"), id="plan-legend")
@@ -230,8 +266,13 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             return None, None
         return getattr(item, "task_id", None), getattr(item, "section", None)
 
-    def _refresh_keep(self, task_id=None) -> None:
+    def _todo_by_id(self, tid) -> TodoItem | None:
+        """Rilettura per id (mai riusare oggetti stale dopo push annidati)."""
+        return next((t for t in self.all_todos if t.id == tid), None)
+
+    def _refresh_keep(self, task_id=None, section: str | None = None) -> None:
         self._keep_id = task_id
+        self._keep_section = section
         self.on_change()
         self.refresh(recompose=True)
 
@@ -262,17 +303,91 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 return
         self.notify(T("n_plan_rm_none"), severity="warning")
 
-    def action_toggle_done(self) -> None:
+    def action_view_detail(self) -> None:
+        """Enter: dettaglio del task con possibilita' di modifica (come home)."""
         tid, section = self._current()
-        if tid is None or section != "planned":
+        if tid is None:
             self.notify(T("n_plan_noop"), severity="warning")
             return
-        for t in self.all_todos:
-            if t.planned_for == self.today and t.id == tid and t.state == "attivo":
-                domain.plan_suspend(t)
-                self._refresh_keep(tid)
+        todo = self._todo_by_id(tid)
+        if todo is None:
+            self.notify(T("n_plan_noop"), severity="warning")
+            return
+        # Import locale: evita dipendenze tra aree screen all'import.
+        from src.screens.views import DetailScreen
+
+        self.app.push_screen(
+            DetailScreen(todo, self.all_todos),
+            lambda result: self._on_detail_result(tid, section, result),
+        )
+
+    def _on_detail_result(self, tid, section: str | None, result) -> None:
+        if result != "edit":
+            return
+        todo = self._todo_by_id(tid)
+        if todo is None:
+            return
+        from src.screens.form import TodoFormScreen
+
+        def on_submit(form_result: dict | None) -> None:
+            if not form_result:
                 return
-        self.notify(T("n_plan_susp_none"), severity="warning")
+            target = self._todo_by_id(tid)
+            if target is None:
+                return
+            domain.apply_form(target, form_result)
+            self._refresh_keep(tid, section)
+            self.notify(T("n_updated", t=_escape_markup(target.title)))
+
+        self.app.push_screen(TodoFormScreen(todo=todo, title=T("form_edit")), on_submit)
+
+    def action_toggle_done(self) -> None:
+        """Space: scelta stato completa (come home), su qualunque riga task."""
+        tid, section = self._current()
+        if tid is None:
+            self.notify(T("n_plan_noop"), severity="warning")
+            return
+        todo = self._todo_by_id(tid)
+        if todo is None:
+            self.notify(T("n_plan_noop"), severity="warning")
+            return
+        from src.screens.form import StateChoiceScreen
+
+        current_label = {
+            "attivo": T("state_attivo"),
+            "in_sospeso": T("state_sospeso"),
+            "completato": T("state_completato"),
+        }[todo.state]
+        self.app.push_screen(
+            StateChoiceScreen(todo.title, current_label, todo.state),
+            lambda choice: self._on_state_picked(tid, section, choice),
+        )
+
+    def _on_state_picked(self, tid, section: str | None, choice) -> None:
+        if choice is None:
+            return
+        todo = self._todo_by_id(tid)
+        if todo is None or choice == todo.state:
+            return
+        labels = {
+            "attivo": T("n_to_active"),
+            "in_sospeso": T("n_to_paused"),
+            "completato": T("n_to_done"),
+        }
+        new_todo = domain.apply_state(
+            todo, choice, datetime.now().strftime("%Y-%m-%d %H:%M")
+        )
+        if new_todo is not None:
+            if self.on_add is not None:
+                try:
+                    self.on_add(new_todo)
+                except Exception:
+                    self.all_todos.append(new_todo)
+            else:
+                self.all_todos.append(new_todo)
+            self.notify(T("n_recur", t=_escape_markup(new_todo.title), d=new_todo.due))
+        self._refresh_keep(tid, section)
+        self.notify(T("n_state", t=_escape_markup(todo.title), s=labels[choice]))
 
 
 class ReviewScreen(CloseMixin, ModalScreen[None]):

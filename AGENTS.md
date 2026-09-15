@@ -307,7 +307,19 @@ Regole dure:
   env `TASKO_*`, dir `Tasko_backups/`. Publish via trusted publishing OIDC
   (`.github/workflows/publish.yml`, zero token): release GitHub → PyPI auto,
   dispatch manuale → TestPyPI. Prima release reale 0.5.1 su PyPI. Nota: repo
-  GitHub rinominato `fabx-dev/carpediem` (redirect automatici).
+ GitHub rinominato `fabx-dev/carpediem` (redirect automatici).
+- **Piano operativo (2026-09-15, fatto)**: il piano giorno `p` non e' piu' solo
+  espositivo — `Enter` apre `DetailScreen` (con modifica via form, catena corta
+  form→piano) e `Space` apre `StateChoiceScreen` a 3 stati come in home
+  (su qualunque riga, ricorrenze via `on_add`), come prometteva il workflow sez.3
+  (`tests/test_plan_operate.py`, 7 test; `test_dailyplan.py` adeguato al nuovo Space).
+  Lezioni: `ListView` binda Enter a `select_cursor` (ombra i binding della screen)
+  ed emette `Selected` anche al click → sottoclasse `PlanListView` che ribinda solo
+  Enter a un dispatch (`getattr` su screen per mypy), click invariato; push diretto
+  con `self.app.push_screen` (la Screen non ha `push_screen`); screen→screen con
+  import lazy nei metodi (niente dipendenze tra aree all'import); rilettura per id
+  dopo ogni push annidato (oggetti stale); highlight con fallback alla prima riga
+  della stessa sezione quando il task ne esce.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

@@ -77,7 +77,13 @@ def test_rimuovi_e_sospendi_secondo(tmp_files):
             await pilot.pause()
             await pilot.pause()
             assert _cur(app.screen) == (1, "planned")
-            await pilot.press("space")  # sospendi P1
+            await pilot.press("space")  # scelta stato come in home
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "StateChoiceScreen"
+            await pilot.press("right")  # Attivo -> Sospeso
+            await pilot.pause()
+            await pilot.press("enter")
             await pilot.pause()
             await pilot.pause()
             by_id = {x.id: x for x in app.todos}
