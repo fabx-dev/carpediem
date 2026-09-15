@@ -98,6 +98,8 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         Binding("x", "remove_planned", "Rimuovi", show=False),
         Binding("enter", "view_detail", "Dettaglio", show=False),
         Binding("space", "toggle_done", "Stato", show=False),
+        Binding("o", "start_pomodoro", "Pomodoro", show=False),
+        Binding("O", "pomodoro_pause", "Pausa/Riprendi", show=False),
     ]
 
     def __init__(
@@ -106,6 +108,8 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         on_change,
         today: str | None = None,
         on_add=None,
+        on_pomodoro_start=None,
+        on_pomodoro_pause=None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
@@ -113,6 +117,9 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         # store.add (per le ricorrenze create dal cambio stato); senza, fallback
         # in lista (i test senza store restano comunque verificabili).
         self.on_add = on_add
+        # Timer pomodoro (vive in app): start su id esplicito, pausa globale.
+        self.on_pomodoro_start = on_pomodoro_start
+        self.on_pomodoro_pause = on_pomodoro_pause
         self.today = today or datetime.now().strftime("%Y-%m-%d")
 
     def _planned_todos(self) -> list[TodoItem]:
@@ -388,6 +395,30 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             self.notify(T("n_recur", t=_escape_markup(new_todo.title), d=new_todo.due))
         self._refresh_keep(tid, section)
         self.notify(T("n_state", t=_escape_markup(todo.title), s=labels[choice]))
+
+    def action_start_pomodoro(self) -> None:
+        """o: avvia (o riapre) il pomodoro sul task evidenziato, come in home."""
+        tid, _section = self._current()
+        if tid is None:
+            self.notify(T("n_plan_noop"), severity="warning")
+            return
+        if self.on_pomodoro_start is None:
+            self.notify(T("n_plan_noop"), severity="warning")
+            return
+        try:
+            self.on_pomodoro_start(tid)
+        except Exception as exc:
+            self.notify(T("n_exp_err", e=_escape_markup(str(exc))), severity="error")
+
+    def action_pomodoro_pause(self) -> None:
+        """O: pausa/riprendi globale, come in home (nessuna selezione richiesta)."""
+        if self.on_pomodoro_pause is None:
+            self.notify(T("n_plan_noop"), severity="warning")
+            return
+        try:
+            self.on_pomodoro_pause()
+        except Exception as exc:
+            self.notify(T("n_exp_err", e=_escape_markup(str(exc))), severity="error")
 
 
 class ReviewScreen(CloseMixin, ModalScreen[None]):

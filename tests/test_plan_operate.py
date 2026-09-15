@@ -205,5 +205,92 @@ def test_legend_mostra_enter_space(tmp_files):
             await _open_plan(pilot, app)
             legend = screen_texts(app.screen)
             assert "Enter" in legend and "Space" in legend
+            assert "o" in legend and "O" in legend
+
+    run(t())
+
+
+def test_pomo_avvia_da_piano(tmp_files):
+    async def t():
+        app = make_app([make_todo("P1", todo_id=1, planned_for=_day(0))])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_plan(pilot, app)
+            assert _cur(app.screen) == (1, "planned")
+            await pilot.press("o")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "PomodoroScreen"
+            assert app.focus_task_id == 1
+            assert app.focus_phase == "focus"
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DailyPlanScreen"
+
+    run(t())
+
+
+def test_pomo_riapre_popup_a_timer_attivo(tmp_files):
+    async def t():
+        app = make_app([make_todo("P1", todo_id=1, planned_for=_day(0))])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_plan(pilot, app)
+            await pilot.press("o")
+            await pilot.pause()
+            await pilot.pause()
+            end1 = app.focus_end
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.press("o")  # timer attivo: solo popup, no restart
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "PomodoroScreen"
+            assert app.focus_task_id == 1
+            assert app.focus_end == end1
+
+    run(t())
+
+
+def test_pomo_noop_piano_vuoto(tmp_files):
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_plan(pilot, app)
+            await pilot.press("o")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DailyPlanScreen"
+            assert app.focus_task_id is None
+
+    run(t())
+
+
+def test_pomo_pausa_da_piano(tmp_files):
+    async def t():
+        app = make_app([make_todo("P1", todo_id=1, planned_for=_day(0))])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_plan(pilot, app)
+            await pilot.press("O")  # nessun timer: warning, niente cambia
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DailyPlanScreen"
+            assert app.focus_task_id is None
+            await pilot.press("o")
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.press("O")
+            await pilot.pause()
+            assert app.focus_paused_secs is not None
+            await pilot.press("O")
+            await pilot.pause()
+            assert app.focus_paused_secs is None
 
     run(t())

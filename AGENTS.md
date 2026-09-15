@@ -325,6 +325,15 @@ Regole dure:
   import lazy nei metodi (niente dipendenze tra aree all'import); rilettura per id
   dopo ogni push annidato (oggetti stale); highlight con fallback alla prima riga
   della stessa sezione quando il task ne esce.
+- **Pomodoro nel piano (2026-09-15, fatto)**: la riga workflow sez.3 `(o)`/`(O)`
+  era falsa (binding solo in home) → `DailyPlanScreen` ha ora `o` avvia/riapre
+  e `O` pausa globale via callback `on_pomodoro_start(tid)`/`on_pomodoro_pause`
+  (stesso seam di `on_add`); `action_start_pomodoro` generalizzata in
+  `_start_pomodoro_for(task_id)` a code path unico; legend `plan_legend` it/en
+  estesa (il testo workflow resta com'e', ora vero); 4 test in
+  `tests/test_plan_operate.py`. Lezione: header disabilitati non evidenziabili
+  neanche col click → il caso noop reale e' il piano vuoto (`plan_empty`,
+  niente `#plan-section`); conteggi 🍅 con stale minore fino al recompose.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

@@ -1020,7 +1020,13 @@ class TodoApp(App):
 
     def action_view_daily_plan(self) -> None:
         self.push_screen(
-            DailyPlanScreen(self.todos, self._on_plan_changed, on_add=self.store.add)
+            DailyPlanScreen(
+                self.todos,
+                self._on_plan_changed,
+                on_add=self.store.add,
+                on_pomodoro_start=self._start_pomodoro_for,
+                on_pomodoro_pause=self.action_pomodoro_pause,
+            )
         )
 
     def action_open_review(self) -> None:
@@ -1184,12 +1190,13 @@ class TodoApp(App):
         self._save_pomodoro()
         self._populate_table()
 
-    def action_start_pomodoro(self) -> None:
+    def _start_pomodoro_for(self, task_id: int | None) -> None:
+        """Avvia (o riapre) il pomodoro per un id esplicito (home e piano giorno)."""
         if self.focus_task_id is not None:
             # Timer già attivo: apri il popup ovunque tu sia, senza vincoli di selezione.
             self._open_pomodoro_popup()
             return
-        todo = self._get_selected_todo()
+        todo = self.store.by_id(task_id) if task_id is not None else None
         if not todo:
             self.notify(T("n_nosel"), severity="warning")
             return
@@ -1198,6 +1205,10 @@ class TodoApp(App):
             T("n_pomo_start", t=_escape_markup(todo.title), m=self.POMODORO_MIN)
         )
         self._open_pomodoro_popup()
+
+    def action_start_pomodoro(self) -> None:
+        todo = self._get_selected_todo()
+        self._start_pomodoro_for(todo.id if todo else None)
 
     def action_pomodoro_pause(self) -> None:
         """Pausa/riprendi globale: funziona da ovunque, senza popup."""
