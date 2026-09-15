@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "carpediem"
-version = "0.5.4"
+version = "0.6.0"
 description = "CarpeDiem: terminal todo manager that turns quick notes into a realistic day plan — natural-language capture, smart planning, pomodoro, agenda, offline-first"
 readme = "README.md"
 requires-python = ">=3.12"

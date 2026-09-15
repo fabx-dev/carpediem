@@ -152,6 +152,11 @@ Regole dure:
   diff, che non hanno prefisso e sballano i conteggi) e validare con round-trip
   stash → apply → commit → md5 dei file. `git apply --check` su un diff del working tree
   fallisce sempre per costruzione: non è un segnale utile.
+- **Versionare per PyPI a ogni cambiamento visibile**: bump `version` in
+  `pyproject.toml` + voce in `CHANGELOG.md` (inglese, stile Added/Changed/Fixed
+  esistente) prima del push — mai lasciare una feature committata senza versione
+  (la publish parte dalla release GitHub, `publish.yml`, e la versione pubblicata
+  deve già contenere tutto). Numerazione: patch per fix, minor per feature.
 
 ## 7. Sprint log (fatto)
 

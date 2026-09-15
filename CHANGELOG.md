@@ -3,6 +3,18 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.6.0] - 2026-09-15
+
+### Added
+- Daily plan (`p`) is now operational, not just informative: `Enter` opens
+  the task detail (editable via the form, short chain back to the plan)
+  and `Space` opens the 3-state chooser exactly as in home, on any plan
+  row (recurrences included) — as the recommended workflow already promised
+
+### Changed
+- Daily-plan legend, planned-section header and workflow step 3 updated
+  to the real keys (no more "Space pauses")
+
 ## [0.5.4] - 2026-09-14
 
 ### Fixed
