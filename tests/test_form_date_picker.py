@@ -151,3 +151,54 @@ def test_picker_layout_terminale_piccolo(tmp_files):
                 )
 
     run(t())
+
+
+def test_picker_giorni_visibili(tmp_files):
+    """I numeri dei giorni devono rendere davvero (height:2 li collassava a 0)."""
+    from src.screens.form import CalendarPickScreen
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.push_screen(CalendarPickScreen(initial="2026-12-01"))
+            await pilot.pause()
+            await pilot.pause()
+            day = app.screen.query_one("#calpick-day-15")
+            assert day.content_size.height > 0, day.content_size
+            assert str(day.render()).strip() == "15"
+
+    run(t())
+
+
+def test_picker_box_centrato(tmp_files):
+    from src.screens.form import CalendarPickScreen
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.push_screen(CalendarPickScreen(initial="2026-12-01"))
+            await pilot.pause()
+            await pilot.pause()
+            box = app.screen.query_one("#calpick-box").region
+            assert box.x == (120 - box.width) // 2
+            assert box.y == (40 - box.height) // 2
+
+    run(t())
+
+
+def test_picker_bottone_icona(tmp_files):
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.action_new_todo()
+            await pilot.pause()
+            await pilot.pause()
+            btn = app.screen.query_one("#due-cal-btn")
+            assert btn.region.width <= 4, btn.region
+            assert "📅" in str(btn.render())
+            assert btn.tooltip
+
+    run(t())

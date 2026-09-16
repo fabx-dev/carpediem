@@ -3,6 +3,16 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.8.1] - 2026-09-16
+
+### Fixed
+- The task-form calendar picker now actually shows the day numbers and
+  weekday header: day cells were `height: 2`, which collapsed Textual
+  `Button` content to zero, leaving an empty see-through grid. The popup
+  is now properly centered (fixed-height box sized to fit all weeks).
+- The calendar button is now a compact 📅 icon (with a tooltip) instead
+  of the clipped "Scegli data" label, freeing space for the date input.
+
 ## [0.8.0] - 2026-09-16
 
 ### Added

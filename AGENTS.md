@@ -357,13 +357,17 @@ Regole dure:
   mensile, frecce ‹/›/Oggi, giorno cliccabile, Esc annulla); al pick il form
   imposta la data preservando l'orario gia' digitato (`_due_time_part`);
   `#calpick-box/title/close` nei gruppi CSS condivisi; chiavi `form_due_cal`,
-  `cal_today`; `tests/test_form_date_picker.py` (6 test). Lezioni: le celle
+  `cal_today`; `tests/test_form_date_picker.py` (9 test). Lezioni: le celle
   del giorno devono essere `width:1fr` senza margini, altrimenti la riga
   (7 celle ~49 col) sborda la griglia e i giorni a destra/clip non sono
-  cliccabili; `VerticalScroll` con `height:auto` + box auto non scrolla e
-  clippa — box ad altezza fissa (`25`) + grid `1fr`; a terminali piccoli il
-  bottone data resta sotto il fold del form (il layout test apre il picker
-  direttamente via `push_screen`, non col click).
+  cliccabili; le celle dei giorni devono avere `height:3` — un `Button`
+  Textual a `height:2` collassa il contenuto a 0 (numeri invisibili, griglia
+  trasparente); box ad altezza fissa che copra le 6 settimane (`30` = grid
+  15 a `1fr`, zero scroll a 120x40) e a terminali piccoli `max-height:90%`
+  la cappa e la grid scrolla; il bottone di apertura e' un'icona compatta
+  📅 `width:4` con `tooltip` (label lunga clippata in `width:8`); a terminali
+  piccoli il bottone data resta sotto il fold del form (il layout test apre
+  il picker direttamente via `push_screen`, non col click).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

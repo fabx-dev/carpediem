@@ -143,8 +143,8 @@ class TodoFormScreen(ModalScreen[dict | None]):
         margin-bottom: 0;
     }
     #due-cal-btn {
-        width: 8;
-        min-width: 8;
+        width: 4;
+        min-width: 4;
         height: 3;
         margin-left: 1;
         margin-bottom: 0;
@@ -215,7 +215,10 @@ class TodoFormScreen(ModalScreen[dict | None]):
                         with Horizontal(id="due-row"):
                             yield Input(placeholder=T("form_due_ph"), id="due-input")
                             yield Button(
-                                T("form_due_cal"), id="due-cal-btn", variant="default"
+                                "📅",
+                                id="due-cal-btn",
+                                variant="default",
+                                tooltip=T("form_due_cal"),
                             )
                 with Horizontal(id="row-tags"):
                     with Vertical(id="col-tags"):
@@ -448,7 +451,7 @@ class CalendarPickScreen(ModalScreen[str | None]):
     #calpick-box {
         width: 46;
         max-width: 95%;
-        height: 25;
+        height: 30;
         max-height: 90%;
     }
     #calpick-title {
@@ -483,18 +486,18 @@ class CalendarPickScreen(ModalScreen[str | None]):
     }
     .calpick-row {
         width: 100%;
-        height: 2;
+        height: 3;
     }
     .calpick-cell {
         width: 1fr;
-        height: 2;
+        height: 3;
         min-width: 0;
         padding: 0;
         margin: 0;
     }
     .calpick-empty {
         width: 1fr;
-        height: 2;
+        height: 3;
         min-width: 0;
         margin: 0;
     }
