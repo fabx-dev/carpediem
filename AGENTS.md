@@ -9,7 +9,7 @@
 ## 1. Cos'è
 
 **CarpeDiem** (progetto `carpediem` su PyPI, entry-point `carpediem = src.main:main`) è una
-TUI todo-list in italiano/inglese costruita con **Textual** (>=0.86,<4; in venv: 8.2.8).
+TUI todo-list in italiano/inglese costruita con **Textual** (>=0.86,<4; in venv: 3.7.1).
 Python >= 3.12. Repo: `git@github.com:fabx-dev/carpediem.git`, branch `main`.
 
 Avvio: `carpediem` (TUI) oppure `python -m src.main ...` / `.venv/bin/python -m src.main ...`.
@@ -334,6 +334,16 @@ Regole dure:
   `tests/test_plan_operate.py`. Lezione: header disabilitati non evidenziabili
   neanche col click → il caso noop reale e' il piano vuoto (`plan_empty`,
   niente `#plan-section`); conteggi 🍅 con stale minore fino al recompose.
+- **Radar scadenze in home (2026-09-16, fatto)**: mini-kanban testuale
+  sostituito da strip-scatter priorita' x orizzonte (`PlotextPlot` di
+  `textual-plotext`, nuova dipendenza con fallback testuale automatico);
+  `kanban_plot_data`/`radar_hit` pure in `domain.py`, `b` a ciclo
+  grafico→testo→nascosto (`kanban_mode`, fallback da `kanban_visible`),
+  click sul punto = dettaglio diretto (1 task) o `RadarPickScreen` (N),
+  caption con peggiori `#id`. Lezioni: serie con tuple RGB (il tema auto
+  rimappa i nomi — "yellow" usciva viola); mapping cella→dato calibrato
+  sullo spike con golden test che urla se plotext cambia geometria
+  (zero sempre a w//2); tuple test con forma esatta `(tid,h,y,serie)`.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

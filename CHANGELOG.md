@@ -3,6 +3,16 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.7.0] - 2026-09-16
+
+### Added
+- Home mini-kanban is now a due-date radar chart (priority x horizon
+  strip-scatter via textual-plotext, new dependency with automatic
+  fallback to the text kanban if unavailable): overdue vs on-time dots, today line,
+  legend with worst offenders, and click-to-open (single task opens the
+  detail directly, overlapping tasks open a picker popup). Key `b` now
+  cycles chart → text → hidden instead of show/hide
+
 ## [0.6.1] - 2026-09-15
 
 ### Fixed

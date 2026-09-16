@@ -8,9 +8,89 @@ Contratto:
 - l'app e le screen chiamano queste e persistono via store.commit().
 """
 
-from src.models import Recurrence, TodoItem
+from datetime import datetime, timedelta
+
+from src.models import Recurrence, TodoItem, _due_date_part
 
 STATES = ("attivo", "in_sospeso", "completato")
+
+RADAR_CAP = 14
+RADAR_PRIO_Y = {"alta": 3.0, "media": 2.0, "bassa": 1.0}
+RADAR_HIT_DX = 1.0
+RADAR_HIT_DY = 0.75
+RADAR_MAX_CANDIDATES = 8
+
+
+def _radar_jitter(todo_id: int | None) -> float:
+    """Scostamento verticale deterministico in [-0.25, +0.25)."""
+    return (((todo_id or 0) * 2654435761) % 1000) / 1000 * 0.5 - 0.25
+
+
+def kanban_plot_data(todos: list[TodoItem], today_str: str) -> dict:
+    """Dati per il radar scadenze in home (strip-scatter priorita' x orizzonte).
+
+    Pura e deterministica: solo item non-sottotask; i completati contano in
+    `closed7` (ultimi 7 giorni da completed_at), gli aperti con `due` valida
+    diventano punti (orizzonte in giorni cappato a +-RADAR_CAP, serie
+    late/open dallo scarto non cappato), gli aperti senza/invalida scadenza
+    finiscono in `nodate`. `worst` = i 2 peggiori ritardi (id, giorni).
+    `phash` = firma per saltare i rebuild invariati (solo sessione)."""
+    today = datetime.strptime(today_str, "%Y-%m-%d").date()
+    week_ago = (today - timedelta(days=6)).strftime("%Y-%m-%d")
+    points: list[tuple] = []
+    late = open_ok = closed7 = nodate = 0
+    late_rows: list[tuple] = []
+    sig: list[tuple] = []
+    for t in todos:
+        if t.parent_id is not None:
+            continue
+        state = t.state
+        sig.append((t.id, state, t.due, t.priority.value, (t.completed_at or "")[:10]))
+        if state == "completato":
+            day = (t.completed_at or "")[:10]
+            if week_ago <= day <= today_str:
+                closed7 += 1
+            continue
+        if state not in ("attivo", "in_sospeso"):
+            continue
+        due_part = _due_date_part(t.due)
+        if not due_part:
+            nodate += 1
+            continue
+        try:
+            due_d = datetime.strptime(due_part, "%Y-%m-%d").date()
+        except ValueError:
+            nodate += 1
+            continue
+        horizon = (due_d - today).days
+        serie = "late" if horizon < 0 else "open"
+        if serie == "late":
+            late += 1
+            late_rows.append((horizon, t.id))
+        else:
+            open_ok += 1
+        y = RADAR_PRIO_Y.get(t.priority.value, 2.0) + _radar_jitter(t.id)
+        points.append((t.id, max(-RADAR_CAP, min(RADAR_CAP, horizon)), y, serie))
+    late_rows.sort()
+    return {
+        "points": points,
+        "late": late,
+        "open_ok": open_ok,
+        "closed7": closed7,
+        "nodate": nodate,
+        "worst": [(tid, h) for h, tid in late_rows[:2]],
+        "phash": hash((today_str, tuple(sorted(sig)))),
+    }
+
+
+def radar_hit(points: list[tuple], day: float, y_est: float) -> list[int]:
+    """Hit-test sui punti del radar: id entro soglia, vicini prima, max 8."""
+    out = []
+    for tid, h, y, _serie in points:
+        dh, dy = abs(h - day), abs(y - y_est)
+        if dh <= RADAR_HIT_DX and dy <= RADAR_HIT_DY:
+            out.append((dh + dy, tid))
+    return [tid for _, tid in sorted(out)[:RADAR_MAX_CANDIDATES]]
 
 
 def apply_state(todo: TodoItem, choice: str, now_str: str) -> TodoItem | None:

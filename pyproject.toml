@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "carpediem"
-version = "0.6.1"
+version = "0.7.0"
 description = "CarpeDiem: terminal todo manager that turns quick notes into a realistic day plan — natural-language capture, smart planning, pomodoro, agenda, offline-first"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-dependencies = ["textual>=0.86.0,<4.0.0", "cryptography>=42"]
+dependencies = ["textual>=0.86.0,<4.0.0", "cryptography>=42", "textual-plotext>=1.0.1,<2"]
 keywords = ["todo", "tui", "textual", "productivity", "pomodoro", "planning", "cli"]
 classifiers = [
     "Environment :: Console",

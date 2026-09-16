@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
@@ -18,6 +19,7 @@ from textual.widgets import (
 from src import crypto as _crypto
 from src import domain
 from src.commands import CarpeDiemMenuProvider, menu_categories
+from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
 from src.lang import T, prio_disp, rec_disp
 from src.models import (
     MAX_DEPTH,
@@ -50,6 +52,7 @@ from src.screens import (
     PasswordScreen,
     PlanProposalScreen,
     PomodoroScreen,
+    RadarPickScreen,
     RestoreScreen,
     ReviewScreen,
     SearchScreen,
@@ -89,6 +92,47 @@ from src.storage import (
     state_readable,
 )
 from src.store import TodoStore
+
+PlotextPlot: Any
+try:
+    from textual_plotext import PlotextPlot
+except ImportError:  # dipendenza opzionale: home ricade sul kanban testuale
+    PlotextPlot = None
+
+# Radar scadenze in home (strip-scatter priorita' x orizzonte, vedi spike
+# in /tmp/spike — S0): colori come tuple RGB perche' il tema "auto" di
+# textual-plotext rimappa i nomi (es. "yellow" diventava viola).
+RADAR_RED = (255, 80, 80)
+RADAR_YELLOW = (255, 215, 0)
+RADAR_MARKER = "hd"
+# Mappatura cella -> dato calibrata sullo spike (S0, plotext 5.x, assi fissati
+# in _draw_radar): zero sempre a w//2; riga tick esclusa dall'hit-test.
+# Se un upgrade di plotext sposta la geometria, il golden test in
+# tests/test_kanban_plot.py fallisce rumorosamente (mai misclick silenziosi).
+RADAR_SPAN_SLOPE = 0.9283
+RADAR_SPAN_OFF = -1.0
+RADAR_ROW_Y = {0: 3.0, 1: 2.3, 2: 1.6, 3: 1.0}
+
+
+def _radar_horizon(todo: TodoItem, today_str: str) -> int:
+    """Giorni alla scadenza non cappati (i punti del radar l'hanno valida)."""
+    try:
+        due = datetime.strptime(_due_date_part(todo.due), "%Y-%m-%d").date()
+        ref = datetime.strptime(today_str, "%Y-%m-%d").date()
+    except ValueError:
+        return 0
+    return (due - ref).days
+
+
+def _radar_span(width: int) -> int:
+    """Larghezza canvas utile calibrata (S0): zero sempre a width // 2."""
+    return max(1, round(RADAR_SPAN_SLOPE * width + RADAR_SPAN_OFF))
+
+
+def _radar_day(col: int, width: int) -> float:
+    """Colonna cella -> giorni alla scadenza (inversa del layout plotext)."""
+    return (col - width // 2) * 28 / _radar_span(width)
+
 
 # Il toast del reminder scadenze resta visibile finche' non lo clicchi
 # (default Textual: 5 s) e suona 3 beep invece di 1.
@@ -239,6 +283,24 @@ class TodoApp(App):
     #kanban-bar.hidden {
         display: none;
     }
+    #kanban-title {
+        height: 1;
+        color: $text-muted;
+        padding: 0 1;
+        margin: 0 1;
+    }
+    #kanban-plot {
+        height: 5;
+        margin: 0 1;
+    }
+    #kanban-cap {
+        height: 1;
+        padding: 0 1;
+        margin: 0 1;
+    }
+    #kanban-title.hidden, #kanban-plot.hidden, #kanban-cap.hidden {
+        display: none;
+    }
     #pomodoro-bar {
         height: 3;
         border: solid $error;
@@ -271,7 +333,7 @@ class TodoApp(App):
     #tplp-box, #impcsv-box, #pomo-box, #kb-box, #detail-box, #day-box,
     #calendar-box, #plan-box, #goals-box, #stats-box, #keys-box, #set-box,
     #arc-box, #rst-box, #wel-box, #pw-box, #sec-box, #hea-box, #rev-box,
-    #menu-box, #workflow-box, #brief-box, #planp-box {
+    #menu-box, #workflow-box, #brief-box, #planp-box, #pick-box {
         border: thick $primary;
         background: $surface;
         padding: 1 2;
@@ -279,7 +341,7 @@ class TodoApp(App):
     #agenda-title, #tpl-title, #tplc-title, #tplp-title, #impcsv-title, #goals-title,
     #keys-title, #set-title, #arc-title, #rst-title, #wel-title,
     #pw-title, #sec-title, #rev-title, #menu-title, #workflow-title,
-    #brief-title, #planp-title, #state-msg {
+    #brief-title, #planp-title, #state-msg, #pick-title {
         text-align: center;
         text-style: bold;
         color: $primary;
@@ -447,6 +509,7 @@ class TodoApp(App):
         self._row_map: list[TodoItem] = []
         self._undo_stack: list[list[TodoItem]] = []
         self._reminded: set[tuple] = set()
+        self._last_plot_hash: int | None = None
         self.focus_task_id: int | None = None
         self.focus_end: datetime | None = None
         self.focus_paused_secs: int | None = None
@@ -520,10 +583,21 @@ class TodoApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield ClickableDataTable(id="todo-table")
+        mode = self._kanban_mode()
+        if PlotextPlot is not None:
+            yield Static(
+                "", id="kanban-title", classes="" if mode == "grafico" else "hidden"
+            )
+            yield PlotextPlot(
+                id="kanban-plot", classes="" if mode == "grafico" else "hidden"
+            )
+            yield Static(
+                "", id="kanban-cap", classes="" if mode == "grafico" else "hidden"
+            )
         yield Static(
             "",
             id="kanban-bar",
-            classes="" if self.config.get("kanban_visible", True) else "hidden",
+            classes="" if mode == "testo" else "hidden",
         )
         yield Static("", id="pomodoro-bar", classes="hidden")
         yield Static(self._stats_text(), id="stats-bar")
@@ -649,9 +723,91 @@ class TodoApp(App):
             f" [green]● {T('kb_fatto')} ({n_fat})[/green]: {top('completato')}"
         )
 
+    def _kanban_mode(self) -> str:
+        """Modalita' mini-kanban: grafico/testo/nascosto (tasto b = ciclo)."""
+        mode = self.config.get("kanban_mode")
+        if mode in ("grafico", "testo", "nascosto"):
+            if mode == "grafico" and PlotextPlot is None:
+                return "testo"
+            return mode
+        # Retrocompat: vecchio bool kanban_visible.
+        if not self.config.get("kanban_visible", True):
+            return "nascosto"
+        return "grafico" if PlotextPlot is not None else "testo"
+
+    def _apply_kanban_mode(self) -> None:
+        """Mostra/nasconde i widget del mini-kanban secondo la modalita'."""
+        mode = self._kanban_mode()
+        try:
+            self.query_one("#kanban-bar", Static).set_class(mode != "testo", "hidden")
+        except Exception:
+            pass
+        if PlotextPlot is None:
+            return
+        show = mode == "grafico"
+        for wid in ("#kanban-title", "#kanban-plot", "#kanban-cap"):
+            try:
+                self.query_one(wid).set_class(not show, "hidden")
+            except Exception:
+                pass
+
+    def _draw_radar(self, plt: Any, data: dict) -> None:
+        """Disegna lo strip-scatter sul PlotextPlot (serie con tuple RGB)."""
+        plt.cld()
+        plt.clf()
+        pts = data["points"]
+        late_x = [h for (_tid, h, _y, s) in pts if s == "late"]
+        late_y = [y for (_tid, _h, y, s) in pts if s == "late"]
+        open_x = [h for (_tid, h, _y, s) in pts if s != "late"]
+        open_y = [y for (_tid, _h, y, s) in pts if s != "late"]
+        if late_x:
+            plt.scatter(late_x, late_y, marker=RADAR_MARKER, color=RADAR_RED)
+        if open_x:
+            plt.scatter(open_x, open_y, marker=RADAR_MARKER, color=RADAR_YELLOW)
+        plt.vertical_line(0, color=RADAR_RED)
+        plt.xlim(-RADAR_CAP - 1, RADAR_CAP + 1)
+        plt.ylim(0.5, 3.5)
+        plt.xticks([-14, -7, 0, 7, 14], ["-14", "-7", T("radar_tick0"), "+7", "+14"])
+        plt.yticks([1, 2, 3], [T("radar_yb"), T("radar_ym"), T("radar_ya")])
+        plt.frame(False)
+        plt.grid(False)
+
+    def _radar_caption(self, data: dict) -> str:
+        worst = data["worst"]
+        wtxt = (
+            " ".join(T("radar_worst_one", id=tid, h=h) for tid, h in worst)
+            if worst
+            else T("radar_noworst")
+        )
+        return T("radar_cap", late=data["late"], ok=data["open_ok"], worst=wtxt)
+
     def _update_kanban(self) -> None:
         try:
             self.query_one("#kanban-bar", Static).update(self._kanban_text())
+        except Exception:
+            pass
+        if PlotextPlot is None or self._kanban_mode() != "grafico":
+            return
+        try:
+            today = datetime.now().strftime("%Y-%m-%d")
+            data = kanban_plot_data(self.todos, today)
+            if not data["points"]:
+                # Canvas vuoto senza assi: meglio il testo (mai plot muto).
+                self.config["kanban_mode"] = "testo"
+                self._save_config()
+                self._apply_kanban_mode()
+                self.query_one("#kanban-bar", Static).update(self._kanban_text())
+                return
+            if data["phash"] == getattr(self, "_last_plot_hash", None):
+                return
+            plt_obj: Any = getattr(self.query_one("#kanban-plot"), "plt", None)
+            if plt_obj is None:
+                return
+            self._draw_radar(plt_obj, data)
+            self.query_one("#kanban-plot").refresh()
+            self.query_one("#kanban-title", Static).update(T("radar_title"))
+            self.query_one("#kanban-cap", Static).update(self._radar_caption(data))
+            self._last_plot_hash = data["phash"]
         except Exception:
             pass
 
@@ -970,17 +1126,19 @@ class TodoApp(App):
             on_submit,
         )
 
-    def action_view_detail(self) -> None:
-        todo = self._get_selected_todo()
-        if not todo:
-            self.notify(T("n_nosel"), severity="warning")
-            return
-
+    def _open_detail_for(self, todo: TodoItem) -> None:
         def on_detail(choice: str | None) -> None:
             if choice == "edit":
                 self._open_edit_form(todo, reopen_detail=True)
 
         self.push_screen(DetailScreen(todo, self.todos), on_detail)
+
+    def action_view_detail(self) -> None:
+        todo = self._get_selected_todo()
+        if not todo:
+            self.notify(T("n_nosel"), severity="warning")
+            return
+        self._open_detail_for(todo)
 
     def on_data_table_row_selected(self, event) -> None:
         # Guardia anti-doppio-push: un singolo click puo' generare due RowSelected
@@ -988,6 +1146,54 @@ class TodoApp(App):
         if isinstance(self.screen, DetailScreen):
             return
         self.action_view_detail()
+
+    def on_click(self, event) -> None:
+        """Click sul radar scadenze: apre il task puntato (1) o la scelta (N)."""
+        try:
+            if PlotextPlot is None or self._kanban_mode() != "grafico":
+                return
+            if isinstance(self.screen, ModalScreen):
+                return
+            plot = self.query_one("#kanban-plot")
+            if plot.has_class("hidden"):
+                return
+            rx, ry, w, _h = plot.region
+            cx, cy = event.screen_x - rx, event.screen_y - ry
+            if not (0 <= cx < w and cy in RADAR_ROW_Y):
+                return
+            day = _radar_day(cx, w)
+            today = datetime.now().strftime("%Y-%m-%d")
+            points = kanban_plot_data(self.todos, today)["points"]
+            cands = radar_hit(points, day, RADAR_ROW_Y[cy])
+            if not cands:
+                return
+            if len(cands) == 1:
+                todo = self.store.by_id(cands[0])
+                if todo is not None:
+                    self._open_detail_for(todo)
+                return
+            by_id = {t.id: t for t in self.todos}
+            rows = [
+                (tid, by_id[tid].title, _radar_horizon(by_id[tid], today))
+                for tid in cands
+                if tid in by_id
+            ]
+            if len(rows) == 1:
+                self._open_detail_for(by_id[rows[0][0]])
+            elif rows:
+                self.push_screen(RadarPickScreen(rows), self._on_radar_pick)
+        except Exception:
+            pass
+
+    def _on_radar_pick(self, choice: int | None) -> None:
+        if choice is None:
+            return
+        try:
+            todo = self.store.by_id(choice)
+            if todo is not None:
+                self._open_detail_for(todo)
+        except Exception:
+            pass
 
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
         # TextArea a altezza fissa resta indietro di una riga: forza il
@@ -1570,13 +1776,25 @@ class TodoApp(App):
         self.push_screen(KanbanScreen(self.todos))
 
     def action_toggle_kanban(self) -> None:
-        bar = self.query_one("#kanban-bar", Static)
-        bar.set_class(not bar.has_class("hidden"), "hidden")
-        self.config["kanban_visible"] = not bar.has_class("hidden")
+        order = (
+            ("grafico", "testo", "nascosto")
+            if PlotextPlot is not None
+            else ("testo", "nascosto")
+        )
+        try:
+            mode = order[(order.index(self._kanban_mode()) + 1) % len(order)]
+        except ValueError:
+            mode = order[0]
+        self.config["kanban_mode"] = mode
+        self.config["kanban_visible"] = mode != "nascosto"
         self._save_config()
-        if not bar.has_class("hidden"):
+        self._apply_kanban_mode()
+        if mode == "grafico":
             self._update_kanban()
             self.notify(T("n_kb_show"))
+        elif mode == "testo":
+            self._update_kanban()
+            self.notify(T("n_kb_text"))
         else:
             self.notify(T("n_kb_hide"))
 
@@ -2276,6 +2494,12 @@ class TodoApp(App):
                 return
             self.config["theme"] = result["theme"]
             self.config["kanban_visible"] = result["kanban_visible"]
+            if result["kanban_visible"]:
+                self.config["kanban_mode"] = (
+                    "grafico" if PlotextPlot is not None else "testo"
+                )
+            else:
+                self.config["kanban_mode"] = "nascosto"
             self.config["filter_state"] = result["filter_state"]
             self.config["daily_goal"] = result["daily_goal"]
             self.config["weekly_goal"] = result["weekly_goal"]
@@ -2292,9 +2516,8 @@ class TodoApp(App):
             self.POMO_LONG_EVERY = result["long_every"]
             self._save_pomodoro()
             try:
-                bar = self.query_one("#kanban-bar", Static)
-                bar.set_class(not result["kanban_visible"], "hidden")
-                if result["kanban_visible"]:
+                self._apply_kanban_mode()
+                if self._kanban_mode() != "nascosto":
                     self._update_kanban()
             except Exception:
                 pass
@@ -2372,8 +2595,7 @@ class TodoApp(App):
         if self.config.get("filter_state") in FILTER_STATES:
             self.filter_state = self.config["filter_state"]
         try:
-            bar = self.query_one("#kanban-bar", Static)
-            bar.set_class(not self.config.get("kanban_visible", True), "hidden")
+            self._apply_kanban_mode()
         except Exception:
             pass
         if self.focus_task_id is None:

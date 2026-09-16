@@ -183,7 +183,7 @@ def test_day_layout_terminale_piccolo(tmp_files):
 
 
 def test_theme_templateproject_impcsv_restore_layout_piccolo(tmp_files):
-    from src.screens.form import ThemeListScreen
+    from src.screens.form import RadarPickScreen, ThemeListScreen
     from src.screens.system import RestoreScreen
     from src.screens.views import ImportCsvScreen, TemplateProjectScreen
 
@@ -194,6 +194,12 @@ def test_theme_templateproject_impcsv_restore_layout_piccolo(tmp_files):
                 "theme-box",
                 "theme-close",
                 "theme-list",
+            ),
+            (
+                RadarPickScreen([(i, f"task-{i}", -i) for i in range(1, 9)]),
+                "pick-box",
+                "pick-close",
+                "pick-list",
             ),
             (
                 TemplateProjectScreen([(f"prog-{i}", i) for i in range(20)]),

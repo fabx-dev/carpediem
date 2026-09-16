@@ -26,6 +26,7 @@ __all__ = [
     "PasswordScreen",
     "PlanProposalScreen",
     "PomodoroScreen",
+    "RadarPickScreen",
     "RestoreScreen",
     "ReviewScreen",
     "SearchScreen",
@@ -51,6 +52,7 @@ from src.screens._shared import (
 from src.screens.form import (
     ConfirmScreen,
     NLHelpScreen,
+    RadarPickScreen,
     SearchScreen,
     StateChoiceScreen,
     ThemeListScreen,

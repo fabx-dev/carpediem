@@ -1,0 +1,278 @@
+"""Test radar scadenze: helper puri + pilot home (file isolati da conftest)."""
+
+from datetime import datetime, timedelta
+
+import pytest
+
+import src.app as app_module
+from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
+from src.lang import T
+from src.models import Priority
+from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
+
+TODAY = "2026-09-16"
+
+
+def test_vuoto():
+    d = kanban_plot_data([], TODAY)
+    assert d["points"] == []
+    assert (d["late"], d["open_ok"], d["closed7"], d["nodate"]) == (0, 0, 0, 0)
+    assert d["worst"] == []
+
+
+def test_misto():
+    todos = [
+        make_todo("ritardo-alta", todo_id=1, due="2026-09-07", priority=Priority.HIGH),
+        make_todo("ritardo-bassa", todo_id=2, due="2026-09-15", priority=Priority.LOW),
+        make_todo("futuro", todo_id=3, due="2026-09-20", priority=Priority.MEDIUM),
+        make_todo("senza-data", todo_id=4, priority=Priority.HIGH),
+        make_todo("chiuso-ieri", todo_id=5, done=True, completed_at="2026-09-15 10:00"),
+        make_todo(
+            "chiuso-vecchio", todo_id=6, done=True, completed_at="2026-08-01 10:00"
+        ),
+        make_todo("sub", todo_id=7, due="2026-09-01", parent_id=1),
+        make_todo("sospeso", todo_id=8, due="2026-09-10", paused=True),
+    ]
+    d = kanban_plot_data(todos, TODAY)
+    by_id = {p[0]: p for p in d["points"]}
+    assert set(by_id) == {1, 2, 3, 8}
+    assert by_id[1][1] == -9 and by_id[1][3] == "late"
+    assert by_id[3][1] == 4 and by_id[3][3] == "open"
+    assert d["late"] == 3 and d["open_ok"] == 1
+    assert d["closed7"] == 1 and d["nodate"] == 1
+    assert d["worst"] == [(1, -9), (8, -6)]
+    # fascia y per priorita' (modulo jitter deterministico)
+    assert 2.75 <= by_id[1][2] <= 3.25
+    assert 0.75 <= by_id[2][2] <= 1.25
+
+
+def test_cap_e_due_invalida():
+    todos = [
+        make_todo("lontano", todo_id=1, due="2027-01-01"),
+        make_todo("rotta", todo_id=2, due="31/02/2026"),
+    ]
+    d = kanban_plot_data(todos, TODAY)
+    by_id = {p[0]: p for p in d["points"]}
+    assert by_id[1][1] == RADAR_CAP
+    assert 2 not in by_id and d["nodate"] == 1
+
+
+def test_hash_cambia_con_mutazione():
+    t = make_todo("a", todo_id=1, due="2026-09-20")
+    h1 = kanban_plot_data([t], TODAY)["phash"]
+    assert kanban_plot_data([t], TODAY)["phash"] == h1
+    t2 = make_todo("a", todo_id=1, due="2026-09-21")
+    assert kanban_plot_data([t2], TODAY)["phash"] != h1
+
+
+def test_hit():
+    pts = [(12, -9.0, 3.1, "late"), (15, -9.0, 2.9, "late"), (18, 5.0, 1.0, "open")]
+    assert radar_hit(pts, -9.0, 3.0) == [12, 15]
+    assert radar_hit(pts, 5.0, 1.0) == [18]
+    assert radar_hit(pts, 0.0, 2.0) == []
+
+
+def test_geometria_plot_stabile(tmp_files, monkeypatch):
+    """Golden test (S0): se plotext sposta il layout, qui si rompe forte."""
+    plt_mod = pytest.importorskip("textual_plotext.plot")
+    import re
+
+    def canvas(width, pts):
+        monkeypatch.setenv("COLUMNS", str(width))
+        p = plt_mod.Plot()
+        app_module.TodoApp._draw_radar(
+            None, p, {"points": pts, "worst": [], "late": 0, "open_ok": 0}
+        )
+        p.plotsize(width, 5)
+        rows = re.sub(r"\x1b\[[0-9;]*m", "", p.build()).split("\n")
+        return rows
+
+    rows = canvas(80, [(7, -14, 2.0, "open")])
+    assert [c for c, ch in enumerate(rows[1]) if ch in "▗▖▝▘"] == [3]
+    rows = canvas(80, [(7, 14, 2.0, "open")])
+    assert [c for c, ch in enumerate(rows[1]) if ch in "▗▖▝▘"] == [77]
+    rows = canvas(80, [(7, 5, 2.0, "open")])
+    assert [c for c, ch in enumerate(rows[0]) if ch == "│"] == [40]
+    rows = canvas(80, [(7, 5, 3.2, "open")])
+    assert [c for c, ch in enumerate(rows[0]) if ch in "▗▖▝▘"] == [53]
+    rows = canvas(80, [(7, 5, 1.0, "open")])
+    assert [c for c, ch in enumerate(rows[3]) if ch in "▗▖▝▘"] == [53]
+    # formula inversa coerente entro mezza cella
+    assert abs(app_module._radar_day(3, 80) - (-14)) < 0.6
+    assert abs(app_module._radar_day(77, 80) - 14) < 0.6
+    assert abs(app_module._radar_day(40, 80)) < 0.6
+
+
+def _iso(days: int) -> str:
+    return (datetime.now().date() + timedelta(days=days)).strftime("%Y-%m-%d")
+
+
+def _radar_todos():
+    return [
+        make_todo("ritardo", todo_id=1, due=_iso(-9), priority=Priority.HIGH),
+        make_todo("aperto", todo_id=2, due=_iso(5), priority=Priority.MEDIUM),
+        make_todo("bassa", todo_id=3, due=_iso(-2), priority=Priority.LOW),
+    ]
+
+
+def test_mode_senza_dep_ricade_testo(tmp_files, monkeypatch):
+    monkeypatch.setattr(app_module, "PlotextPlot", None)
+    app = make_app(_radar_todos())
+    assert app._kanban_mode() == "testo"
+    app.config["kanban_mode"] = "grafico"
+    assert app._kanban_mode() == "testo"
+
+
+def test_grafico_senza_dati_ricade_testo(tmp_files):
+    pytest.importorskip("textual_plotext")
+
+    async def t():
+        app = make_app([make_todo("senza-data", todo_id=1)])
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(pilot, lambda: app._kanban_mode() == "testo")
+            assert app._kanban_mode() == "testo"
+            bar = app.query_one("#kanban-bar")
+            assert not bar.has_class("hidden")
+
+    run(t())
+
+
+def test_plot_widget_e_caption(tmp_files):
+    pytest.importorskip("textual_plotext")
+
+    async def t():
+        app = make_app(_radar_todos())
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(
+                pilot,
+                lambda: not app.query_one("#kanban-plot").has_class("hidden"),
+            )
+            assert app._kanban_mode() == "grafico"
+            texts = screen_texts(app)
+            assert T("radar_title") in texts
+            cap = T(
+                "radar_cap",
+                late=2,
+                ok=1,
+                worst=T("radar_worst_one", id=1, h=-9)
+                + " "
+                + T("radar_worst_one", id=3, h=-2),
+            )
+            assert cap in texts
+
+    run(t())
+
+
+def _click_col(app, horizon: float) -> tuple[int, int]:
+    plot = app.query_one("#kanban-plot")
+    w = plot.region.width
+    span = app_module._radar_span(w)
+    return round(w // 2 + horizon * span / 28), 0
+
+
+def test_click_apre_dettaglio(tmp_files, monkeypatch):
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "80")
+
+    async def t():
+        app = make_app(_radar_todos())
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(
+                pilot,
+                lambda: (
+                    app._kanban_mode() == "grafico" and app._last_plot_hash is not None
+                ),
+            )
+            col, row = _click_col(app, -9)
+            await pilot.click("#kanban-plot", offset=(col, row))
+            await wait_for(pilot, lambda: type(app.screen).__name__ == "DetailScreen")
+            assert type(app.screen).__name__ == "DetailScreen"
+            assert "ritardo" in screen_texts(app)
+
+    run(t())
+
+
+def test_click_vuoto_noop(tmp_files, monkeypatch):
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "80")
+
+    async def t():
+        app = make_app(_radar_todos())
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(
+                pilot,
+                lambda: (
+                    app._kanban_mode() == "grafico" and app._last_plot_hash is not None
+                ),
+            )
+            n = len(app.screen_stack)
+            await pilot.click("#kanban-plot", offset=(70, 4))
+            await pilot.pause()
+            await pilot.pause()
+            assert len(app.screen_stack) == n
+            assert type(app.screen).__name__ != "DetailScreen"
+
+    run(t())
+
+
+def test_click_multi_popup_e_scelta(tmp_files, monkeypatch):
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "80")
+
+    async def t():
+        todos = [
+            make_todo("primo", todo_id=1, due=_iso(-9), priority=Priority.HIGH),
+            make_todo("secondo", todo_id=2, due=_iso(-9), priority=Priority.HIGH),
+            make_todo("altro", todo_id=3, due=_iso(6), priority=Priority.LOW),
+        ]
+        app = make_app(todos)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(
+                pilot,
+                lambda: (
+                    app._kanban_mode() == "grafico" and app._last_plot_hash is not None
+                ),
+            )
+            col, row = _click_col(app, -9)
+            await pilot.click("#kanban-plot", offset=(col, row))
+            await wait_for(
+                pilot, lambda: type(app.screen).__name__ == "RadarPickScreen"
+            )
+            assert type(app.screen).__name__ == "RadarPickScreen"
+            texts = screen_texts(app)
+            assert "primo" in texts and "secondo" in texts
+            await pilot.press("enter")
+            await wait_for(pilot, lambda: type(app.screen).__name__ == "DetailScreen")
+            assert type(app.screen).__name__ == "DetailScreen"
+
+    run(t())
+
+
+def test_popup_esc_annulla(tmp_files, monkeypatch):
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "80")
+
+    async def t():
+        todos = [
+            make_todo("primo", todo_id=1, due=_iso(-9), priority=Priority.HIGH),
+            make_todo("secondo", todo_id=2, due=_iso(-9), priority=Priority.HIGH),
+            make_todo("altro", todo_id=3, due=_iso(6), priority=Priority.LOW),
+        ]
+        app = make_app(todos)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(
+                pilot,
+                lambda: (
+                    app._kanban_mode() == "grafico" and app._last_plot_hash is not None
+                ),
+            )
+            col, row = _click_col(app, -9)
+            await pilot.click("#kanban-plot", offset=(col, row))
+            await wait_for(
+                pilot, lambda: type(app.screen).__name__ == "RadarPickScreen"
+            )
+            await pilot.press("escape")
+            await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+            assert len(app.screen_stack) == 1
+
+    run(t())

@@ -746,6 +746,109 @@ class ThemeListScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+class RadarPickScreen(CloseMixin, ModalScreen[int | None]):
+    """Popup di scelta quando il click sul radar copre N task sovrapposti."""
+
+    CSS = """
+    #pick-box {
+        width: 60;
+        max-width: 90%;
+        height: 90%;
+        max-height: 90%;
+    }
+    #pick-title {
+        text-align: center;
+        text-style: bold;
+        color: $primary;
+        margin-bottom: 1;
+    }
+    #pick-list {
+        height: 1fr;
+        margin-bottom: 1;
+    }
+    #pick-list Button {
+        width: 100%;
+        min-width: 16;
+        height: 3;
+        margin-bottom: 0;
+        text-align: left;
+        content-align: left middle;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Chiudi"),
+        Binding("up", "cursor_up", "Su", show=False, priority=True),
+        Binding("down", "cursor_down", "Giu", show=False, priority=True),
+    ]
+
+    def __init__(self, rows: list[tuple[int, str, int]]) -> None:
+        """rows: (id, titolo, giorni-a-scadenza) gia' ordinati per vicinanza."""
+        super().__init__()
+        self.rows = rows
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="pick-box"):
+            yield Label(T("radar_pick_title"), id="pick-title")
+            with VerticalScroll(id="pick-list"):
+                for tid, title, h in self.rows:
+                    label = f"{T('radar_worst_one', id=tid, h=h)} {_escape_markup(title[:30])}"
+                    yield Button(label, id=f"pick-{tid}", variant="default")
+            yield Button(T("ui_close_esc"), id="pick-close", variant="default")
+
+    def on_mount(self) -> None:
+        try:
+            self.query("#pick-list Button").first().focus()
+        except Exception:
+            try:
+                self.query_one("#pick-close", Button).focus()
+            except Exception:
+                pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "pick-close":
+            self.dismiss(None)
+        elif bid.startswith("pick-"):
+            try:
+                self.dismiss(int(bid[len("pick-") :]))
+            except ValueError:
+                self.dismiss(None)
+
+    def _focusables(self) -> list[Button]:
+        try:
+            return [
+                *self.query("#pick-list Button"),
+                self.query_one("#pick-close", Button),
+            ]
+        except Exception:
+            return []
+
+    def _step_focus(self, delta: int) -> None:
+        items = self._focusables()
+        if not items:
+            return
+        cur = -1 if delta > 0 else 0
+        if isinstance(self.focused, Button):
+            try:
+                cur = items.index(self.focused)
+            except ValueError:
+                pass
+        try:
+            items[(cur + delta) % len(items)].focus()
+        except Exception:
+            pass
+
+    def action_cursor_up(self) -> None:
+        self._step_focus(-1)
+
+    def action_cursor_down(self) -> None:
+        self._step_focus(1)
+
+    def action_close(self) -> None:
+        self.dismiss(None)
+
+
 class SearchScreen(ModalScreen[str | None]):
     """Popup ricerca full-text con / ."""
 

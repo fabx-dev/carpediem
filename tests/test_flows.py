@@ -4,25 +4,40 @@ from datetime import datetime, timedelta
 
 from textual.widgets import Input
 
+import src.app as app_module
 import src.main as m
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 
 def test_kanban_visibile_e_toggle(tmp_files):
     async def t():
-        app = make_app([make_todo("A")])
+        app = make_app(
+            [
+                make_todo("A", todo_id=1, due="2026-01-10"),
+                make_todo("B", todo_id=2, due="2026-12-31"),
+            ]
+        )
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             bar = app.query_one("#pomodoro-bar")
             assert bar.has_class("hidden")
             kb = app.query_one("#kanban-bar")
-            assert not kb.has_class("hidden")
-            await pilot.press("b")
-            await pilot.pause()
-            assert kb.has_class("hidden")
-            await pilot.press("b")
-            await pilot.pause()
-            assert not kb.has_class("hidden")
+            order = (
+                ["grafico", "testo", "nascosto"]
+                if app_module.PlotextPlot is not None
+                else ["testo", "nascosto"]
+            )
+            start = app._kanban_mode()
+            assert start in order
+            assert kb.has_class("hidden") == (start != "testo")
+            idx = order.index(start)
+            for step in range(1, len(order) + 1):
+                await pilot.press("b")
+                await pilot.pause()
+                expected = order[(idx + step) % len(order)]
+                assert app._kanban_mode() == expected
+                assert kb.has_class("hidden") == (expected != "testo")
+                assert app.config["kanban_visible"] == (expected != "nascosto")
 
     run(t())
 
