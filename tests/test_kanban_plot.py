@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+from textual.widgets import Button
 
 import src.app as app_module
 from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
@@ -57,6 +58,22 @@ def test_cap_e_due_invalida():
     assert 2 not in by_id and d["nodate"] == 1
 
 
+def test_id_none_e_done_senza_data_esclusi():
+    todos = [
+        make_todo("noid", todo_id=None, due="2026-09-10"),
+        make_todo("chiuso-senza-data", todo_id=2, done=True),
+        make_todo("ok", todo_id=3, due="2026-09-10"),
+    ]
+    d = kanban_plot_data(todos, TODAY)  # senza TypeError su id misti
+    assert {p[0] for p in d["points"]} == {3}
+    assert d["closed7"] == 0
+
+
+def test_today_invalida():
+    with pytest.raises(ValueError):
+        kanban_plot_data([], "xx")
+
+
 def test_hash_cambia_con_mutazione():
     t = make_todo("a", todo_id=1, due="2026-09-20")
     h1 = kanban_plot_data([t], TODAY)["phash"]
@@ -101,6 +118,21 @@ def test_geometria_plot_stabile(tmp_files, monkeypatch):
     assert abs(app_module._radar_day(3, 80) - (-14)) < 0.6
     assert abs(app_module._radar_day(77, 80) - 14) < 0.6
     assert abs(app_module._radar_day(40, 80)) < 0.6
+
+
+def test_geometria_plot_120(tmp_files, monkeypatch):
+    plt_mod = pytest.importorskip("textual_plotext.plot")
+    import re
+
+    monkeypatch.setenv("COLUMNS", "120")
+    p = plt_mod.Plot()
+    app_module.TodoApp._draw_radar(
+        None, p, {"points": [(7, 5, 2.0, "open")], "worst": []}
+    )
+    p.plotsize(120, 5)
+    rows = re.sub(r"\x1b\[[0-9;]*m", "", p.build()).split("\n")
+    assert len(rows[0]) == 120
+    assert [c for c, ch in enumerate(rows[0]) if ch == "│"] == [60]
 
 
 def _iso(days: int) -> str:
@@ -239,11 +271,127 @@ def test_click_multi_popup_e_scelta(tmp_files, monkeypatch):
                 pilot, lambda: type(app.screen).__name__ == "RadarPickScreen"
             )
             assert type(app.screen).__name__ == "RadarPickScreen"
-            texts = screen_texts(app)
-            assert "primo" in texts and "secondo" in texts
+            labels = [str(b.label) for b in app.screen.query(Button)]
+            assert any("primo" in str(lb) for lb in labels)
+            assert any("secondo" in str(lb) for lb in labels)
             await pilot.press("enter")
             await wait_for(pilot, lambda: type(app.screen).__name__ == "DetailScreen")
             assert type(app.screen).__name__ == "DetailScreen"
+
+    run(t())
+
+
+def test_doppio_click_un_solo_dettaglio(tmp_files, monkeypatch):
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "80")
+
+    async def t():
+        from types import SimpleNamespace
+
+        app = make_app(_radar_todos())
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(
+                pilot,
+                lambda: (
+                    app._kanban_mode() == "grafico" and app._last_plot_hash is not None
+                ),
+            )
+            col, row = _click_col(app, -9)
+            rx, ry, _, _ = app.query_one("#kanban-plot").region
+            ev = SimpleNamespace(screen_x=rx + col, screen_y=ry + row)
+            # Due click nella stessa cella senza pause: il secondo trova
+            # il modale e viene ignorato (mai due dettagli impilati).
+            app.on_click(ev)
+            app.on_click(ev)
+            await wait_for(pilot, lambda: type(app.screen).__name__ == "DetailScreen")
+            await pilot.pause()
+            details = [
+                s for s in app.screen_stack if type(s).__name__ == "DetailScreen"
+            ]
+            assert len(details) == 1
+
+    run(t())
+
+
+def test_doppio_enter_popup_un_solo_dettaglio(tmp_files, monkeypatch):
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "80")
+
+    async def t():
+        todos = [
+            make_todo("primo", todo_id=1, due=_iso(-9), priority=Priority.HIGH),
+            make_todo("secondo", todo_id=2, due=_iso(-9), priority=Priority.HIGH),
+            make_todo("altro", todo_id=3, due=_iso(6), priority=Priority.LOW),
+        ]
+        app = make_app(todos)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(
+                pilot,
+                lambda: (
+                    app._kanban_mode() == "grafico" and app._last_plot_hash is not None
+                ),
+            )
+            col, row = _click_col(app, -9)
+            await pilot.click("#kanban-plot", offset=(col, row))
+            await wait_for(
+                pilot, lambda: type(app.screen).__name__ == "RadarPickScreen"
+            )
+            pushed: list[str] = []
+            orig_push = app.push_screen
+
+            def spy(screen, *args, **kwargs):
+                pushed.append(type(screen).__name__)
+                return orig_push(screen, *args, **kwargs)
+
+            app.push_screen = spy  # type: ignore[method-assign]
+            await pilot.press("enter")
+            await pilot.press("enter")
+            await pilot.pause()
+            await pilot.pause()
+            # Un solo dettaglio (il secondo Enter chiude il dettaglio:
+            # comportamento preesistente della DetailScreen).
+            assert pushed.count("DetailScreen") == 1
+
+    run(t())
+
+
+def test_popup_id_duplicati_senza_crash(tmp_files):
+    from src.screens.form import RadarPickScreen
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            app.push_screen(
+                RadarPickScreen([(1, "a[/]x", -1), (1, "b", -2)]), lambda c: None
+            )
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "RadarPickScreen"
+            await pilot.press("escape")
+            await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+
+    run(t())
+
+
+def test_home_piccola_con_grafico(tmp_files, monkeypatch):
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "70")
+
+    async def t():
+        app = make_app(_radar_todos())
+        async with app.run_test(size=(70, 20)) as pilot:
+            await wait_for(
+                pilot,
+                lambda: (
+                    app._kanban_mode() == "grafico" and app._last_plot_hash is not None
+                ),
+            )
+            plot = app.query_one("#kanban-plot")
+            assert plot.region.height == 5
+            assert len(app._row_map) > 0
+            texts = screen_texts(app)
+            assert T("radar_title") in texts
 
     run(t())
 

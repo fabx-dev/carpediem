@@ -51,6 +51,17 @@ def test_config_roundtrip_e_fallback(tmp_files):
     assert m.load_config()["theme"] == "matrix"
 
 
+def test_kanban_mode_roundtrip_e_legacy(tmp_files):
+    m.save_config({"kanban_visible": True, "kanban_mode": "testo"})
+    assert m.load_config()["kanban_mode"] == "testo"
+    m.save_config({"kanban_visible": True, "kanban_mode": "bogus"})
+    assert m.load_config()["kanban_mode"] == "grafico"
+    m.CONFIG_FILE.write_text(json.dumps({"kanban_visible": False}))
+    assert m.load_config()["kanban_mode"] == "nascosto"
+    m.CONFIG_FILE.write_text(json.dumps({"kanban_visible": True}))
+    assert m.load_config()["kanban_mode"] == "grafico"
+
+
 def test_pomodoro_roundtrip_e_migrazione(tmp_files):
     m.save_pomodoro(
         {

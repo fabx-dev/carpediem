@@ -17,7 +17,7 @@ STATES = ("attivo", "in_sospeso", "completato")
 RADAR_CAP = 14
 RADAR_PRIO_Y = {"alta": 3.0, "media": 2.0, "bassa": 1.0}
 RADAR_HIT_DX = 1.0
-RADAR_HIT_DY = 0.75
+RADAR_HIT_DY = 0.45
 RADAR_MAX_CANDIDATES = 8
 
 
@@ -34,7 +34,10 @@ def kanban_plot_data(todos: list[TodoItem], today_str: str) -> dict:
     diventano punti (orizzonte in giorni cappato a +-RADAR_CAP, serie
     late/open dallo scarto non cappato), gli aperti senza/invalida scadenza
     finiscono in `nodate`. `worst` = i 2 peggiori ritardi (id, giorni).
-    `phash` = firma per saltare i rebuild invariati (solo sessione)."""
+    `phash` = firma per saltare i rebuild invariati (solo sessione).
+    Note: item senza id e completati senza `completed_at` sono esclusi
+    (i primi non apribili, dei secondi si ignora la data); `today_str`
+    invalida solleva ValueError."""
     today = datetime.strptime(today_str, "%Y-%m-%d").date()
     week_ago = (today - timedelta(days=6)).strftime("%Y-%m-%d")
     points: list[tuple] = []
@@ -42,7 +45,7 @@ def kanban_plot_data(todos: list[TodoItem], today_str: str) -> dict:
     late_rows: list[tuple] = []
     sig: list[tuple] = []
     for t in todos:
-        if t.parent_id is not None:
+        if t.parent_id is not None or t.id is None:
             continue
         state = t.state
         sig.append((t.id, state, t.due, t.priority.value, (t.completed_at or "")[:10]))

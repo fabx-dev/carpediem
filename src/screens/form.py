@@ -791,9 +791,10 @@ class RadarPickScreen(CloseMixin, ModalScreen[int | None]):
         with Vertical(id="pick-box"):
             yield Label(T("radar_pick_title"), id="pick-title")
             with VerticalScroll(id="pick-list"):
-                for tid, title, h in self.rows:
+                for i, (tid, title, h) in enumerate(self.rows):
                     label = f"{T('radar_worst_one', id=tid, h=h)} {_escape_markup(title[:30])}"
-                    yield Button(label, id=f"pick-{tid}", variant="default")
+                    # id con indice: mai DuplicateIds con dati corrotti (id doppi).
+                    yield Button(label, id=f"pick-{i}", variant="default")
             yield Button(T("ui_close_esc"), id="pick-close", variant="default")
 
     def on_mount(self) -> None:
@@ -811,8 +812,8 @@ class RadarPickScreen(CloseMixin, ModalScreen[int | None]):
             self.dismiss(None)
         elif bid.startswith("pick-"):
             try:
-                self.dismiss(int(bid[len("pick-") :]))
-            except ValueError:
+                self.dismiss(self.rows[int(bid[len("pick-") :])][0])
+            except (ValueError, IndexError):
                 self.dismiss(None)
 
     def _focusables(self) -> list[Button]:

@@ -20,7 +20,7 @@ from src import crypto as _crypto
 from src import domain
 from src.commands import CarpeDiemMenuProvider, menu_categories
 from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
-from src.lang import T, prio_disp, rec_disp
+from src.lang import T, get_lang, prio_disp, rec_disp
 from src.models import (
     MAX_DEPTH,
     PRIORITY_ORDER,
@@ -96,7 +96,7 @@ from src.store import TodoStore
 PlotextPlot: Any
 try:
     from textual_plotext import PlotextPlot
-except ImportError:  # dipendenza opzionale: home ricade sul kanban testuale
+except Exception:  # dipendenza grafica: mai crash se manca/rotta, fallback testo
     PlotextPlot = None
 
 # Radar scadenze in home (strip-scatter priorita' x orizzonte, vedi spike
@@ -111,7 +111,7 @@ RADAR_MARKER = "hd"
 # tests/test_kanban_plot.py fallisce rumorosamente (mai misclick silenziosi).
 RADAR_SPAN_SLOPE = 0.9283
 RADAR_SPAN_OFF = -1.0
-RADAR_ROW_Y = {0: 3.0, 1: 2.3, 2: 1.6, 3: 1.0}
+RADAR_ROW_Y = {0: 3.05, 1: 2.35, 2: 1.6, 3: 0.95}
 
 
 def _radar_horizon(todo: TodoItem, today_str: str) -> int:
@@ -509,7 +509,7 @@ class TodoApp(App):
         self._row_map: list[TodoItem] = []
         self._undo_stack: list[list[TodoItem]] = []
         self._reminded: set[tuple] = set()
-        self._last_plot_hash: int | None = None
+        self._last_plot_hash: tuple | None = None
         self.focus_task_id: int | None = None
         self.focus_end: datetime | None = None
         self.focus_paused_secs: int | None = None
@@ -794,11 +794,12 @@ class TodoApp(App):
             if not data["points"]:
                 # Canvas vuoto senza assi: meglio il testo (mai plot muto).
                 self.config["kanban_mode"] = "testo"
+                self._last_plot_hash = None
                 self._save_config()
                 self._apply_kanban_mode()
                 self.query_one("#kanban-bar", Static).update(self._kanban_text())
                 return
-            if data["phash"] == getattr(self, "_last_plot_hash", None):
+            if (data["phash"], get_lang()) == getattr(self, "_last_plot_hash", None):
                 return
             plt_obj: Any = getattr(self.query_one("#kanban-plot"), "plt", None)
             if plt_obj is None:
@@ -807,7 +808,7 @@ class TodoApp(App):
             self.query_one("#kanban-plot").refresh()
             self.query_one("#kanban-title", Static).update(T("radar_title"))
             self.query_one("#kanban-cap", Static).update(self._radar_caption(data))
-            self._last_plot_hash = data["phash"]
+            self._last_plot_hash = (data["phash"], get_lang())
         except Exception:
             pass
 
@@ -1129,7 +1130,8 @@ class TodoApp(App):
     def _open_detail_for(self, todo: TodoItem) -> None:
         def on_detail(choice: str | None) -> None:
             if choice == "edit":
-                self._open_edit_form(todo, reopen_detail=True)
+                fresh = self.store.by_id(todo.id) or todo
+                self._open_edit_form(fresh, reopen_detail=True)
 
         self.push_screen(DetailScreen(todo, self.todos), on_detail)
 
@@ -1189,6 +1191,9 @@ class TodoApp(App):
         if choice is None:
             return
         try:
+            # Guardia anti-doppio: doppio Enter/click -> un solo dettaglio.
+            if isinstance(self.screen, DetailScreen):
+                return
             todo = self.store.by_id(choice)
             if todo is not None:
                 self._open_detail_for(todo)
@@ -2494,12 +2499,14 @@ class TodoApp(App):
                 return
             self.config["theme"] = result["theme"]
             self.config["kanban_visible"] = result["kanban_visible"]
-            if result["kanban_visible"]:
+            if not result["kanban_visible"]:
+                self.config["kanban_mode"] = "nascosto"
+            elif self.config.get("kanban_mode") == "nascosto":
+                # Riacceso dai settings: default grafico, testo se senza plot.
+                # Se era gia' testo, resta testo (il checkbox e' solo on/off).
                 self.config["kanban_mode"] = (
                     "grafico" if PlotextPlot is not None else "testo"
                 )
-            else:
-                self.config["kanban_mode"] = "nascosto"
             self.config["filter_state"] = result["filter_state"]
             self.config["daily_goal"] = result["daily_goal"]
             self.config["weekly_goal"] = result["weekly_goal"]

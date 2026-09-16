@@ -461,6 +461,7 @@ CONFIG_FILE = _home() / ".todo_config.json"
 DEFAULT_CONFIG: dict = {
     "theme": "matrix",
     "kanban_visible": True,
+    "kanban_mode": "grafico",
     "filter_state": "attivo",
     "daily_goal": 5,
     "weekly_goal": 25,
@@ -490,6 +491,12 @@ def load_config() -> dict:
         cfg["theme"] = data["theme"].strip()
     if isinstance(data.get("kanban_visible"), bool):
         cfg["kanban_visible"] = data["kanban_visible"]
+    mode = data.get("kanban_mode")
+    if mode in ("grafico", "testo", "nascosto"):
+        cfg["kanban_mode"] = mode
+    elif isinstance(data.get("kanban_visible"), bool):
+        # Retrocompat: vecchie config con solo il bool.
+        cfg["kanban_mode"] = "grafico" if data["kanban_visible"] else "nascosto"
     if "filter_state" in data and data["filter_state"] in FILTER_STATES:
         cfg["filter_state"] = data["filter_state"]
     cfg["daily_goal"] = _clamp_int(data.get("daily_goal", 5), 5, 0, 100)
@@ -508,6 +515,9 @@ def save_config(cfg: dict) -> None:
     payload = {
         "theme": str(cfg.get("theme", DEFAULT_CONFIG["theme"])),
         "kanban_visible": bool(cfg.get("kanban_visible", True)),
+        "kanban_mode": cfg.get("kanban_mode")
+        if cfg.get("kanban_mode") in ("grafico", "testo", "nascosto")
+        else "grafico",
         "filter_state": cfg.get("filter_state")
         if cfg.get("filter_state") in FILTER_STATES
         else None,

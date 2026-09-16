@@ -3,6 +3,17 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.7.1] - 2026-09-16
+
+### Fixed
+- Radar chart mode (`b` cycle) is now persisted across restarts instead
+  of falling back to the chart every time
+- Radar click no longer stacks duplicate detail screens on fast double
+  clicks, and overlapping-task picker uses unique button ids
+- Click hit-test narrowed to the pointed band, detail reopen re-reads
+  the task from the store, settings no longer force text mode back to
+  chart, and tasks without id are skipped by the radar data
+
 ## [0.7.0] - 2026-09-16
 
 ### Added

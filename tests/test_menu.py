@@ -1,5 +1,6 @@
 """Test menu per funzioni (m): voci a sinistra, sottomenu a destra, filtro."""
 
+import src.app as app_module
 import src.commands as commands_module
 import src.lang as lang_module
 from src.lang import T
@@ -235,6 +236,34 @@ def test_frecce_ed_enter_da_tastiera(tmp_files):
             await pilot.pause()
             await pilot.pause()
             assert type(app.screen).__name__ == "Screen"
+
+    run(t())
+
+
+def test_voce_minikanban_avanza_ciclo(tmp_files):
+    async def t():
+        app = make_app([make_todo("A")])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            before = app._kanban_mode()
+            await _open_menu(pilot, app)
+            await pilot.press("down")
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.press("right")
+            await pilot.pause()
+            await pilot.pause()
+            assert getattr(app.screen.focused, "id", None) == "menu-item-1-0"
+            await pilot.press("enter")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "Screen"
+            order = (
+                ["grafico", "testo", "nascosto"]
+                if app_module.PlotextPlot is not None
+                else ["testo", "nascosto"]
+            )
+            assert app._kanban_mode() == order[(order.index(before) + 1) % len(order)]
 
     run(t())
 
