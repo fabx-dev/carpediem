@@ -72,6 +72,39 @@ def test_agenda_e_settimana_con_titoli_maligni(tmp_files):
     run(t())
 
 
+def test_note_multilinea_in_home_sono_monoriga(tmp_files):
+    """Prima del fix: la cella Note con a-capo interni troncava il contenuto
+    alla prima riga e lasciava la colonna a larghezza minima; il rendering
+    diventava instabile (si sistemava solo al passaggio del mouse)."""
+
+    async def t():
+        app = make_app(
+            [
+                make_todo(
+                    "Task uno",
+                    todo_id=1,
+                    notes="Prima riga\nSeconda riga",
+                )
+            ]
+        )
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            table = app.query_one("#todo-table")
+            row = table.get_row_at(0)
+            notes_datum = row[5]
+            assert "\n" not in notes_datum
+            assert "Prima riga" in notes_datum
+            assert "Seconda riga" in notes_datum
+            # la colonna Note si dimensiona sul preview completo, non sulla prima riga
+            notes_col_width = table.ordered_columns[5].content_width
+            assert notes_col_width > 10
+            # il testo mostrato unisce le righe col separatore " | " (niente a-capo)
+            assert notes_datum == "Prima riga | Seconda riga"
+
+    run(t())
+
+
 def test_toast_e_barra_con_testo_maligno(tmp_files):
     async def t():
         app = make_app([make_todo(EVIL, todo_id=1, tags=["a[/]b"])])

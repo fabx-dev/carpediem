@@ -934,7 +934,10 @@ class TodoApp(App):
         status = f"{_status(todo)}{' ○' if todo.state == 'attivo' else ' ◐' if todo.state == 'in_sospeso' else ' ●'}"
         priority_str = f"[{todo.priority.color}]{prio_disp(todo.priority.value)}[/]"
         raw_notes = (
-            todo.notes.replace("- [ ]", "☐").replace("- [x]", "☑").replace("- [X]", "☑")
+            todo.notes.replace("- [ ]", "☐")
+            .replace("- [x]", "☑")
+            .replace("- [X]", "☑")
+            .replace("\n", " | ")
         )
         notes_preview = (
             (raw_notes[:30] + "...") if len(raw_notes) > 30 else (raw_notes or "-")

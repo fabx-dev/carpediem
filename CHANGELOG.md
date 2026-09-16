@@ -3,6 +3,14 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.8.2] - 2026-09-16
+
+### Fixed
+- Multi-line notes are no longer truncated to their first line in the home
+  table: the preview now joins internal newlines with ` | `, so the Notes
+  column sizes to the full preview and stays stable (previously it collapsed
+  to a minimal width and only re-rendered correctly on mouse hover).
+
 ## [0.8.1] - 2026-09-16
 
 ### Fixed
