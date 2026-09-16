@@ -357,6 +357,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "nl_title_busy": "Svuota il titolo per inserire l'esempio.",
         "form_project_ph": "es: lavoro",
         "form_due_ph": "es: 2026-09-10 09:00, oggi, domani",
+        "form_due_cal": "Scegli data",
         "form_tags_ph": "es: lavoro,urgente",
         "form_stima": "Stima 🍅:",
         "form_stima_ph": "es: 4",
@@ -398,6 +399,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # Navigazione
         "nav_prev": "◀ Prec",
         "nav_next": "Succ ▶",
+        "cal_today": "Oggi",
         "week_title": "Settimana {a} - {b}",
         # Template
         "tpl_title": "[b]Template — Usa per creare i task[/b]",
@@ -969,6 +971,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "nl_title_busy": "Clear the title to insert the example.",
         "form_project_ph": "e.g. work",
         "form_due_ph": "e.g. 2026-09-10 09:00, today, tomorrow",
+        "form_due_cal": "Pick date",
         "form_tags_ph": "e.g. work,urgent",
         "form_stima": "Estimate 🍅:",
         "form_stima_ph": "e.g. 4",
@@ -1010,6 +1013,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # Navigation
         "nav_prev": "◀ Prev",
         "nav_next": "Next ▶",
+        "cal_today": "Today",
         "week_title": "Week {a} - {b}",
         # Templates
         "tpl_title": "[b]Templates — Use to create tasks[/b]",

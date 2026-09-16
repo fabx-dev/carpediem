@@ -352,6 +352,18 @@ Regole dure:
   caption con `radar_nodate` (solo se >0); `except` di `_update_kanban`
   loggato invece di `pass`. Lezione: un fallback che scrive la config deve
   avere il percorso di ritorno, altrimenti diventa preferenza fantasma.
+- **Calendario nel form (2026-09-16, fatto)**: il campo scadenza libero del
+  form ha un bottone `#due-cal-btn` che apre `CalendarPickScreen` (grid
+  mensile, frecce ‹/›/Oggi, giorno cliccabile, Esc annulla); al pick il form
+  imposta la data preservando l'orario gia' digitato (`_due_time_part`);
+  `#calpick-box/title/close` nei gruppi CSS condivisi; chiavi `form_due_cal`,
+  `cal_today`; `tests/test_form_date_picker.py` (6 test). Lezioni: le celle
+  del giorno devono essere `width:1fr` senza margini, altrimenti la riga
+  (7 celle ~49 col) sborda la griglia e i giorni a destra/clip non sono
+  cliccabili; `VerticalScroll` con `height:auto` + box auto non scrolla e
+  clippa — box ad altezza fissa (`25`) + grid `1fr`; a terminali piccoli il
+  bottone data resta sotto il fold del form (il layout test apre il picker
+  direttamente via `push_screen`, non col click).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

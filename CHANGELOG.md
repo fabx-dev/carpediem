@@ -3,6 +3,16 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.8.0] - 2026-09-16
+
+### Added
+- The due-date field in the task form now has a `📅` button that opens a
+  clickable monthly calendar (`CalendarPickScreen`) to pick a date instead of
+  typing it by hand. Picking a day sets `YYYY-MM-DD` and keeps any time
+  already typed, so you can still add `HH:MM` afterwards. The popup supports
+  `‹`/`›` month navigation, an `Oggi`/`Today` shortcut, arrow-key movement
+  and `Enter` to select; `Esc` cancels.
+
 ## [0.7.2] - 2026-09-16
 
 ### Fixed

@@ -1,6 +1,7 @@
 """Screen di input e dialoghi (form, esempi NL, conferme, stato, tema, ricerca). Dipendono solo da models/storage/lang/nlparse/plan/domain (+ _shared). Mai app."""
 
-from datetime import datetime
+import calendar
+from datetime import date, datetime
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -17,7 +18,9 @@ from textual.widgets import (
 
 from src.lang import (
     T,
+    days_short,
     get_lang,
+    months,
     prio_disp,
     rec_disp,
 )
@@ -25,6 +28,8 @@ from src.models import (
     Priority,
     Recurrence,
     TodoItem,
+    _due_date_part,
+    _due_time_part,
     _is_valid_date,
     _normalize_date,
 )
@@ -128,6 +133,22 @@ class TodoFormScreen(ModalScreen[dict | None]):
         height: auto;
         margin-left: 1;
     }
+    #due-row {
+        width: 100%;
+        height: 3;
+    }
+    #due-row Input {
+        width: 1fr;
+        height: 3;
+        margin-bottom: 0;
+    }
+    #due-cal-btn {
+        width: 8;
+        min-width: 8;
+        height: 3;
+        margin-left: 1;
+        margin-bottom: 0;
+    }
     #notes-textarea {
         height: 6;
         margin-bottom: 1;
@@ -191,7 +212,11 @@ class TodoFormScreen(ModalScreen[dict | None]):
                         )
                     with Vertical(id="col-due"):
                         yield Label(T("form_due"))
-                        yield Input(placeholder=T("form_due_ph"), id="due-input")
+                        with Horizontal(id="due-row"):
+                            yield Input(placeholder=T("form_due_ph"), id="due-input")
+                            yield Button(
+                                T("form_due_cal"), id="due-cal-btn", variant="default"
+                            )
                 with Horizontal(id="row-tags"):
                     with Vertical(id="col-tags"):
                         yield Label(T("form_tags"))
@@ -344,6 +369,24 @@ class TodoFormScreen(ModalScreen[dict | None]):
             self.dismiss(None)
         elif event.button.id == "save-btn":
             self._submit()
+        elif event.button.id == "due-cal-btn":
+            self._open_calendar()
+
+    def _open_calendar(self) -> None:
+        current = self.query_one("#due-input", Input).value.strip()
+        self.app.push_screen(CalendarPickScreen(initial=current), self._on_cal_pick)
+
+    def _on_cal_pick(self, picked: str | None) -> None:
+        if not picked:
+            return
+        time_part = _due_time_part(self.query_one("#due-input", Input).value.strip())
+        self.query_one("#due-input", Input).value = (
+            f"{picked} {time_part}" if time_part else picked
+        )
+        try:
+            self.query_one("#save-btn", Button).focus()
+        except Exception:
+            pass
 
     def _submit(self) -> None:
         title = self.query_one("#title-input", Input).value.strip()
@@ -392,6 +435,226 @@ class TodoFormScreen(ModalScreen[dict | None]):
                 "stima_pomo": stima,
             }
         )
+
+
+class CalendarPickScreen(ModalScreen[str | None]):
+    """Popup calendario mensile per scegliere la data di scadenza.
+
+    Ritorna "YYYY-MM-DD" (o None con Esc). Solo composizione: non tocca il
+    disco; il form applica la scelta al campo scadenza (orario preservato).
+    """
+
+    CSS = """
+    #calpick-box {
+        width: 46;
+        max-width: 95%;
+        height: 25;
+        max-height: 90%;
+    }
+    #calpick-title {
+        text-align: center;
+        text-style: bold;
+        color: $primary;
+        margin-bottom: 1;
+        height: auto;
+    }
+    #calpick-nav {
+        align: center middle;
+        margin-bottom: 1;
+        width: 100%;
+        height: 3;
+    }
+    #calpick-nav Button {
+        margin: 0 1;
+        width: 1fr;
+        min-width: 10;
+        height: 3;
+    }
+    #calpick-head {
+        width: 100%;
+        height: 1;
+        text-style: bold;
+        margin-bottom: 0;
+    }
+    #calpick-grid {
+        width: 100%;
+        height: 1fr;
+        margin-bottom: 1;
+    }
+    .calpick-row {
+        width: 100%;
+        height: 2;
+    }
+    .calpick-cell {
+        width: 1fr;
+        height: 2;
+        min-width: 0;
+        padding: 0;
+        margin: 0;
+    }
+    .calpick-empty {
+        width: 1fr;
+        height: 2;
+        min-width: 0;
+        margin: 0;
+    }
+    .calpick-today {
+        border: thick $warning;
+    }
+    .calpick-sel {
+        border: thick $primary;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Annulla"),
+        Binding("enter", "select", "Scegli", show=False),
+        Binding("left", "focus_prev", "Sinistra", show=False),
+        Binding("right", "focus_next", "Destra", show=False),
+        Binding("up", "focus_up", "Sopra", show=False),
+        Binding("down", "focus_down", "Sotto", show=False),
+    ]
+
+    def __init__(self, initial: str = "") -> None:
+        super().__init__()
+        self.selected = self._parse_initial(initial)
+        self.year = self.selected.year if self.selected else datetime.now().year
+        self.month = self.selected.month if self.selected else datetime.now().month
+
+    @staticmethod
+    def _parse_initial(value: str) -> date | None:
+        part = _due_date_part(value)
+        if not part:
+            return None
+        try:
+            return datetime.strptime(part, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    def compose(self) -> ComposeResult:
+        month_name = months()[self.month]
+        with Vertical(id="calpick-box"):
+            yield Label(f"[b]{month_name} {self.year}[/b]", id="calpick-title")
+            with Horizontal(id="calpick-nav"):
+                yield Button(T("nav_prev"), id="calpick-prev", variant="default")
+                yield Button(T("cal_today"), id="calpick-today", variant="default")
+                yield Button(T("nav_next"), id="calpick-next", variant="default")
+            yield Static(" ".join(f"{g:^3}" for g in days_short()), id="calpick-head")
+            with VerticalScroll(id="calpick-grid", can_focus=False):
+                today = datetime.now().date()
+                for week in calendar.Calendar(firstweekday=0).monthdayscalendar(
+                    self.year, self.month
+                ):
+                    with Horizontal(classes="calpick-row"):
+                        for day in week:
+                            if day == 0:
+                                yield Static("   ", classes="calpick-empty")
+                            else:
+                                yield self._day_button(day, today)
+            yield Button(T("ui_close_esc"), id="calpick-close", variant="default")
+
+    def _day_button(self, day: int, today: date) -> Button:
+        d = date(self.year, self.month, day)
+        classes = "calpick-cell"
+        if d == today:
+            classes += " calpick-today"
+        if self.selected and d == self.selected:
+            classes += " calpick-sel"
+        return Button(str(day), id=f"calpick-day-{day}", classes=classes)
+
+    def _days(self) -> list[int]:
+        return [d for d in range(1, 32) if self._valid(d)]
+
+    def _valid(self, day: int) -> bool:
+        try:
+            date(self.year, self.month, day)
+            return True
+        except ValueError:
+            return False
+
+    def _focus_index(self) -> int:
+        f = self.focused
+        cur = f.id if f is not None else None
+        days = self._days()
+        if cur and cur.startswith("calpick-day-"):
+            try:
+                return days.index(int(cur[len("calpick-day-") :]))
+            except (ValueError, IndexError):
+                pass
+        if self.selected and self.selected.year == self.year:
+            try:
+                return days.index(self.selected.day)
+            except ValueError:
+                pass
+        return days.index(datetime.now().day) if datetime.now().day in days else 0
+
+    def _focus_day(self, idx: int) -> None:
+        days = self._days()
+        idx = max(0, min(idx, len(days) - 1))
+        try:
+            self.query_one(f"#calpick-day-{days[idx]}", Button).focus()
+        except Exception:
+            pass
+
+    def _shift(self, delta: int) -> None:
+        self._focus_day(self._focus_index() + delta)
+
+    def action_focus_prev(self) -> None:
+        self._shift(-1)
+
+    def action_focus_next(self) -> None:
+        self._shift(1)
+
+    def action_focus_up(self) -> None:
+        self._shift(-7)
+
+    def action_focus_down(self) -> None:
+        self._shift(7)
+
+    def action_select(self) -> None:
+        f = self.focused
+        if f is not None and f.id and f.id.startswith("calpick-day-"):
+            self._dismiss_day(int(f.id[len("calpick-day-") :]))
+
+    def _dismiss_day(self, day: int) -> None:
+        try:
+            self.dismiss(date(self.year, self.month, day).strftime("%Y-%m-%d"))
+        except ValueError:
+            self.dismiss(None)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "calpick-close":
+            self.dismiss(None)
+        elif bid == "calpick-prev":
+            self._shift_month(-1)
+        elif bid == "calpick-next":
+            self._shift_month(1)
+        elif bid == "calpick-today":
+            self._go_today()
+        elif bid.startswith("calpick-day-"):
+            self._dismiss_day(int(bid[len("calpick-day-") :]))
+
+    def _shift_month(self, delta: int) -> None:
+        self.month += delta
+        if self.month < 1:
+            self.month = 12
+            self.year -= 1
+        if self.month > 12:
+            self.month = 1
+            self.year += 1
+        self.refresh(recompose=True)
+
+    def _go_today(self) -> None:
+        self.year = datetime.now().year
+        self.month = datetime.now().month
+        self.refresh(recompose=True)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+    def on_mount(self) -> None:
+        self._focus_day(self._focus_index())
 
 
 class NLHelpScreen(CloseMixin, ModalScreen[None]):

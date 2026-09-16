@@ -334,7 +334,7 @@ class TodoApp(App):
     #tplp-box, #impcsv-box, #pomo-box, #kb-box, #detail-box, #day-box,
     #calendar-box, #plan-box, #goals-box, #stats-box, #keys-box, #set-box,
     #arc-box, #rst-box, #wel-box, #pw-box, #sec-box, #hea-box, #rev-box,
-    #menu-box, #workflow-box, #brief-box, #planp-box, #pick-box {
+    #menu-box, #workflow-box, #brief-box, #planp-box, #pick-box, #calpick-box {
         border: thick $primary;
         background: $surface;
         padding: 1 2;
@@ -342,7 +342,7 @@ class TodoApp(App):
     #agenda-title, #tpl-title, #tplc-title, #tplp-title, #impcsv-title, #goals-title,
     #keys-title, #set-title, #arc-title, #rst-title, #wel-title,
     #pw-title, #sec-title, #rev-title, #menu-title, #workflow-title,
-    #brief-title, #planp-title, #state-msg, #pick-title {
+    #brief-title, #planp-title, #state-msg, #pick-title, #calpick-title {
         text-align: center;
         text-style: bold;
         color: $primary;
@@ -357,7 +357,7 @@ class TodoApp(App):
         margin-top: 1;
     }
     #agenda-close, #week-close, #tplp-close, #keys-close, #rst-close, #hea-close,
-    #workflow-close, #brief-close {
+    #workflow-close, #brief-close, #calpick-close {
         width: 100%;
         min-width: 16;
         height: 3;
