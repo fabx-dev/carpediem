@@ -3,6 +3,18 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.7.2] - 2026-09-16
+
+### Fixed
+- Radar chart no longer gets stuck in text mode: the empty-chart fallback
+  is now transient (never written to config) and the chart reappears
+  automatically as soon as tasks with due dates exist. Explicit `b`/settings
+  choices are never overridden. Note: if your radar is stuck in text mode
+  from 0.7.0/0.7.1, press `b` once to restore the chart
+- Radar caption now shows the count of open tasks without a due date, so
+  additions without deadlines are visible too
+- Silent radar draw failures are now logged instead of swallowed
+
 ## [0.7.1] - 2026-09-16
 
 ### Fixed

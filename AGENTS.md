@@ -344,6 +344,14 @@ Regole dure:
   rimappa i nomi — "yellow" usciva viola); mapping cella→dato calibrato
   sullo spike con golden test che urla se plotext cambia geometria
   (zero sempre a w//2); tuple test con forma esatta `(tid,h,y,serie)`.
+- **Radar refresh perso (2026-09-16, fatto)**: il fallback grafico→testo a
+  radar vuoto scriveva `kanban_mode=testo` in config e non tornava mai
+  indietro (neanche ai nuovi task, neanche al restart) → ora il fallback e'
+  transitorio (`_kb_auto_text` in memoria, mai in config, auto-restore ai
+  punti) e solo le scelte esplicite (`b`, settings) scrivono la preferenza;
+  caption con `radar_nodate` (solo se >0); `except` di `_update_kanban`
+  loggato invece di `pass`. Lezione: un fallback che scrive la config deve
+  avere il percorso di ritorno, altrimenti diventa preferenza fantasma.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

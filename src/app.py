@@ -1,5 +1,6 @@
 """Applicazione TodoApp + tabella cliccabile."""
 
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -510,6 +511,10 @@ class TodoApp(App):
         self._undo_stack: list[list[TodoItem]] = []
         self._reminded: set[tuple] = set()
         self._last_plot_hash: tuple | None = None
+        # Fallback grafico->testo quando non ci sono punti: TRANSITORIO
+        # (mai scritto in config, si auto-ripristina ai primi punti).
+        # Solo le scelte esplicite (tasto b, settings) toccano kanban_mode.
+        self._kb_auto_text: bool = False
         self.focus_task_id: int | None = None
         self.focus_end: datetime | None = None
         self.focus_paused_secs: int | None = None
@@ -738,6 +743,10 @@ class TodoApp(App):
     def _apply_kanban_mode(self) -> None:
         """Mostra/nasconde i widget del mini-kanban secondo la modalita'."""
         mode = self._kanban_mode()
+        if mode == "grafico" and self._kb_auto_text:
+            # Fallback transitorio per radar vuoto: mostra il testo
+            # senza toccare la preferenza in config.
+            mode = "testo"
         try:
             self.query_one("#kanban-bar", Static).set_class(mode != "testo", "hidden")
         except Exception:
@@ -779,7 +788,10 @@ class TodoApp(App):
             if worst
             else T("radar_noworst")
         )
-        return T("radar_cap", late=data["late"], ok=data["open_ok"], worst=wtxt)
+        cap = T("radar_cap", late=data["late"], ok=data["open_ok"], worst=wtxt)
+        if data["nodate"]:
+            cap += T("radar_nodate", n=data["nodate"])
+        return cap
 
     def _update_kanban(self) -> None:
         try:
@@ -793,12 +805,18 @@ class TodoApp(App):
             data = kanban_plot_data(self.todos, today)
             if not data["points"]:
                 # Canvas vuoto senza assi: meglio il testo (mai plot muto).
-                self.config["kanban_mode"] = "testo"
-                self._last_plot_hash = None
-                self._save_config()
-                self._apply_kanban_mode()
+                # Fallback transitorio: mai in config, auto-restore ai punti.
+                if not self._kb_auto_text:
+                    self._kb_auto_text = True
+                    self._last_plot_hash = None
+                    self._apply_kanban_mode()
                 self.query_one("#kanban-bar", Static).update(self._kanban_text())
                 return
+            if self._kb_auto_text:
+                # Ritornati i punti: esci dal fallback e ridisegna.
+                self._kb_auto_text = False
+                self._last_plot_hash = None
+                self._apply_kanban_mode()
             if (data["phash"], get_lang()) == getattr(self, "_last_plot_hash", None):
                 return
             plt_obj: Any = getattr(self.query_one("#kanban-plot"), "plt", None)
@@ -810,7 +828,7 @@ class TodoApp(App):
             self.query_one("#kanban-cap", Static).update(self._radar_caption(data))
             self._last_plot_hash = (data["phash"], get_lang())
         except Exception:
-            pass
+            logging.getLogger(__name__).exception("radar draw failed")
 
     def _get_parents(self) -> list[TodoItem]:
         ids = {t.id for t in self.todos}
@@ -1790,6 +1808,7 @@ class TodoApp(App):
             mode = order[(order.index(self._kanban_mode()) + 1) % len(order)]
         except ValueError:
             mode = order[0]
+        self._kb_auto_text = False  # scelta esplicita: chiude ogni fallback
         self.config["kanban_mode"] = mode
         self.config["kanban_visible"] = mode != "nascosto"
         self._save_config()
@@ -2499,6 +2518,7 @@ class TodoApp(App):
                 return
             self.config["theme"] = result["theme"]
             self.config["kanban_visible"] = result["kanban_visible"]
+            self._kb_auto_text = False  # scelta esplicita: chiude ogni fallback
             if not result["kanban_visible"]:
                 self.config["kanban_mode"] = "nascosto"
             elif self.config.get("kanban_mode") == "nascosto":

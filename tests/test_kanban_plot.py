@@ -161,8 +161,10 @@ def test_grafico_senza_dati_ricade_testo(tmp_files):
     async def t():
         app = make_app([make_todo("senza-data", todo_id=1)])
         async with app.run_test(size=(80, 24)) as pilot:
-            await wait_for(pilot, lambda: app._kanban_mode() == "testo")
-            assert app._kanban_mode() == "testo"
+            await wait_for(pilot, lambda: app._kb_auto_text)
+            # Fallback transitorio: la preferenza resta grafico.
+            assert app._kanban_mode() == "grafico"
+            assert app.config["kanban_mode"] == "grafico"
             bar = app.query_one("#kanban-bar")
             assert not bar.has_class("hidden")
 
@@ -424,3 +426,66 @@ def test_popup_esc_annulla(tmp_files, monkeypatch):
             assert len(app.screen_stack) == 1
 
     run(t())
+
+
+def test_fallback_transitorio_e_auto_restore(tmp_files, monkeypatch):
+    """DB senza punti: testo transitorio MAI persistito; ai punti torna il grafico."""
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "80")
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(pilot, lambda: app._kb_auto_text)
+            # La preferenza resta grafico: nessun downgrade scritto in config.
+            assert app._kanban_mode() == "grafico"
+            assert app.config["kanban_mode"] == "grafico"
+            assert app.query_one("#kanban-plot").has_class("hidden")
+            # Aggiunta con scadenza: il grafico torna da solo, senza tasti.
+            app.store.add(make_todo("nuovo", todo_id=1, due=_iso(-9)))
+            app._populate_table()
+            await wait_for(pilot, lambda: not app._kb_auto_text)
+            assert app._kanban_mode() == "grafico"
+            assert not app.query_one("#kanban-plot").has_class("hidden")
+            assert "#1" in screen_texts(app)
+
+    run(t())
+
+
+def test_testo_esplicito_resta_testo(tmp_files, monkeypatch):
+    """Scelta esplicita testo: le nuove scadenze non riaccendono il grafico."""
+    pytest.importorskip("textual_plotext")
+    monkeypatch.setenv("COLUMNS", "80")
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(pilot, lambda: app._kb_auto_text)
+            app.action_toggle_kanban()  # grafico -> testo esplicito
+            await pilot.pause()
+            assert app.config["kanban_mode"] == "testo"
+            assert not app._kb_auto_text
+            app.store.add(make_todo("nuovo", todo_id=1, due=_iso(-9)))
+            app._populate_table()
+            await pilot.pause()
+            await pilot.pause()
+            assert app.config["kanban_mode"] == "testo"
+            assert not app._kb_auto_text
+            assert app.query_one("#kanban-plot").has_class("hidden")
+
+    run(t())
+
+
+def test_caption_mostra_senza_data():
+    d = kanban_plot_data(
+        [
+            make_todo("nodate", todo_id=1),
+            make_todo("futuro", todo_id=2, due="2026-09-20"),
+        ],
+        TODAY,
+    )
+    assert d["nodate"] == 1
+    cap = app_module.TodoApp._radar_caption(None, d)
+    assert T("radar_nodate", n=1) in cap
+    d2 = kanban_plot_data([make_todo("futuro", todo_id=2, due="2026-09-20")], TODAY)
+    assert T("radar_nodate", n=1) not in app_module.TodoApp._radar_caption(None, d2)
