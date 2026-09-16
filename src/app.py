@@ -146,7 +146,6 @@ class ClickableDataTable(DataTable):
 
     async def _on_click(self, event) -> None:
         try:
-            self._set_hover_cursor(True)
             meta = getattr(event.style, "meta", {}) or {}
             if (
                 "row" in meta
@@ -156,6 +155,7 @@ class ClickableDataTable(DataTable):
             ):
                 row_index = meta["row"]
                 if 0 <= row_index < len(self.ordered_rows):
+                    self._set_hover_cursor(True)
                     self.move_cursor(row=row_index, scroll=True)
                     self.post_message(
                         self.RowSelected(
@@ -164,6 +164,10 @@ class ClickableDataTable(DataTable):
                     )
                     event.stop()
                     return
+            # Click su area vuota (fuori dalle righe): spegne l'hover cursor,
+            # che altrimenti terrebbe evidenziata l'ultima riga come in hover.
+            self._set_hover_cursor(False)
+            return
         except Exception:
             pass
         await super()._on_click(event)
@@ -927,6 +931,24 @@ class TodoApp(App):
         self.query_one("#stats-bar", Static).update(self._stats_text())
         self._update_kanban()
         self._update_pomodoro_bar()
+        self._sync_table_dimensions(table)
+
+    def _sync_table_dimensions(self, table: DataTable) -> None:
+        """Calcola dimensioni/larghezze del DataTable in modo SINCRONO.
+
+        Textual le calcola in _on_idle, cioe' DOPO il primo paint. Con il
+        message pump occupato dall'avvio (il render del radar plotext
+        allunga proprio quel giro) il primo frame esce con le colonne
+        compatte e nessun evento lo ridipinge finche' mouse o cambio tab.
+        Qui il calcolo avviene prima di qualunque paint."""
+        try:
+            table._update_dimensions(list(table.rows.keys()))
+            # calcolo fatto qui: l'idle non deve rifarlo (doppio passaggio)
+            table._require_update_dimensions = False
+            table._new_rows.clear()
+            table.refresh()
+        except Exception:
+            pass
 
     def _add_todo_rows(
         self, table: DataTable, todo: TodoItem, depth: int, prefix: str, is_last: bool

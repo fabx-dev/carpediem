@@ -368,6 +368,35 @@ Regole dure:
   📅 `width:4` con `tooltip` (label lunga clippata in `width:8`); a terminali
   piccoli il bottone data resta sotto il fold del form (il layout test apre
   il picker direttamente via `push_screen`, non col click).
+- **Primo paint tabella col radar (2026-09-16, fatto)**: aprendo l'app con
+  `kanban_mode=grafico` la tabella restava a colonne compatte e note
+  nascoste finche' un evento (mouse dentro, cambio tab) non ridipingevasi;
+  col mini-kanban (testo) mai — riportato su WSL/Windows Terminal,
+  irriproducibile in `run_test` e pty (console inchiodata/pump diverso).
+  Causa: Textual calcola larghezze/dimensioni del `DataTable` in `_on_idle`,
+  DOPO il primo paint, e `_populate_table` gira in `on_mount` con il pump
+  occupato dal `build()` del radar → il primo frame esce con dimensioni
+  provvisorie. Fix: `_sync_table_dimensions()` a fine populate chiama
+  `_update_dimensions(rows)` in modo SINCRONO, azzera
+  `_require_update_dimensions` e svuota `_new_rows` (evita il doppio
+  passaggio in idle). Lezione: il paint segue il pump, non le mutazioni —
+  qualsiasi widget il cui layout dipende da un calcolo lazy-on-idle va
+  finalizzato esplicitamente se qualcosa allunga l'avvio (es. un widget
+  pesante come il radar); in `run_test` il bug sparisce perche' la console
+  e' inchiodata a 80x25, non e' un controesame affidabile per il timing.
+- **Click su area grigia (2026-09-16, fatto)**: cliccare nello spazio vuoto
+  sotto le righe lasciava una riga evidenziata come in hover senza
+  selezionarla: `ClickableDataTable._on_click` chiamava
+  `_set_hover_cursor(True)` incondizionatamente e il delegate a
+  `super()._on_click` la riattivava (anche il base la chiama sempre).
+  Fix: hover attivato SOLO nel ramo riga valida; su area vuota
+  `_set_hover_cursor(False)` + `return` (niente delegate, super non fa
+  nulla di utile con meta vuoto). Bug pre-esistente al radar, emerso nel
+  debugging. Test: `tests/test_home_table_hover.py` con evento `_Event`
+  minimale (`style.meta` + `stop()`) — in `run_test` `pilot.hover` produce
+  meta vuoto e non accende l'hover, quindi va invocato `_on_click` diretto.
+  Nota collegata: il toast di backup all'avvio si sovrappone all'area radar
+  (bug separato, non affrontato).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

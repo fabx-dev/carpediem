@@ -3,6 +3,19 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.8.3] - 2026-09-16
+
+### Fixed
+- The home table no longer opens with collapsed columns when the due-date
+  radar is active: Textual computes table dimensions on idle, i.e. after the
+  first paint, and the radar render lengthens that startup cycle — the first
+  frame stayed stale (compacted columns, notes hidden) until a mouse move or
+  a terminal tab switch forced a repaint. Dimensions are now computed
+  synchronously right after populating, so the first frame is already final.
+- Clicking on the empty area below the rows no longer leaves a row
+  highlighted as if hovered: the hover cursor is now enabled only when
+  clicking a real row and turned off on empty-area clicks.
+
 ## [0.8.2] - 2026-09-16
 
 ### Fixed
