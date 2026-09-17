@@ -471,10 +471,53 @@ DEFAULT_CONFIG: dict = {
     "reminder_min": 10,
     "sounds": True,
     "day_hours": 6,
+    "smart_lists": [],
 }
 
 
 FILTER_STATES = ("attivo", "in_sospeso", "completati", None)
+SMART_STATES = ("attivo", "in_sospeso", "completati", None)
+MAX_SMART_LISTS = 10
+
+
+def _validate_smart_lists(value) -> list[dict]:
+    """Normalizza smart_lists: AND di {state, tag, project, search}, max 10.
+
+    Entry senza nome o con tipi errati scartate; campi vuoti = wildcard;
+    tag/project/search in forma canonica strip+lower; state fuori
+    SMART_STATES -> None (wildcard). Mai solleva."""
+    if not isinstance(value, list):
+        return []
+    out: list[dict] = []
+    seen: set[str] = set()
+    for entry in value:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name", "") or "").strip()
+        if not name or name.lower() in seen:
+            continue
+        state = entry.get("state")
+        if state not in SMART_STATES:
+            state = None
+        tag = entry.get("tag")
+        tag = str(tag or "").strip().lower() or None
+        project = entry.get("project")
+        project = str(project or "").strip().lower() or None
+        search = entry.get("search")
+        search = str(search or "").strip().lower() or None
+        seen.add(name.lower())
+        out.append(
+            {
+                "name": name,
+                "state": state,
+                "tag": tag,
+                "project": project,
+                "search": search,
+            }
+        )
+        if len(out) >= MAX_SMART_LISTS:
+            break
+    return out
 
 
 def load_config() -> dict:
@@ -508,6 +551,7 @@ def load_config() -> dict:
     cfg["reminder_min"] = _clamp_int(data.get("reminder_min", 10), 10, 0, 120)
     cfg["sounds"] = bool(data.get("sounds", True))
     cfg["day_hours"] = _clamp_int(data.get("day_hours", 6), 6, 1, 16)
+    cfg["smart_lists"] = _validate_smart_lists(data.get("smart_lists", []))
     return cfg
 
 
@@ -528,6 +572,7 @@ def save_config(cfg: dict) -> None:
         "reminder_min": _clamp_int(cfg.get("reminder_min", 10), 10, 0, 120),
         "sounds": bool(cfg.get("sounds", True)),
         "day_hours": _clamp_int(cfg.get("day_hours", 6), 6, 1, 16),
+        "smart_lists": _validate_smart_lists(cfg.get("smart_lists", [])),
         "lang": str(cfg.get("lang", "auto")).lower()
         if str(cfg.get("lang", "auto")).lower() in ("auto", "it", "en")
         else "auto",

@@ -20,6 +20,7 @@ Regole (pesi = costanti in testa al modulo, ritoccabili senza refactor):
 
 from datetime import datetime
 
+from src.domain import CAL_CLAMP_MAX, CAL_CLAMP_MIN
 from src.models import Priority, _due_date_part
 
 OVERDUE_SCORE = 100
@@ -69,8 +70,22 @@ def _stale_days(project: str, todos: list, today) -> int | None:
     return age if age >= STALE_DAYS else None
 
 
-def _estimate(todo) -> int:
-    return int(todo.stima_pomo or 0) or DEFAULT_ESTIMATE
+def _estimate(todo, factor: float | None = None) -> int:
+    """Stima pomodori: base stima_pomo o DEFAULT; con factor, calibrata.
+
+    Il factor (da domain.calibration_factor) corregge senza riscrivere mai
+    la stima originale; clamp [0.5, 3.0] come in domain per coerenza."""
+    try:
+        base = int(todo.stima_pomo or 0) or DEFAULT_ESTIMATE
+    except (ValueError, TypeError):
+        base = DEFAULT_ESTIMATE
+    if factor is None:
+        return base
+    try:
+        f = max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, float(factor)))
+    except (ValueError, TypeError):
+        return base
+    return max(1, round(base * f))
 
 
 def plan_day(todos: list, today: str | None = None, hours: float = 6.0) -> list:

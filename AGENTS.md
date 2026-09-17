@@ -405,6 +405,22 @@ Regole dure:
   meta vuoto e non accende l'hover, quindi va invocato `_on_click` diretto.
   Nota collegata: il toast di backup all'avvio si sovrappone all'area radar
   (bug separato, non affrontato).
+- **Smart list + piano che impara, strato dati (2026-09-17, fatto, S0/S1)**:
+  `TodoItem.actual_pomo/actual_minutes` additivi (clamp ≥0, retrocompat),
+  `config["smart_lists"]` con `_validate_smart_lists` (max 10, dedup
+  case-insensitive, wildcard, mai solleva) in load E save (la whitelist di
+  `save_config` troncava le chiavi nuove: test round-trip su tutte le
+  `DEFAULT_CONFIG`); `domain.matches_smart/record_actual/calibration_factor`
+  (min 5 campioni, mediana, clamp 0.5–3.0, None sotto soglia)
+  + `calibrated_estimate` (mai <1, mai riscrive la stima);
+  `plan._estimate(todo, factor=None)` retrocompatibile (riusa le costanti di
+  domain, niente letterali duplicati); guardrail anti god-class
+  (`test_arch_purezza_no_import_app_ui`); comportamento filtri congelato
+  (stato persiste, resto volatile). Lezione review: `SMART_STATES` parla il
+  vocabolario filtri (`completati` plurale) ma `todo.state` è singolare —
+  `matches_smart` normalizza come `app._matches_state`, altrimenti match
+  silenzioso a zero. UI (S2 smart list, S3 actual) rimandata; niente bump
+  versione (strato invisibile).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

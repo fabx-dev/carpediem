@@ -110,3 +110,72 @@ def test_plan_add_remove_suspend():
     domain.plan_add(t, "2026-09-12")
     domain.plan_suspend(t)
     assert t.paused and t.planned_for == "2026-09-12"
+
+
+def test_matches_smart_and_e_wildcard():
+    t = make_todo("Bollette luce", todo_id=1, tags=["casa"], project="casa")
+    assert domain.matches_smart(t, {})
+    assert domain.matches_smart(t, {"state": "attivo"})
+    assert not domain.matches_smart(t, {"state": "completato"})
+    assert domain.matches_smart(t, {"tag": "CASA"})  # case-insensitive
+    assert not domain.matches_smart(t, {"tag": "lavoro"})
+    assert domain.matches_smart(t, {"project": "casa", "search": "bollette"})
+    assert not domain.matches_smart(t, {"project": "casa", "search": "gas"})
+    assert domain.matches_smart(t, "malformata")  # mai solleva
+    # Vocabolario filtri: "completati" (plurale) matcha lo stato "completato"
+    c = make_todo("Fatto", todo_id=2, done=True, completed_at="2026-09-12 10:00")
+    assert domain.matches_smart(c, {"state": "completati"})
+    assert domain.matches_smart(c, {"state": "completato"})
+    assert not domain.matches_smart(t, {"state": "completati"})
+
+
+def test_record_actual_clamp():
+    t = make_todo("X", todo_id=1)
+    domain.record_actual(t, 3, 75)
+    assert (t.actual_pomo, t.actual_minutes) == (3, 75)
+    domain.record_actual(t, -2, "xx")
+    assert (t.actual_pomo, t.actual_minutes) == (0, 0)
+
+
+def _done_with(actual: int, est: int, tid: int):
+    t = make_todo("X", todo_id=tid, stima_pomo=est)
+    t.done = True
+    t.completed_at = "2026-09-12 10:00"
+    t.actual_pomo = actual
+    return t
+
+
+def test_calibration_factor_min_campioni_e_mediana():
+    assert domain.calibration_factor([]) is None
+    pochi = [_done_with(4, 2, i) for i in range(1, 5)]
+    assert domain.calibration_factor(pochi) is None  # < 5 campioni
+    # 5 campioni x2.0 + 1 outlier x10 -> mediana x2.0, non media
+    tanti = [_done_with(4, 2, i) for i in range(1, 6)] + [_done_with(20, 2, 9)]
+    assert domain.calibration_factor(tanti) == pytest.approx(2.0)
+    # clamp: tutti x10 -> 3.0
+    alti = [_done_with(20, 2, i) for i in range(1, 7)]
+    assert domain.calibration_factor(alti) == pytest.approx(3.0)
+    # stime/actual a 0 ignorati
+    misti = [_done_with(0, 0, i) for i in range(1, 7)]
+    assert domain.calibration_factor(misti) is None
+
+
+def test_calibrated_estimate_mai_sotto_uno():
+    t = make_todo("X", todo_id=1, stima_pomo=2)
+    assert domain.calibrated_estimate(t, None) == (2, False)
+    assert domain.calibrated_estimate(t, 1.5) == (3, True)
+    assert domain.calibrated_estimate(t, 99.0) == (6, True)  # clamp 3.0
+    assert domain.calibrated_estimate(t, "xx") == (2, False)
+    t0 = make_todo("Y", todo_id=2)  # senza stima -> base 1
+    assert domain.calibrated_estimate(t0, 2.0) == (2, True)
+
+
+def test_arch_purezza_no_import_app_ui():
+    """Guardrail god-class: domain/plan/models mai verso app/screens/T()."""
+    import pathlib
+
+    for mod in ("domain", "plan", "models"):
+        src = pathlib.Path(f"src/{mod}.py").read_text(encoding="utf-8")
+        assert "from src.app" not in src and "import src.app" not in src
+        assert "from src.screens" not in src and "import src.screens" not in src
+        assert "from src.lang import" not in src or mod == "models"

@@ -235,3 +235,58 @@ def test_backup_retention(tmp_files, monkeypatch):
         m.create_backup()
     m.prune_snapshots(keep=2)
     assert len(m.list_snapshots()) == 2
+
+
+def test_config_roundtrip_tutte_le_chiavi(tmp_files):
+    """Guardrail whitelist: ogni chiave DEFAULT_CONFIG sopravvive a save/load."""
+    import src.storage as s
+
+    cfg = s.load_config()
+    for key in s.DEFAULT_CONFIG:
+        assert key in cfg, key
+    s.save_config(cfg)
+    back = s.load_config()
+    for key in s.DEFAULT_CONFIG:
+        assert key in back, key
+    # tag/progetto/ricerca restano volatili: mai persistiti in config
+    raw = json.loads(s.CONFIG_FILE.read_text(encoding="utf-8"))
+    assert "filter_tag" not in raw and "filter_project" not in raw
+    assert "filter_search" not in raw
+
+
+def test_smart_lists_validazione_e_roundtrip(tmp_files):
+    import src.storage as s
+
+    s.save_config(
+        {
+            **s.load_config(),
+            "smart_lists": [
+                {"name": "Lavoro", "state": "attivo", "tag": " Ufficio "},
+                {"name": "lavoro"},  # duplicato case-insensitive -> scartato
+                {"name": ""},  # senza nome -> scartato
+                {"name": "Bogus", "state": "domani"},  # stato ignoto -> wildcard
+                "non-dict",  # scartata
+            ],
+        }
+    )
+    back = s.load_config()["smart_lists"]
+    assert [(e["name"], e["tag"], e["state"]) for e in back] == [
+        ("Lavoro", "ufficio", "attivo"),
+        ("Bogus", None, None),
+    ]
+    # file vecchio senza chiave -> []
+    s.CONFIG_FILE.write_text(json.dumps({"theme": "matrix"}))
+    assert s.load_config()["smart_lists"] == []
+
+
+def test_actual_retrocompat_e_roundtrip(tmp_files):
+    vecchio = {"id": 1, "title": "A", "priority": "media"}
+    t = m.TodoItem.from_dict(vecchio)
+    assert (t.actual_pomo, t.actual_minutes) == (0, 0)
+    t.actual_pomo = 3
+    t.actual_minutes = 75
+    back = m.TodoItem.from_dict(t.to_dict())
+    assert (back.actual_pomo, back.actual_minutes) == (3, 75)
+    brutto = {"id": 2, "title": "B", "actual_pomo": -4, "actual_minutes": "xx"}
+    t2 = m.TodoItem.from_dict(brutto)
+    assert (t2.actual_pomo, t2.actual_minutes) == (0, 0)

@@ -14,6 +14,13 @@ from src.models import Recurrence, TodoItem, _due_date_part
 
 STATES = ("attivo", "in_sospeso", "completato")
 
+# Calibrazione locale stime ("piano che impara"): policy anti-rumore.
+# Minimo campioni per fidarsi, clamp del fattore, mediana (non media) per
+# resistere agli outlier. Mai riscrive stima_pomo: solo display in plan_day.
+CAL_MIN_SAMPLES = 5
+CAL_CLAMP_MIN = 0.5
+CAL_CLAMP_MAX = 3.0
+
 RADAR_CAP = 14
 RADAR_PRIO_Y = {"alta": 3.0, "media": 2.0, "bassa": 1.0}
 RADAR_HIT_DX = 1.0
@@ -198,3 +205,82 @@ def plan_remove(todo: TodoItem) -> None:
 def plan_suspend(todo: TodoItem) -> None:
     """Sospende un item pianificato (piano giorno)."""
     todo.paused = True
+
+
+def matches_smart(todo: TodoItem, spec: dict) -> bool:
+    """AND di {state, tag, project, search}; campo vuoto/None = wildcard.
+
+    Case-insensitive su tag/project/search; search su titolo+note+progetto+tag.
+    Spec malformata mai solleva: wildcard."""
+    try:
+        state = spec.get("state")
+    except AttributeError:
+        return True
+    if state is not None:
+        # Vocabolario filtri ("completati" plurale) -> stato modello (singolare),
+        # come app._matches_state: accetta entrambi, mai fallimenti silenziosi.
+        target = {"completati": "completato"}.get(state, state)
+        if todo.state != target:
+            return False
+    tag = spec.get("tag")
+    if tag and str(tag).strip().lower() not in [t.lower() for t in todo.tags]:
+        return False
+    project = spec.get("project")
+    if project and todo.project.lower() != str(project).strip().lower():
+        return False
+    search = spec.get("search")
+    if search:
+        q = str(search).strip().lower()
+        hay = " ".join([todo.title, todo.notes, todo.project, *todo.tags]).lower()
+        if q not in hay:
+            return False
+    return True
+
+
+def record_actual(todo: TodoItem, actual_pomo: int, actual_minutes: int = 0) -> None:
+    """Registra il tempo effettivo a completamento (clamp >= 0, int)."""
+    try:
+        todo.actual_pomo = max(0, int(actual_pomo or 0))
+    except (ValueError, TypeError):
+        todo.actual_pomo = 0
+    try:
+        todo.actual_minutes = max(0, int(actual_minutes or 0))
+    except (ValueError, TypeError):
+        todo.actual_minutes = 0
+
+
+def calibration_factor(todos: list[TodoItem]) -> float | None:
+    """Fattore mediano actual/stima sui completati con entrambi > 0.
+
+    None se campioni < CAL_MIN_SAMPLES; clamp [MIN, MAX] per non fidarsi
+    mai ciecamente di pochi dati o outlier estremi."""
+    ratios: list[float] = []
+    for t in todos:
+        try:
+            est = int(t.stima_pomo or 0)
+            act = int(t.actual_pomo or 0)
+        except (ValueError, TypeError):
+            continue
+        if t.state == "completato" and est > 0 and act > 0:
+            ratios.append(act / est)
+    if len(ratios) < CAL_MIN_SAMPLES:
+        return None
+    ratios.sort()
+    mid = len(ratios) // 2
+    median = ratios[mid] if len(ratios) % 2 else (ratios[mid - 1] + ratios[mid]) / 2
+    return max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, median))
+
+
+def calibrated_estimate(todo: TodoItem, factor: float | None) -> tuple[int, bool]:
+    """(stima_corretta, usata_calibrazione). Base = stima o 1 se assente."""
+    try:
+        base = int(todo.stima_pomo or 0) or 1
+    except (ValueError, TypeError):
+        base = 1
+    if factor is None:
+        return base, False
+    try:
+        f = max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, float(factor)))
+    except (ValueError, TypeError):
+        return base, False
+    return max(1, round(base * f)), True

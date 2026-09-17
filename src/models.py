@@ -167,6 +167,8 @@ class TodoItem:
         pomodoro_log: list[str] | None = None,
         stima_pomo: int = 0,
         plan_skip: str = "",
+        actual_pomo: int = 0,
+        actual_minutes: int = 0,
     ):
         self.id = todo_id
         self.title = title
@@ -190,6 +192,17 @@ class TodoItem:
             self.stima_pomo = max(0, int(stima_pomo or 0))
         except (ValueError, TypeError):
             self.stima_pomo = 0
+        # Tempo effettivo a completamento (pomodori + minuti reali).
+        # Indipendente da pomodoros/stima: file vecchi -> 0, mai sovrascritto
+        # dalla calibrazione (la calibrata resta solo display in plan_day).
+        try:
+            self.actual_pomo = max(0, int(actual_pomo or 0))
+        except (ValueError, TypeError):
+            self.actual_pomo = 0
+        try:
+            self.actual_minutes = max(0, int(actual_minutes or 0))
+        except (ValueError, TypeError):
+            self.actual_minutes = 0
         # Giorno YYYY-MM-DD in cui il task e' stato scartato dal piano smart
         # (proposta successiva lo mostra deselezionato; si azzera al cambio giorno).
         self.plan_skip = str(plan_skip or "")
@@ -234,6 +247,8 @@ class TodoItem:
             "pomodoro_log": self.pomodoro_log,
             "stima_pomo": self.stima_pomo,
             "plan_skip": self.plan_skip,
+            "actual_pomo": self.actual_pomo,
+            "actual_minutes": self.actual_minutes,
         }
 
     @classmethod
@@ -285,6 +300,8 @@ class TodoItem:
             pomodoro_log=data.get("pomodoro_log", []),
             stima_pomo=data.get("stima_pomo", 0),
             plan_skip=str(data.get("plan_skip", "") or ""),
+            actual_pomo=data.get("actual_pomo", 0),
+            actual_minutes=data.get("actual_minutes", 0),
         )
 
 
