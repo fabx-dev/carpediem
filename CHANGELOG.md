@@ -3,6 +3,16 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.8.4] - 2026-09-17
+
+### Fixed
+- The date-picker calendar in the task form clipped the highlighted day
+  number: the `thick` border on the today/selected cell consumed the
+  `1fr` cell's columns, so e.g. the 17th rendered as "1". On a narrow
+  terminal the selected cell's content collapsed to zero columns and the
+  renderer raised `ValueError`. Both highlights now use `outline` instead
+  of `border` — same thick frame look, zero layout space consumed.
+
 ## [0.8.3] - 2026-09-16
 
 ### Fixed

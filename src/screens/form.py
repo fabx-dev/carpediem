@@ -502,10 +502,10 @@ class CalendarPickScreen(ModalScreen[str | None]):
         margin: 0;
     }
     .calpick-today {
-        border: thick $warning;
+        outline: thick $warning;
     }
     .calpick-sel {
-        border: thick $primary;
+        outline: thick $primary;
     }
     """
 

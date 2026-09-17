@@ -368,6 +368,14 @@ Regole dure:
   📅 `width:4` con `tooltip` (label lunga clippata in `width:8`); a terminali
   piccoli il bottone data resta sotto il fold del form (il layout test apre
   il picker direttamente via `push_screen`, non col click).
+- **Picker: oggi troncato (2026-09-17, fatto, 0.8.4)**: la cella di oggi
+  mostrava "1" invece di "17" — `border: thick` su `.calpick-today` e
+  `.calpick-sel` (dentro il border-box) consuma le colonne della stretta
+  cella `1fr` (~5-6 col) e il contenuto a 2 cifre clippa; a terminale stretto la selezionata collassava
+  a 0 col e crashava il renderer (`ValueError` in `divide_line`). Fix:
+  `outline: thick` (stessa cornice visiva, zero spazio di layout) +
+  regression test con `render_lines` alla region reale (`b.render()` usa
+  la larghezza intrinseca e non vede il taglio).
 - **Primo paint tabella col radar (2026-09-16, fatto)**: aprendo l'app con
   `kanban_mode=grafico` la tabella restava a colonne compatte e note
   nascoste finche' un evento (mouse dentro, cambio tab) non ridipingevasi;

@@ -188,6 +188,62 @@ def test_picker_box_centrato(tmp_files):
     run(t())
 
 
+def _cell_text(screen, bid):
+    """Testo renderizzato alla dimensione reale di layout (non intrinseca).
+
+    b.render() usa la larghezza di contenuto e non vede il troncamento:
+    render_lines con la region reale sì (border/box consumano le colonne).
+    """
+    from textual.geometry import Region
+
+    b = screen.query_one(f"#{bid}")
+    lines = b.render_lines(Region(0, 0, b.region.width, b.region.height))
+    return "".join(s.text for s in lines)
+
+
+def test_picker_oggi_numero_intero(tmp_files):
+    """La cella di oggi deve mostrare il numero per intero.
+
+    Il bordo `thick` consumava le colonne della cella 1fr e "17" rendeva "1".
+    """
+    from src.screens.form import CalendarPickScreen
+
+    today = datetime.now().date()
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.push_screen(CalendarPickScreen(initial=""))
+            await pilot.pause()
+            await pilot.pause()
+            txt = _cell_text(app.screen, f"calpick-day-{today.day}")
+            assert str(today.day) in txt, txt
+
+    run(t())
+
+
+def test_picker_selezionato_terminale_stretto(tmp_files):
+    """Il giorno selezionato resta leggibile a terminale stretto.
+
+    Con `border: thick` il contenuto collassava a 0 colonne e il renderer
+    sollevava ValueError invece di mostrare il numero.
+    """
+    from src.screens.form import CalendarPickScreen
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(40, 24)) as pilot:
+            await pilot.pause()
+            app.push_screen(CalendarPickScreen(initial="2026-09-15"))
+            await pilot.pause()
+            await pilot.pause()
+            txt = _cell_text(app.screen, "calpick-day-15")
+            assert "15" in txt, txt
+
+    run(t())
+
+
 def test_picker_bottone_icona(tmp_files):
     async def t():
         app = make_app([])
