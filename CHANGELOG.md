@@ -3,6 +3,18 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.10.0] - 2026-09-17
+
+### Added
+- Actual time on completion: finishing a task with a pomodoro estimate asks
+  for the real pomodoros (pre-filled with the counted ones, live over/under
+  indicator, `Esc` skips, never asked without an estimate) from home and the
+  daily plan. Detail shows the actuals, stats shows the estimates-vs-actual
+  factor with sample count.
+- Learning planner: `Buongiorno` calibrates estimates with the local median
+  actual/estimate factor (min 5 samples, clamped, estimate never rewritten)
+  and shows a calibrated reason inline; capacity accounting uses it too.
+
 ## [0.9.0] - 2026-09-17
 
 ### Added

@@ -275,11 +275,8 @@ def validate_smart_name(name: str, lists: list[dict], max_n: int) -> tuple:
     return (True, "", {"n": clean})
 
 
-def calibration_factor(todos: list[TodoItem]) -> float | None:
-    """Fattore mediano actual/stima sui completati con entrambi > 0.
-
-    None se campioni < CAL_MIN_SAMPLES; clamp [MIN, MAX] per non fidarsi
-    mai ciecamente di pochi dati o outlier estremi."""
+def _calibration_ratios(todos: list[TodoItem]) -> list[float]:
+    """Rapporti actual/stima sui completati con entrambi > 0 (anti-rumore)."""
     ratios: list[float] = []
     for t in todos:
         try:
@@ -289,6 +286,23 @@ def calibration_factor(todos: list[TodoItem]) -> float | None:
             continue
         if t.state == "completato" and est > 0 and act > 0:
             ratios.append(act / est)
+    return ratios
+
+
+def calibration_samples(todos: list[TodoItem]) -> int:
+    """Quanti completati alimentano la calibrazione."""
+    try:
+        return len(_calibration_ratios(list(todos)))
+    except TypeError:
+        return 0
+
+
+def calibration_factor(todos: list[TodoItem]) -> float | None:
+    """Fattore mediano actual/stima sui completati con entrambi > 0.
+
+    None se campioni < CAL_MIN_SAMPLES; clamp [MIN, MAX] per non fidarsi
+    mai ciecamente di pochi dati o outlier estremi."""
+    ratios = _calibration_ratios(todos)
     if len(ratios) < CAL_MIN_SAMPLES:
         return None
     ratios.sort()

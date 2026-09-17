@@ -435,6 +435,19 @@ Regole dure:
   riga sia montata (`Horizontal(B1, B2)` via costruttore); le action async
   vanno attese (`await self.action_save()` in `on_button_pressed`,
   warning `never awaited` altrimenti).
+- **Tempo effettivo + piano che impara (2026-09-17, fatto, S3, 0.10.0)**:
+  `ActualScreen` dumb in `screens/form.py` (`ModalScreen[int|None]`, default =
+  contati, scarto live, `Esc` = None) chiamata da `app._apply_state` (home) e
+  `DailyPlanScreen._on_state_picked` (piano, via `push_screen`+callback, mai
+  chiesto senza stima o con actual già presente); persistenza resta del
+  chiamante (`record_actual` + commit/refresh); `plan_day(..., factor)` con
+  motivo `plan_calibrated` solo sui task stimati + capacità calibrata;
+  `PlanProposalScreen` passa `calibration_factor` globale (niente per-progetto:
+  media di mele e pere); `DetailScreen` riga actual, `StatsScreen` riga fattore
+  con `calibration_samples`; `tests/test_actual.py` (9 pilot) + unit factor in
+  `test_plan.py`. Lezione: validazione pure testabile senza DOM vale anche qui
+  (`_save_smart` precedent); gli hook duplicati home/piano condividono la
+  stessa popup dumb invece di un nuovo seam.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

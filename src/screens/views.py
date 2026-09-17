@@ -1102,7 +1102,14 @@ class DetailScreen(ModalScreen[str | None]):
                         f"{T('form_project')} [blue]{_escape_markup(self.todo.project)}[/]"
                     )
                 if self.todo.pomodoros or getattr(self.todo, "stima_pomo", 0):
-                    yield Label(f"{T('detail_pomo')} [red]{_pomo_label(self.todo)}[/]")
+                    pomo_txt = f"{T('detail_pomo')} [red]{_pomo_label(self.todo)}[/]"
+                    try:
+                        actual = int(getattr(self.todo, "actual_pomo", 0) or 0)
+                    except (ValueError, TypeError):
+                        actual = 0
+                    if actual > 0:
+                        pomo_txt += f" ({T('detail_actual', n=actual)})"
+                    yield Label(pomo_txt)
                 if self.todo.tags:
                     yield Label(
                         f"{T('form_tags')} "

@@ -158,6 +158,9 @@ def test_calibration_factor_min_campioni_e_mediana():
     # stime/actual a 0 ignorati
     misti = [_done_with(0, 0, i) for i in range(1, 7)]
     assert domain.calibration_factor(misti) is None
+    assert domain.calibration_samples([]) == 0
+    assert domain.calibration_samples(pochi) == 4
+    assert domain.calibration_samples(tanti) == 6
 
 
 def test_calibrated_estimate_mai_sotto_uno():

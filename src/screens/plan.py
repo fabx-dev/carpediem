@@ -395,6 +395,37 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             self.notify(T("n_recur", t=_escape_markup(new_todo.title), d=new_todo.due))
         self._refresh_keep(tid, section)
         self.notify(T("n_state", t=_escape_markup(todo.title), s=labels[choice]))
+        if choice == "completato":
+            self._ask_actual(tid, section)
+
+    def _ask_actual(self, tid, section: str | None) -> None:
+        """Chiede i pomodori reali dopo un completamento stimato (salta se no)."""
+        todo = self._todo_by_id(tid)
+        if todo is None:
+            return
+        try:
+            stima = int(todo.stima_pomo or 0)
+            actual = int(todo.actual_pomo or 0)
+            counted = int(todo.pomodoros or 0)
+        except (ValueError, TypeError):
+            return
+        if stima <= 0 or actual > 0:
+            return
+        from src.screens.form import ActualScreen
+
+        def on_actual(result: int | None) -> None:
+            if result is None:
+                return
+            target = self._todo_by_id(tid)
+            if target is None:
+                return
+            domain.record_actual(target, result)
+            self._refresh_keep(tid, section)
+            d = result - stima
+            sign = f"+{d}" if d > 0 else str(d)
+            self.notify(T("n_actual_saved", a=result, s=stima, d=sign))
+
+        self.app.push_screen(ActualScreen(todo.title, stima, counted), on_actual)
 
     def action_start_pomodoro(self) -> None:
         """o: avvia (o riapre) il pomodoro sul task evidenziato, come in home."""
@@ -637,7 +668,12 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.hours = max(1.0, float(hours))
         except (ValueError, TypeError):
             self.hours = 6.0
-        self.plan = plan_day(self.all_todos, today=self.today, hours=self.hours)
+        self.plan = plan_day(
+            self.all_todos,
+            today=self.today,
+            hours=self.hours,
+            factor=domain.calibration_factor(self.all_todos),
+        )
         # Semantica additiva: i gia' pianificati non si ripropongono (per
         # togliere c'e' il piano giorno con x). Restano nel computo capacita'.
         planned_ids = {

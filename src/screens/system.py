@@ -16,6 +16,7 @@ from textual.widgets import (
 )
 
 from src import crypto as _crypto
+from src import domain as _domain
 from src.lang import (
     T,
     days_short,
@@ -551,6 +552,16 @@ class StatsScreen(CloseMixin, ModalScreen[None]):
                 if pomo_undated:
                     yield Static(
                         T("stats_undated", n=pomo_undated), classes="stats-line"
+                    )
+                calib = _domain.calibration_factor(self.all_todos)
+                if calib is not None:
+                    yield Static(
+                        T(
+                            "stats_calib",
+                            f=f"x{calib:.1f}",
+                            n=_domain.calibration_samples(self.all_todos),
+                        ),
+                        classes="stats-line",
                     )
                 yield Label(T("stats_done14"), classes="stats-line")
                 yield Static(

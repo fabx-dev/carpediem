@@ -35,6 +35,7 @@ from src.models import (
     _status,
 )
 from src.screens import (
+    ActualScreen,
     AgendaScreen,
     ArchiveScreen,
     BriefingScreen,
@@ -341,7 +342,7 @@ class TodoApp(App):
     #calendar-box, #plan-box, #goals-box, #stats-box, #keys-box, #set-box,
     #arc-box, #rst-box, #wel-box, #pw-box, #sec-box, #hea-box, #rev-box,
     #menu-box, #workflow-box, #brief-box, #planp-box, #pick-box, #calpick-box,
-    #smart-box {
+    #smart-box, #actual-box {
         border: thick $primary;
         background: $surface;
         padding: 1 2;
@@ -350,7 +351,7 @@ class TodoApp(App):
     #keys-title, #set-title, #arc-title, #rst-title, #wel-title,
     #pw-title, #sec-title, #rev-title, #menu-title, #workflow-title,
     #brief-title, #planp-title, #state-msg, #pick-title, #calpick-title,
-    #smart-title {
+    #smart-title, #actual-title {
         text-align: center;
         text-style: bold;
         color: $primary;
@@ -1142,6 +1143,41 @@ class TodoApp(App):
             self.store.add(new_todo)
             self.notify(T("n_recur", t=_escape_markup(new_todo.title), d=new_todo.due))
         self._commit_refresh("n_state", t=_escape_markup(todo.title), s=labels[choice])
+        if choice == "completato":
+            self._ask_actual(todo)
+
+    def _ask_actual(self, todo: TodoItem) -> None:
+        """Chiede i pomodori reali dopo un completamento stimato (salta se no)."""
+        try:
+            stima = int(todo.stima_pomo or 0)
+            actual = int(todo.actual_pomo or 0)
+        except (ValueError, TypeError):
+            return
+        if stima <= 0 or actual > 0:
+            return
+
+        def on_actual(result: int | None) -> None:
+            if result is None:
+                return
+            target = next(
+                (t for t in self.todos if t.id == todo.id),
+                todo,
+            )
+            domain.record_actual(target, result)
+            d = result - stima
+            sign = f"+{d}" if d > 0 else str(d)
+            self._commit_refresh(
+                "n_actual_saved",
+                a=result,
+                s=stima,
+                d=sign,
+            )
+
+        try:
+            counted = int(todo.pomodoros or 0)
+        except (ValueError, TypeError):
+            counted = 0
+        self.push_screen(ActualScreen(todo.title, stima, counted), on_actual)
 
     def action_add_subtask(self) -> None:
         todo = self._get_selected_todo()

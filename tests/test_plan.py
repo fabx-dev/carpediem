@@ -165,3 +165,32 @@ def test_roundtrip_plan_skip():
     t2 = make_todo("Y", todo_id=2)
     assert t2.plan_skip == ""
     assert TodoItem.from_dict(t2.to_dict()).plan_skip == ""
+
+
+def test_factor_retrocompatibile_e_motivo():
+    import src.plan as plan_module
+
+    todos = [make_todo("E", todo_id=1, stima_pomo=2)]
+    assert "plan_calibrated" not in _reasons(plan_day(todos, TODAY), 1)
+    assert "plan_calibrated" not in _reasons(plan_day(todos, TODAY, factor="xx"), 1)
+    plan = plan_day(todos, TODAY, factor=2.0)
+    assert "plan_calibrated" in _reasons(plan, 1)
+    [[_i, _s, reasons]] = plan
+    assert ("plan_calibrated", {"f": "x2.0"}) in reasons
+    # senza stima: nessun motivo anche col factor
+    assert "plan_calibrated" not in _reasons(
+        plan_day([make_todo("N", todo_id=2)], TODAY, factor=2.0), 2
+    )
+    assert plan_module._estimate(todos[0], None) == 2
+    assert plan_module._estimate(todos[0], 2.0) == 4
+
+
+def test_factor_capacita_calibrata():
+    # 2 task da 2 stimati, capacita' 5: senza factor entrano, con x2.0 uno taglia
+    todos = [
+        make_todo("A", todo_id=1, stima_pomo=2),
+        make_todo("B", todo_id=2, stima_pomo=2),
+    ]
+    assert "plan_cut" not in _reasons(plan_day(todos, TODAY, hours=2.5), 2)
+    plan = plan_day(todos, TODAY, hours=2.5, factor=2.0)
+    assert "plan_cut" in _reasons(plan, 1) or "plan_cut" in _reasons(plan, 2)

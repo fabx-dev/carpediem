@@ -1177,3 +1177,121 @@ class SearchScreen(ModalScreen[str | None]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+
+class ActualScreen(CloseMixin, ModalScreen[int | None]):
+    """Tempo effettivo a completamento: chiede i pomodori reali (0-99).
+
+    Dumb popup: ritorna l'intero o None (salta). Chi chiama registra via
+    domain.record_actual e persiste. Mai chiesto se stima assente."""
+
+    CSS = """
+    #actual-box {
+        width: 60;
+        max-width: 95%;
+        height: auto;
+    }
+    #actual-info {
+        height: auto;
+        margin-bottom: 1;
+    }
+    #actual-input {
+        margin-bottom: 1;
+    }
+    #actual-diff {
+        height: auto;
+        margin-bottom: 1;
+    }
+    #actual-buttons {
+        width: 100%;
+        height: 3;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Salta"),
+        Binding("s", "save", "Salva", show=False),
+    ]
+
+    def __init__(self, title: str, stima: int, counted: int) -> None:
+        super().__init__()
+        self.todo_title = title
+        try:
+            self.stima = max(0, int(stima or 0))
+        except (ValueError, TypeError):
+            self.stima = 0
+        try:
+            self.counted = max(0, int(counted or 0))
+        except (ValueError, TypeError):
+            self.counted = 0
+
+    def _diff_text(self, actual: int) -> str:
+        d = actual - self.stima
+        if d == 0:
+            return T("actual_even")
+        if d > 0:
+            return T("actual_over", d=d)
+        return T("actual_under", d=d)
+
+    def _parse(self, raw: str) -> int | None:
+        try:
+            v = int((raw or "").strip())
+        except (ValueError, TypeError):
+            return None
+        return v if 0 <= v <= 99 else None
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="actual-box"):
+            yield Label(
+                T("actual_title", title=_escape_markup(self.todo_title)),
+                id="actual-title",
+            )
+            yield Static(
+                T("actual_info", s=self.stima, c=self.counted), id="actual-info"
+            )
+            yield Static(T("actual_hint"), id="actual-hint")
+            yield Input(value=str(self.counted or self.stima or 1), id="actual-input")
+            yield Static(
+                self._diff_text(self.counted or self.stima or 1), id="actual-diff"
+            )
+            with Horizontal(id="actual-buttons", classes="btn-row"):
+                yield Button(T("form_save"), id="actual-save", variant="default")
+                yield Button(T("form_cancel"), id="actual-skip", variant="default")
+
+    def on_mount(self) -> None:
+        try:
+            self.query_one("#actual-input", Input).focus()
+        except Exception:
+            pass
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "actual-input":
+            return
+        v = self._parse(event.value)
+        try:
+            self.query_one("#actual-diff", Static).update(
+                self._diff_text(v) if v is not None else T("actual_invalid")
+            )
+        except Exception:
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "actual-skip":
+            self.dismiss(None)
+        elif event.button.id == "actual-save":
+            self._save()
+
+    def action_save(self) -> None:
+        self._save()
+
+    def _save(self) -> None:
+        try:
+            raw = self.query_one("#actual-input", Input).value
+        except Exception:
+            raw = ""
+        v = self._parse(raw)
+        if v is None:
+            self.notify(T("actual_invalid"), severity="warning")
+            return
+        self.dismiss(v)

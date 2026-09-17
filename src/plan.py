@@ -88,10 +88,26 @@ def _estimate(todo, factor: float | None = None) -> int:
     return max(1, round(base * f))
 
 
-def plan_day(todos: list, today: str | None = None, hours: float = 6.0) -> list:
-    """Ordina i task attivi per la giornata con score, reasons e tagli."""
+def plan_day(
+    todos: list,
+    today: str | None = None,
+    hours: float = 6.0,
+    factor: float | None = None,
+) -> list:
+    """Ordina i task attivi per la giornata con score, reasons e tagli.
+
+    factor (da domain.calibration_factor): corregge le stime in capacita'
+    senza riscriverle; i task stimati mostrano il motivo plan_calibrated."""
     today_d = _parse_day(today or "") or datetime.now().date()
     today_s = today_d.strftime("%Y-%m-%d")
+    try:
+        calib = (
+            max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, float(factor)))
+            if factor is not None
+            else None
+        )
+    except (ValueError, TypeError):
+        calib = None
     try:
         capacity = max(0.0, float(hours)) / POMO_HOURS
     except (ValueError, TypeError):
@@ -129,6 +145,12 @@ def plan_day(todos: list, today: str | None = None, hours: float = 6.0) -> list:
         if planned:
             score += PLANNED_SCORE
             reasons.append(("plan_planned", {}))
+        try:
+            has_est = int(t.stima_pomo or 0) > 0
+        except (ValueError, TypeError):
+            has_est = False
+        if calib is not None and has_est:
+            reasons.append(("plan_calibrated", {"f": f"x{calib:.1f}"}))
         scored.append((t, score, reasons, mandatory))
     included: list[tuple] = []
     rest: list[tuple] = []
@@ -139,14 +161,14 @@ def plan_day(todos: list, today: str | None = None, hours: float = 6.0) -> list:
             skipped.append((t, score, [*reasons, ("plan_skipped", {})]))
         elif mandatory or t.planned_for == today_s:
             included.append((t, score, reasons))
-            used += _estimate(t)
+            used += _estimate(t, calib)
         else:
             rest.append((t, score, reasons))
     rest.sort(key=lambda e: (-e[1], _due_date_part(e[0].due) or "9999", e[0].id))
     for t, score, reasons in rest:
-        if used + _estimate(t) <= capacity:
+        if used + _estimate(t, calib) <= capacity:
             included.append((t, score, reasons))
-            used += _estimate(t)
+            used += _estimate(t, calib)
         else:
             included.append((t, score, [*reasons, ("plan_cut", {})]))
     skipped.sort(key=lambda e: (-e[1], _due_date_part(e[0].due) or "9999", e[0].id))
