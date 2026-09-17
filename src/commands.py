@@ -29,6 +29,7 @@ MENU_STRUCTURE: tuple = (
             ("menu_kbmini_t", "menu_kbmini_h", "action_toggle_kanban", "b"),
             ("menu_kbfull_t", "menu_kbfull_h", "action_view_kanban", "B"),
             ("menu_stats_t", "menu_stats_h", "action_view_stats", "k"),
+            ("menu_smart_t", "menu_smart_h", "action_open_smart_lists", None),
             ("menu_health_t", "menu_health_h", "action_view_health", "y"),
             ("menu_tpl_t", "menu_tpl_h", "action_new_from_template", "T"),
             ("menu_goals_t", "menu_goals_h", "action_edit_goals", None),

@@ -59,6 +59,7 @@ from src.screens import (
     SearchScreen,
     SecurityScreen,
     SettingsScreen,
+    SmartListScreen,
     StateChoiceScreen,
     StatsScreen,
     TemplateCreateScreen,
@@ -73,6 +74,7 @@ from src.screens import (
 from src.screens._shared import _escape_markup
 from src.storage import (
     FILTER_STATES,
+    MAX_SMART_LISTS,
     POMO_PHASE_PRESETS,
     POMO_PHASES,
     _backup_sources,
@@ -338,7 +340,8 @@ class TodoApp(App):
     #tplp-box, #impcsv-box, #pomo-box, #kb-box, #detail-box, #day-box,
     #calendar-box, #plan-box, #goals-box, #stats-box, #keys-box, #set-box,
     #arc-box, #rst-box, #wel-box, #pw-box, #sec-box, #hea-box, #rev-box,
-    #menu-box, #workflow-box, #brief-box, #planp-box, #pick-box, #calpick-box {
+    #menu-box, #workflow-box, #brief-box, #planp-box, #pick-box, #calpick-box,
+    #smart-box {
         border: thick $primary;
         background: $surface;
         padding: 1 2;
@@ -346,7 +349,8 @@ class TodoApp(App):
     #agenda-title, #tpl-title, #tplc-title, #tplp-title, #impcsv-title, #goals-title,
     #keys-title, #set-title, #arc-title, #rst-title, #wel-title,
     #pw-title, #sec-title, #rev-title, #menu-title, #workflow-title,
-    #brief-title, #planp-title, #state-msg, #pick-title, #calpick-title {
+    #brief-title, #planp-title, #state-msg, #pick-title, #calpick-title,
+    #smart-title {
         text-align: center;
         text-style: bold;
         color: $primary;
@@ -511,6 +515,9 @@ class TodoApp(App):
         self.filter_tag: str | None = None
         self.filter_project: str | None = None
         self.filter_search: str = ""
+        # Smart list attiva (solo etichetta: i filtri sopra restano la verita').
+        # Qualunque tocco manuale f/t/g// la sgancia (resta salvata in config).
+        self.active_smart: str | None = None
         self._row_map: list[TodoItem] = []
         self._undo_stack: list[list[TodoItem]] = []
         self._reminded: set[tuple] = set()
@@ -696,10 +703,13 @@ class TodoApp(App):
             or self.filter_tag is not None
             or getattr(self, "filter_project", None)
             or getattr(self, "filter_search", "")
+            or getattr(self, "active_smart", None)
         )
         if not active_filter:
             return f"{base} | {T('bar_all')}"
         parts = []
+        if getattr(self, "active_smart", None):
+            parts.append(T("smart_bar", n=_escape_markup(self.active_smart or "")))
         if self.filter_state is not None:
             parts.append(T("bar_filter", v=self.filter_state.replace("_", " ")))
         if self.filter_tag is not None:
@@ -1347,6 +1357,7 @@ class TodoApp(App):
         idx = order.index(self.filter_state)
         self.filter_state = order[(idx + 1) % len(order)]
         self.config["filter_state"] = self.filter_state
+        self.active_smart = None  # tocco manuale: la smart resta salvata
         self._save_config()
         self.notify(T("n_filter", v=labels[self.filter_state]))
         self._populate_table()
@@ -1357,6 +1368,7 @@ class TodoApp(App):
         self.filter_tag = None
         self.filter_project = None
         self.filter_search = ""
+        self.active_smart = None
         self.config["filter_state"] = None
         self._save_config()
         self._populate_table()
@@ -1374,6 +1386,7 @@ class TodoApp(App):
         except ValueError:
             idx = 0
         self.filter_tag = order[(idx + 1) % len(order)]
+        self.active_smart = None  # tocco manuale: la smart resta salvata
         if self.filter_tag is None:
             self.notify(T("n_ftag_all"))
         else:
@@ -1391,6 +1404,7 @@ class TodoApp(App):
         except ValueError:
             idx = 0
         self.filter_project = order[(idx + 1) % len(order)]
+        self.active_smart = None  # tocco manuale: la smart resta salvata
         self.notify(
             T("n_fproj_all")
             if self.filter_project is None
@@ -1403,6 +1417,7 @@ class TodoApp(App):
             if result is None:
                 return
             self.filter_search = result
+            self.active_smart = None  # tocco manuale: la smart resta salvata
             self.notify(
                 T("n_search_clear")
                 if not result
@@ -1411,6 +1426,84 @@ class TodoApp(App):
             self._populate_table()
 
         self.push_screen(SearchScreen(self.filter_search), on_submit)
+
+    def _smart_snapshot(self) -> str:
+        """Descrizione del filtro attuale per la SmartListScreen."""
+        parts = []
+        if self.filter_state is not None:
+            parts.append(self.filter_state.replace("_", " "))
+        if self.filter_tag is not None:
+            parts.append(f"#{self.filter_tag}")
+        if getattr(self, "filter_project", None):
+            parts.append(f"*{self.filter_project}")
+        if (getattr(self, "filter_search", "") or "").strip():
+            parts.append(f'"{self.filter_search.strip()}"')
+        if not parts:
+            return T("smart_snapshot_none")
+        return T("smart_snapshot", d=_escape_markup(", ".join(parts)))
+
+    def _apply_smart(self, name: str) -> bool:
+        """Applica la smart: imposta i 4 filtri esistenti + etichetta."""
+        spec = next(
+            (e for e in self.config.get("smart_lists", []) if e.get("name") == name),
+            None,
+        )
+        if spec is None:
+            return False
+        self.filter_state = spec.get("state")
+        self.filter_tag = spec.get("tag")
+        self.filter_project = spec.get("project")
+        self.filter_search = spec.get("search") or ""
+        self.active_smart = name
+        self.config["filter_state"] = self.filter_state
+        self._save_config()
+        self._populate_table()
+        self.notify(T("n_smart_applied", n=_escape_markup(name)))
+        return True
+
+    def _save_smart(self, name: str) -> tuple:
+        """Salva i filtri attuali come smart (nome, chiave, params, liste)."""
+        lists = self.config.get("smart_lists", [])
+        ok, key, params = domain.validate_smart_name(name, lists, MAX_SMART_LISTS)
+        if not ok:
+            return (False, key, params, lists)
+        name = (name or "").strip()
+        lists = [
+            *lists,
+            {
+                "name": name,
+                "state": self.filter_state,
+                "tag": self.filter_tag,
+                "project": self.filter_project,
+                "search": (self.filter_search or "").strip().lower() or None,
+            },
+        ]
+        self.config["smart_lists"] = lists
+        self.active_smart = name
+        self._save_config()
+        self._populate_table()
+        return (True, "n_smart_saved", {"n": name}, lists)
+
+    def _delete_smart(self, name: str) -> list:
+        lists = [e for e in self.config.get("smart_lists", []) if e.get("name") != name]
+        self.config["smart_lists"] = lists
+        if self.active_smart == name:
+            self.active_smart = None
+        self._save_config()
+        self._populate_table()
+        self.notify(T("n_smart_deleted", n=_escape_markup(name)))
+        return lists
+
+    def action_open_smart_lists(self) -> None:
+        self.push_screen(
+            SmartListScreen(
+                self.config.get("smart_lists", []),
+                self._smart_snapshot(),
+                self._apply_smart,
+                self._save_smart,
+                self._delete_smart,
+            )
+        )
 
     def action_view_week(self) -> None:
         today = datetime.now().date()
@@ -2553,6 +2646,7 @@ class TodoApp(App):
                     "grafico" if PlotextPlot is not None else "testo"
                 )
             self.config["filter_state"] = result["filter_state"]
+            self.active_smart = None  # cambio manuale: la smart resta salvata
             self.config["daily_goal"] = result["daily_goal"]
             self.config["weekly_goal"] = result["weekly_goal"]
             self.config["pomo_daily_goal"] = result["pomo_daily_goal"]

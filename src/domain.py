@@ -249,6 +249,32 @@ def record_actual(todo: TodoItem, actual_pomo: int, actual_minutes: int = 0) -> 
         todo.actual_minutes = 0
 
 
+def validate_smart_name(name: str, lists: list[dict], max_n: int) -> tuple:
+    """Valida il nome di una smart list: (ok, chiave_i18n, params).
+
+    Pura: l'app la usa prima di toccare config/DOM. Ordine: vuoto, duplicato
+    (case-insensitive), limite."""
+    clean = (name or "").strip()
+    if not clean:
+        return (False, "n_smart_empty_name", {})
+    try:
+        current = list(lists) if isinstance(lists, list) else []
+    except TypeError:
+        current = []
+    if any(
+        isinstance(e, dict) and str(e.get("name", "")).lower() == clean.lower()
+        for e in current
+    ):
+        return (False, "n_smart_dup", {"n": clean})
+    try:
+        limit = int(max_n)
+    except (ValueError, TypeError):
+        limit = 10
+    if len(current) >= limit:
+        return (False, "n_smart_full", {})
+    return (True, "", {"n": clean})
+
+
 def calibration_factor(todos: list[TodoItem]) -> float | None:
     """Fattore mediano actual/stima sui completati con entrambi > 0.
 

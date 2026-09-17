@@ -1393,3 +1393,217 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
             self.query_one("#calendar-close", Button).focus()
         except Exception:
             pass
+
+
+class SmartListScreen(CloseMixin, ModalScreen[None]):
+    """Filtri salvati: applica in un click, salva quello attuale, elimina."""
+
+    CSS = """
+    #smart-box {
+        width: 100;
+        max-width: 95%;
+        height: 90%;
+        max-height: 90%;
+    }
+    #smart-count {
+        height: auto;
+        margin-bottom: 1;
+    }
+    #smart-scroll {
+        height: 1fr;
+        margin-bottom: 1;
+    }
+    .smart-row {
+        height: 3;
+        margin-bottom: 1;
+    }
+    .smart-apply {
+        width: 1fr;
+        min-width: 14;
+        height: 3;
+    }
+    .smart-del {
+        width: 8;
+        min-width: 8;
+        height: 3;
+        margin-left: 1;
+    }
+    #smart-snapshot {
+        height: auto;
+        margin-bottom: 1;
+    }
+    #smart-name {
+        margin-bottom: 1;
+    }
+    #smart-legend {
+        height: auto;
+    }
+    #smart-buttons {
+        width: 100%;
+        height: 3;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Chiudi"),
+        Binding("s", "save", "Salva", show=False),
+        Binding("x", "delete_focused", "Elimina", show=False),
+    ]
+
+    def __init__(
+        self,
+        lists: list[dict],
+        snapshot: str,
+        on_apply,
+        on_save,
+        on_delete,
+    ) -> None:
+        super().__init__()
+        self._lists = list(lists)
+        self._snapshot = snapshot
+        self._on_apply = on_apply
+        self._on_save = on_save
+        self._on_delete = on_delete
+
+    @staticmethod
+    def spec_details(spec: dict) -> str:
+        """Descrizione breve della spec (niente []: va in label di Button)."""
+        parts = []
+        if spec.get("state"):
+            parts.append(str(spec["state"]))
+        if spec.get("tag"):
+            parts.append(f"#{spec['tag']}")
+        if spec.get("project"):
+            parts.append(f"*{spec['project']}")
+        if spec.get("search"):
+            parts.append(f'"{spec["search"]}"')
+        return ", ".join(parts)
+
+    def _row_label(self, spec: dict) -> str:
+        name = _escape_markup(str(spec.get("name", "")))
+        details = _escape_markup(self.spec_details(spec))
+        return f"{name} ({details})" if details else name
+
+    def _row_widgets(self) -> list:
+        widgets: list = []
+        for i, spec in enumerate(self._lists):
+            widgets.append(
+                Horizontal(
+                    Button(
+                        self._row_label(spec),
+                        id=f"smart-apply-{i}",
+                        variant="default",
+                        classes="smart-apply",
+                    ),
+                    Button(
+                        "x",
+                        id=f"smart-del-{i}",
+                        variant="default",
+                        classes="smart-del",
+                    ),
+                    classes="smart-row",
+                )
+            )
+        return widgets
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="smart-box"):
+            yield Label(T("smart_title"), id="smart-title")
+            yield Static(T("smart_count", n=len(self._lists)), id="smart-count")
+            with VerticalScroll(id="smart-scroll"):
+                with Vertical(id="smart-rows"):
+                    if self._lists:
+                        for w in self._row_widgets():
+                            yield w
+                    else:
+                        yield Static(T("smart_empty"), id="smart-empty")
+                if len(self._lists) >= 10:
+                    yield Static(T("smart_full"))
+                yield Static(self._snapshot, id="smart-snapshot")
+                yield Input(placeholder=T("smart_name_ph"), id="smart-name")
+            yield Static(T("smart_legend"), id="smart-legend")
+            with Horizontal(id="smart-buttons", classes="btn-row"):
+                yield Button(T("smart_save"), id="smart-save", variant="default")
+                yield Button(T("form_cancel"), id="smart-close", variant="default")
+
+    def on_mount(self) -> None:
+        try:
+            if self._lists:
+                self.query_one("#smart-apply-0", Button).focus()
+            else:
+                self.query_one("#smart-name", Input).focus()
+        except Exception:
+            pass
+
+    async def _refresh_rows(self) -> None:
+        try:
+            box = self.query_one("#smart-rows", Vertical)
+        except Exception:
+            return
+        await box.remove_children()
+        if self._lists:
+            await box.mount(*self._row_widgets())
+        else:
+            await box.mount(Static(T("smart_empty"), id="smart-empty"))
+        try:
+            self.query_one("#smart-count", Static).update(
+                T("smart_count", n=len(self._lists))
+            )
+        except Exception:
+            pass
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "smart-close":
+            self.dismiss()
+        elif bid == "smart-save":
+            await self.action_save()
+        elif bid.startswith("smart-apply-"):
+            try:
+                idx = int(bid.rsplit("-", 1)[1])
+                self._on_apply(self._lists[idx]["name"])
+            except (ValueError, IndexError, KeyError):
+                return
+            self.dismiss()
+        elif bid.startswith("smart-del-"):
+            try:
+                idx = int(bid.rsplit("-", 1)[1])
+                name = self._lists[idx]["name"]
+            except (ValueError, IndexError, KeyError):
+                return
+            self._lists = self._on_delete(name)
+            await self._refresh_rows()
+
+    async def action_save(self) -> None:
+        try:
+            name = self.query_one("#smart-name", Input).value.strip()
+        except Exception:
+            name = ""
+        ok, key, params, lists = self._on_save(name)
+        if ok:
+            self._lists = list(lists)
+            try:
+                self.query_one("#smart-name", Input).value = ""
+            except Exception:
+                pass
+            self.notify(T(key, **params))
+            await self._refresh_rows()
+        else:
+            self.notify(T(key, **params), severity="warning")
+
+    async def action_delete_focused(self) -> None:
+        try:
+            fid = getattr(self.focused, "id", "") or ""
+        except Exception:
+            return
+        for prefix in ("smart-apply-", "smart-del-"):
+            if fid.startswith(prefix):
+                try:
+                    idx = int(fid.rsplit("-", 1)[1])
+                    name = self._lists[idx]["name"]
+                except (ValueError, IndexError, KeyError):
+                    return
+                self._lists = self._on_delete(name)
+                await self._refresh_rows()
+                return

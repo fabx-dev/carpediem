@@ -3,6 +3,18 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.9.0] - 2026-09-17
+
+### Added
+- Saved smart lists: name the current home filter and reapply it in one
+  click from Menu (`Viste e analisi`) or the command palette. Applying sets
+  the existing state/tag/project/search filters and shows a `Smart:name`
+  label in the bar; any manual `f`/`t`/`g`/`/` touch detaches back to manual
+  filters (the list stays saved, max 10, names unique case-insensitively).
+- New `SmartListScreen` (fixed-frame layout holding at 70x20 and 80x24):
+  per-list apply/delete rows, current-filter snapshot, inline name input
+  with duplicate/full/empty validation, no new global keys.
+
 ## [0.8.4] - 2026-09-17
 
 ### Fixed

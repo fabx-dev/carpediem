@@ -170,6 +170,29 @@ def test_calibrated_estimate_mai_sotto_uno():
     assert domain.calibrated_estimate(t0, 2.0) == (2, True)
 
 
+def test_validate_smart_name():
+    base = [{"name": "Casa"}]
+    assert domain.validate_smart_name("  ", base, 10)[:2] == (
+        False,
+        "n_smart_empty_name",
+    )
+    assert domain.validate_smart_name("casa", base, 10)[:2] == (
+        False,
+        "n_smart_dup",
+    )
+    piena = [{"name": f"L{i}"} for i in range(10)]
+    assert domain.validate_smart_name("Nuova", piena, 10)[:2] == (
+        False,
+        "n_smart_full",
+    )
+    assert domain.validate_smart_name("  Nuova ", base, 10) == (
+        True,
+        "",
+        {"n": "Nuova"},
+    )
+    assert domain.validate_smart_name("X", "malformata", 10)[0] is True
+
+
 def test_arch_purezza_no_import_app_ui():
     """Guardrail god-class: domain/plan/models mai verso app/screens/T()."""
     import pathlib

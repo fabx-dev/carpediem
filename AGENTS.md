@@ -421,6 +421,20 @@ Regole dure:
   `matches_smart` normalizza come `app._matches_state`, altrimenti match
   silenzioso a zero. UI (S2 smart list, S3 actual) rimandata; niente bump
   versione (strato invisibile).
+- **Smart list UI (2026-09-17, fatto, S2, 0.9.0)**: `SmartListScreen` in
+  `screens/views.py` (righe applica/elimina con Bottoni a id unici, snapshot
+  filtro attuale, Input nome inline, pattern cornice fissa + regression test
+  a 3 taglie in `tests/test_smart.py`); voce menu `Viste e analisi` +
+  palette automatica via provider (nessun nuovo tasto globale);
+  `app.active_smart` solo etichetta (i 4 filtri restano la verità,
+  `_apply_smart` li imposta dalla spec), sgancio silenzioso su qualunque
+  tocco manuale `f/t/g//`/settings/clear (la barra `Smart:n` è il segnale);
+  validazione nome pura in `domain.validate_smart_name` (vuoto/dup/limite,
+  testabile senza DOM — `_save_smart` chiamava `_populate_table` fuori
+  pilot e rompeva i test puri). Lezioni: niente `row.mount()` prima che la
+  riga sia montata (`Horizontal(B1, B2)` via costruttore); le action async
+  vanno attese (`await self.action_save()` in `on_button_pressed`,
+  warning `never awaited` altrimenti).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
