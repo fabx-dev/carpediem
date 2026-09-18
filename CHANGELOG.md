@@ -3,6 +3,49 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.11.0] - 2026-09-18
+
+### Planning / scheduling
+- Buongiorno shows scheduled time slots: enter an explicit start time
+  (`HH:MM`, empty = no times) and the proposal lists `HH:MM–HH:MM task`
+  rows from the deterministic scheduler; the window is
+  `[start, start + day_hours]` (capacity duration, never working hours).
+- Fixed events as time constraints: type one-per-line
+  `HH:MM-HH:MM Title` blocks (temporary, never persisted) and the planner
+  schedules around them; the timeline merges tasks and `EVENTO:` rows in
+  chronological order. No external calendar, no recurrence, no rescheduling.
+- Explicit `DayPlan` model (planned/cut/skipped with capacity, factor and
+  estimates) produced by the Planner; `plan_day()` stays as a legacy wrapper
+  with unchanged output.
+
+### Execution / estimation
+- Execution feedback: a pure derivation (`planner.feedback`) reports for
+  each planned task its estimate, scheduled slot, counted pomodoro sessions,
+  user-declared actuals and completion state. Observation only — nothing is
+  written automatically.
+- Calibration boundary: a thin planner adapter exposes observations and the
+  median factor, with `domain` remaining the single source of truth
+  (median/min-samples/clamp unchanged); capacity estimate reuses
+  `domain.calibrated_estimate`. No automatic recalibration.
+- Documented convention: a task without an estimate counts as 1 pomodoro
+  (30 min) for planning purposes — a planning fallback, not a user estimate.
+
+### External tasks
+- External task identity: `source` + `external_id` persisted on tasks;
+  CSV import with those columns (or the exported `id`) is idempotent —
+  re-importing the same records skips them instead of creating duplicates,
+  internal ids stay untouched, records without an external id are always
+  imported as new. Planner and scheduler are unaware of the identity.
+
+### Architecture
+- Planner as an explicit application boundary: scoring, constraints,
+  capacity and explanations split into pure modules; deterministic temporal
+  scheduler; execution feedback; calibration adapter. UI consumes
+  `Planner → DayPlan → Scheduler → ScheduledDayPlan` (Buongiorno is the
+  official consumer) with architectural tests guarding the boundary —
+  screens never duplicate scoring, capacity or scheduling, and `plan_day()`
+  is no longer used by the app. Final audit: no package extraction needed.
+
 ## [0.10.0] - 2026-09-17
 
 ### Added
