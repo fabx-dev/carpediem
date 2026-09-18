@@ -2,17 +2,20 @@
 
 DayPlan e' il contratto tra Planner e consumer: cosa e' pianificato, cosa e'
 tagliato per capacita', cosa e' scartato, con quanta capacita' e quale factor.
-Niente scheduling temporale (Fase 4): solo monte-pomodori, mai orari.
+ScheduledDayPlan aggiunge la collocazione temporale (Fase 4): quali voci
+hanno uno slot e quali no — mai orari inventati, mai scheduling del Planner.
 
 Unita': i pomodori (stima_pomo, capacita' ore/0.5). planned_pomo puo'
 superare capacity_pomo: mandatory e gia'-pianificati non si tagliano mai
 (semantica storica) — nessun invariante forzato, il modello rappresenta
 la realta' dell'algoritmo. Gli hard-excluded (non attivi, id None) non
 compaiono, come nella proposta storica.
+
+Tempi: datetime naive wall-time (convenzione del repo, mai aware).
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 
 @dataclass(frozen=True)
@@ -46,3 +49,36 @@ class DayPlan:
     def to_legacy(self) -> list:
         """Rappresentazione compatibile [(id, score, reasons)] come plan_day()."""
         return [(it.todo_id, it.score, list(it.reasons)) for it in self.items]
+
+
+@dataclass(frozen=True)
+class TimeWindow:
+    """Intervallo [start, end): disponibilita' o busy (ruolo dal contesto)."""
+
+    start: datetime
+    end: datetime
+
+
+@dataclass(frozen=True)
+class ScheduledItem:
+    """Voce del DayPlan collocata: riusa il PlanItem, aggiunge lo slot."""
+
+    item: PlanItem
+    start: datetime
+    end: datetime
+
+
+@dataclass(frozen=True)
+class ScheduledDayPlan:
+    """DayPlan + collocazione temporale (immutabile, non CRUD).
+
+    scheduled/unscheduled coprono esattamente plan.planned: cut e skipped
+    restano fuori dallo scheduling (gia' decisi dal Planner). Un mandatory
+    senza slot resta unscheduled — mai overlap, mai ore inventate.
+    """
+
+    plan: DayPlan
+    scheduled: tuple = ()
+    unscheduled: tuple = ()
+    availability: tuple = ()
+    busy: tuple = ()

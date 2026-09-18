@@ -15,9 +15,9 @@ from datetime import datetime
 
 from src.domain import calibration_factor
 from src.models import TodoItem
-from src.planner import capacity, constraints, scoring
+from src.planner import capacity, constraints, scheduler, scoring
 from src.planner.explain import CUT
-from src.planner.models import DayPlan, PlanItem
+from src.planner.models import DayPlan, PlanItem, ScheduledDayPlan
 
 
 class Planner:
@@ -86,3 +86,8 @@ class Planner:
             planned_pomo=sum(i.estimate_pomo for i in planned_t),
             factor=calib,
         )
+
+    @staticmethod
+    def schedule(plan: DayPlan, availability, busy=()) -> ScheduledDayPlan:
+        """Collocazione temporale di un DayPlan (thin wrapper a scheduler)."""
+        return scheduler.schedule(plan, availability, busy)

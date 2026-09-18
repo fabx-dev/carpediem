@@ -44,6 +44,9 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  Fase 3: propose() restituisce DayPlan (models.py: PlanItem/DayPlan
                  frozen, planned/cut/skipped + capacity_pomo/planned_pomo/factor);
                  plan_day() = propose().to_legacy(); screen consuma DayPlan via .rows
+                 Fase 4: scheduler temporale deterministico (scheduler.py puro +
+                 TimeWindow/ScheduledItem/ScheduledDayPlan in models.py);
+                 Planner.schedule() thin wrapper; availability esplicita, niente default
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit()
@@ -491,6 +494,21 @@ Regole dure:
   determinismo `==`, matrice equivalenza legacy); niente scheduling
   temporale, niente persistenza/serializzazione, pesi intoccati.
   Niente bump versione (cambio invisibile).
+- **Planner Fase 4 (2026-09-18, fatto)**: scheduling temporale deterministico
+  (`src/planner/scheduler.py` puro: `schedule(plan, availability, busy)` greedy
+  first-fit nell'ordine Planner, niente secondo scoring, durate da
+  `estimate_pomo` x 30min senza arrotondamenti); modelli in `models.py`
+  (`TimeWindow`, `ScheduledItem` che riusa `PlanItem`, `ScheduledDayPlan` con
+  `plan` originale + `scheduled`/`unscheduled` + eco availability/busy
+  normalizzati); solo `plan.planned` si schedula (cut/skipped fuori, gia'
+  decisi); mandatory senza slot = unscheduled strutturale senza reason nuova
+  (niente chiavi i18n, UI invariata); busy hard constraint (sort+merge+clip al
+  giorno); availability parametro esplicito senza default (day_hours resta
+  monte-ore, mai working-hours); `Planner.schedule()` thin wrapper statico,
+  `propose()`/`plan_day()` intoccati; `tests/test_scheduler.py` (16 test:
+  casi §24, invarianti §25, determinismo, conservazione); `domain`/`app`/
+  pomodoro intoccati, niente calendario esterno, niente AI.
+  Niente bump versione (estensione non usata ancora da nessun consumer).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -892,7 +910,10 @@ completata: esiste `Planner` (`src/planner/service.py`), usato da
 completata: `Planner.propose()` restituisce `DayPlan`
 (`src/planner/models.py`, niente scheduling temporale), `plan_day()` e'
 `propose().to_legacy()`; contratto in `tests/test_planner*.py` +
-`test_planner_dayplan.py`.
+`test_planner_dayplan.py`. Phase 4 completata: `schedule()` deterministico
+su `DayPlan` + `availability` esplicita (`src/planner/scheduler.py`,
+`ScheduledDayPlan` in `models.py`); `Planner.schedule()` wrapper;
+`propose()`/`plan_day()`/UI intoccati; `tests/test_scheduler.py`.
 
 | Phase | Obiettivo                        | Stato       |
 | ----- | -------------------------------- | ----------- |
@@ -900,7 +921,7 @@ completata: `Planner.propose()` restituisce `DayPlan`
 | 1     | Explicit Planner boundary        | Done        |
 | 2     | Scoring / constraints / capacity | Done        |
 | 3     | DayPlan model                    | Done        |
-| 4     | Temporal scheduling              | Planned     |
+| 4     | Temporal scheduling              | Done        |
 | 5     | Pomodoro / execution feedback    | Planned     |
 | 6     | Calibration / feedback loop      | Planned     |
 | 7     | Calendar / fixed events          | Planned     |
