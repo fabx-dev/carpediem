@@ -12,7 +12,8 @@ stessi pesi, stesso formato [(id, score, reasons)] dove reasons e'
 - progetto fermo: nessun completamento negli ultimi STALE_DAYS (o task attivi
   fermi da piu' di STALE_DAYS se mai completato) -> +STALE_SCORE con n giorni.
 - gia' in piano oggi (planned_for == today): +PLANNED_SCORE.
-- capacita': ore / POMO_HOURS pomodori; stima mancante = DEFAULT_ESTIMATE.
+- capacita': ore / POMO_HOURS pomodori; stima mancante = DEFAULT_ESTIMATE
+  (fallback di pianificazione, non stima dichiarata dall'utente).
   Scaduti e di oggi non si tagliano mai (possono sforare); gli altri riempiono
   greedy per score; gli esclusi hanno reason ("plan_cut", {}).
 - scartati oggi (plan_skip == today): in fondo con reason ("plan_skipped", {}),

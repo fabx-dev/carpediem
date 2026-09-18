@@ -312,7 +312,10 @@ def calibration_factor(todos: list[TodoItem]) -> float | None:
 
 
 def calibrated_estimate(todo: TodoItem, factor: float | None) -> tuple[int, bool]:
-    """(stima_corretta, usata_calibrazione). Base = stima o 1 se assente."""
+    """(stima_corretta, usata_calibrazione). Base = stima o 1 se assente.
+
+    L'1 per stima assente e' un fallback di pianificazione (il piano ha
+    bisogno di una durata), non una stima dichiarata dall'utente."""
     try:
         base = int(todo.stima_pomo or 0) or 1
     except (ValueError, TypeError):

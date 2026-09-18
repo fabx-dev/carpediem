@@ -554,6 +554,16 @@ Regole dure:
   `tests/test_plan_slots.py` (6 pilot: vuoto, slot+ordine, invalido,
   unscheduled, midnight-clippato, conferma); `src/planner/` intoccato.
   Niente bump versione (solo display).
+- **Fallback stima assente (2026-09-18, convenzione esplicitata, non cambio)**:
+  task senza `stima_pomo` (= 0 nel modello) vale 1 pomodoro → 30 min negli
+  slot (`domain.calibrated_estimate`: `base = int(...) or 1`; docstring in
+  `plan.py`/`domain.py` + placeholder form `form_stima_ph` lo dichiarano come
+  fallback di pianificazione, mai come stima utente). Pre-esiste alla 6.5
+  (la 6.5 lo ha solo reso visibile); unico punto che distingue assente da
+  presente: `scoring.has_est` (solo motivo `plan_calibrated`, mai durata).
+  **Follow-up separato (mini-fase futura, non implementare ora)**: "stima
+  mancante ≠ stima 1" — es. `estimate_pomo = None` nel modello, rendering
+  onesto ("durata da definire"), gestione apposita in scheduler/testi.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
