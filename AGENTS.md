@@ -579,6 +579,16 @@ Regole dure:
   midnight/mandatory/DayPlan invariato) + 3 pilot in `test_plan_slots.py`;
   niente calendario esterno, niente ricorrenze, niente rescheduling.
   Niente bump versione.
+- **Sorgenti esterne (2026-09-18, fatto, Fase 8)**: `TodoItem.source/external_id`
+  persistiti (`to_dict`/`from_dict`, file vecchi → `""`); `TodoStore.by_external`
+  (match solo se entrambi non vuoti, source case-insensitive); import CSV
+  idempotente (`_import_csv_file`: colonne `source`/`external_id` o fallback
+  alla colonna `id` con source `csv`; match → skip senza duplicato/merge con
+  id interno invariato e `old_id` rimappato per i figli; senza external_id →
+  sempre nuovo, esplicito); Planner/Scheduler ignari (solo modello interno);
+  niente sync bidirezionale, niente OAuth/rete, niente UI nuova;
+  `tests/test_external_import.py` (5 test: modello, lookup, idempotenza,
+  no-id, planner/scheduler). Niente bump versione.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -1000,7 +1010,7 @@ matematica in `domain`); `capacity.estimate` riusa `domain`;
 | 5     | Pomodoro / execution feedback    | Done        |
 | 6     | Calibration / feedback loop      | Done        |
 | 7     | Calendar / fixed events          | Done        |
-| 8     | External task sources            | Planned     |
+| 8     | External task sources            | Done        |
 | 9     | UI as Planner consumer           | Planned     |
 | 10    | Optional Planner extraction      | Future      |
 

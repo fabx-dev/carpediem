@@ -169,6 +169,8 @@ class TodoItem:
         plan_skip: str = "",
         actual_pomo: int = 0,
         actual_minutes: int = 0,
+        source: str = "",
+        external_id: str = "",
     ):
         self.id = todo_id
         self.title = title
@@ -203,6 +205,11 @@ class TodoItem:
             self.actual_minutes = max(0, int(actual_minutes or 0))
         except (ValueError, TypeError):
             self.actual_minutes = 0
+        # Identita' esterna (Fase 8, import): (source, external_id) identifica
+        # il record nella sorgente senza toccare l'id interno. File vecchi e
+        # task locali -> "" (nessuna identita' esterna, mai dedup euristico).
+        self.source = str(source or "").strip().lower()
+        self.external_id = str(external_id or "").strip()
         # Giorno YYYY-MM-DD in cui il task e' stato scartato dal piano smart
         # (proposta successiva lo mostra deselezionato; si azzera al cambio giorno).
         self.plan_skip = str(plan_skip or "")
@@ -249,6 +256,8 @@ class TodoItem:
             "plan_skip": self.plan_skip,
             "actual_pomo": self.actual_pomo,
             "actual_minutes": self.actual_minutes,
+            "source": self.source,
+            "external_id": self.external_id,
         }
 
     @classmethod
@@ -302,6 +311,8 @@ class TodoItem:
             plan_skip=str(data.get("plan_skip", "") or ""),
             actual_pomo=data.get("actual_pomo", 0),
             actual_minutes=data.get("actual_minutes", 0),
+            source=data.get("source", ""),
+            external_id=data.get("external_id", ""),
         )
 
 

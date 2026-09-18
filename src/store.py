@@ -61,6 +61,21 @@ class TodoStore:
     def has_id(self, todo_id: int | None) -> bool:
         return todo_id is not None and todo_id in self._by_id
 
+    def by_external(self, source: str, external_id: str) -> TodoItem | None:
+        """Task con (source, external_id), o None (Fase 8, import idempotente).
+
+        Match solo se entrambi non vuoti (normalizzati come TodoItem):
+        record senza identita' esterna non deduplicano mai.
+        """
+        src = str(source or "").strip().lower()
+        ext = str(external_id or "").strip()
+        if not src or not ext:
+            return None
+        for t in self._todos:
+            if t.source == src and t.external_id == ext:
+                return t
+        return None
+
     def children(self, parent_id: int | None) -> list[TodoItem]:
         return [t for t in self._todos if t.parent_id == parent_id]
 

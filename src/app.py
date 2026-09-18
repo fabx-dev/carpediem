@@ -2576,9 +2576,16 @@ class TodoApp(App):
                     old_id = int(col("id") or 0) or None
                 except (ValueError, TypeError):
                     old_id = None
+                # Identita' esterna (Fase 8): colonna dedicata o fallback
+                # all'id del file (tipico del nostro export); senza ID
+                # il record non ha identita' -> sempre nuovo, mai dedup.
+                raw_ext = col("external_id", "externalid", "id_esterno")
+                external_id = raw_ext or (str(old_id) if old_id is not None else "")
                 raw_rows.append(
                     {
                         "old_id": old_id,
+                        "source": col("source", "sorgente") or "csv",
+                        "external_id": external_id,
                         "title": title,
                         "priority": priority,
                         "done": state
@@ -2606,7 +2613,17 @@ class TodoApp(App):
                 skipped += 1
                 continue
             assert raw is not None
+            # Idempotenza (Fase 8): stessa (source, external_id) -> niente
+            # duplicato; l'id interno resta invariato, niente merge.
+            # Senza external_id il record e' sempre nuovo (esplicito).
+            existing = self.store.by_external(raw["source"], raw["external_id"])
+            if existing is not None:
+                if raw["old_id"] is not None and existing.id is not None:
+                    id_map[raw["old_id"]] = existing.id
+                skipped += 1
+                continue
             nid = self.store.allocate_id()
+            ext = raw["external_id"]
             todo = TodoItem(
                 title=raw["title"],
                 priority=raw["priority"],
@@ -2620,6 +2637,8 @@ class TodoApp(App):
                 completed_at=raw["completed_at"] if raw["done"] else "",
                 pomodoros=raw["pomodoros"],
                 stima_pomo=raw.get("stima_pomo", 0),
+                source=raw["source"] if ext else "",
+                external_id=ext,
                 todo_id=nid,
             )
             if raw["old_id"] is not None:
