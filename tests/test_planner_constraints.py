@@ -34,8 +34,8 @@ def test_partition_gruppi_motivo_ordine():
     ]
     cands, skipped = constraints.partition(scored, TODAY)
     assert [t.id for t, _s, _r, _m in cands] == [1, 3]
-    assert [(t.id, r) for t, _s, r in skipped] == [
-        (2, [("plan_due_today", {}), ("plan_skipped", {})])
+    assert [(t.id, r, m) for t, _s, r, m in skipped] == [
+        (2, [("plan_due_today", {}), ("plan_skipped", {})], True)
     ]
     # input non mutato (motivo aggiunto su copia)
     assert scored[1][2] == [("plan_due_today", {})]

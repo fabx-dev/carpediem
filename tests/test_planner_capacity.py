@@ -44,10 +44,12 @@ def test_allocate_mandatory_mai_tagliati():
         capacity=2.0,
         calib=None,
     )
-    assert [t.id for t, _s, _r in out] == [1, 2]
-    reasons = {t.id: [k for k, _p in r] for t, _s, r in out}
+    assert [t.id for t, _s, _r, _m in out] == [1, 2]
+    reasons = {t.id: [k for k, _p in r] for t, _s, r, _m in out}
     assert "plan_cut" not in reasons[1]  # il mandatory sfora ma resta
     assert "plan_cut" in reasons[2]  # gli altri si tagliano sul resto
+    mand = {t.id: m for t, _s, _r, m in out}
+    assert mand == {1: True, 2: False}
 
 
 def test_allocate_greedy_e_taglio_in_fondo():
@@ -56,8 +58,8 @@ def test_allocate_greedy_e_taglio_in_fondo():
     out = capacity.allocate(
         [_cand(a), _cand(b)], today_s=TODAY, capacity=1.0, calib=None
     )
-    assert [t.id for t, _s, _r in out] == [1, 2]
-    reasons = {t.id: [k for k, _p in r] for t, _s, r in out}
+    assert [t.id for t, _s, _r, _m in out] == [1, 2]
+    reasons = {t.id: [k for k, _p in r] for t, _s, r, _m in out}
     assert "plan_cut" not in reasons[1]
     assert "plan_cut" in reasons[2]
 
@@ -65,5 +67,5 @@ def test_allocate_greedy_e_taglio_in_fondo():
 def test_allocate_pianificati_sempre_dentro():
     p = make_todo("P", todo_id=1, planned_for=TODAY, stima_pomo=50)
     out = capacity.allocate([_cand(p, 5)], today_s=TODAY, capacity=1.0, calib=None)
-    assert [t.id for t, _s, _r in out] == [1]
+    assert [t.id for t, _s, _r, _m in out] == [1]
     assert "plan_cut" not in [k for k, _p in out[0][2]]

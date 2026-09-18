@@ -41,6 +41,9 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  a plan_day); usato da PlanProposalScreen; contratto in tests/test_planner.py
                  Fase 2: Planner orchestratore (scoring/constraints/capacity/explain);
                  plan.py resta wrapper compatibile; factor None = auto-calibrazione
+                 Fase 3: propose() restituisce DayPlan (models.py: PlanItem/DayPlan
+                 frozen, planned/cut/skipped + capacity_pomo/planned_pomo/factor);
+                 plan_day() = propose().to_legacy(); screen consuma DayPlan via .rows
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit()
@@ -471,6 +474,23 @@ Regole dure:
   test `test_planner_{scoring,constraints,capacity,explain}.py` (21 test) +
   lock chiavi contro `STRINGS` it/en; `domain`/`app` intoccati. Niente bump
   versione (cambio invisibile).
+- **Planner Fase 3 (2026-09-18, fatto)**: `Planner.propose()` restituisce
+  `DayPlan` esplicito (`src/planner/models.py`: `PlanItem`/`DayPlan` frozen,
+  tuple immutabili, unita' in pomodori); sezioni `planned`/`cut`/`skipped`
+  (hard-excluded fuori dal modello, come prima invisibili) +
+  `capacity_pomo`/`planned_pomo` (il mandatory puo' sforare: nessun
+  invariante)/`factor` usato; `PlanItem` con `todo_id/score/reasons` +
+  `estimate_pomo` (stima effettiva usata in capacity) + `mandatory` esplicito
+  (mai ricostruito dalle reasons); `to_legacy()` sul modello (unica via
+  `DayPlan → legacy`, niente `propose_legacy`); `plan.py` =
+  `propose().to_legacy()`; internamente `partition`/`allocate` propagano il
+  flag mandatory (test unitari adeguati, asserzioni invariate); screen
+  consuma `DayPlan` (`self.plan` + `self.rows` filtrati additivi, niente
+  logica duplicata); contratto `test_planner.py` via `to_legacy()` +
+  nuovo `test_planner_dayplan.py` (18 test: costruzione, sezioni, capacity,
+  determinismo `==`, matrice equivalenza legacy); niente scheduling
+  temporale, niente persistenza/serializzazione, pesi intoccati.
+  Niente bump versione (cambio invisibile).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -551,7 +571,8 @@ tasks → scoring → ordering → capacity → ranked proposal
 I motivi (`plan_*`) sono già spiegabili e consumati da `PlanProposalScreen`.
 `plan_day` è un wrapper compatibile che delega a `Planner.propose()`
 (`src/planner/service.py` orchestra scoring → constraints → capacity, motivi
-da `explain`); `DailyPlanScreen` e `ReviewScreen` lavorano su
+da `explain`) e converte il `DayPlan` in formato legacy via `to_legacy()`;
+`DailyPlanScreen` e `ReviewScreen` lavorano su
 `planned_for` senza passare dal planner. Il flusso di conferma è già
 "propone → l'utente rivede → conferma" (additivo, vedi `planp_additive`).
 
@@ -867,14 +888,18 @@ completata di fatto (architettura mappata e documentata in §2/§7/§9.2). Phase
 completata: esiste `Planner` (`src/planner/service.py`), usato da
 `PlanProposalScreen`. Phase 2 completata: `Planner` orchestra
 `scoring`/`constraints`/`capacity`/`explain`, `plan.py` e' wrapper compatibile,
-`factor=None` auto-calibra; contratto in `tests/test_planner*.py`.
+`factor=None` auto-calibra; contratto in `tests/test_planner*.py`. Phase 3
+completata: `Planner.propose()` restituisce `DayPlan`
+(`src/planner/models.py`, niente scheduling temporale), `plan_day()` e'
+`propose().to_legacy()`; contratto in `tests/test_planner*.py` +
+`test_planner_dayplan.py`.
 
 | Phase | Obiettivo                        | Stato       |
 | ----- | -------------------------------- | ----------- |
 | 0     | Baseline e comprensione          | Done        |
 | 1     | Explicit Planner boundary        | Done        |
 | 2     | Scoring / constraints / capacity | Done        |
-| 3     | DayPlan model                    | Planned     |
+| 3     | DayPlan model                    | Done        |
 | 4     | Temporal scheduling              | Planned     |
 | 5     | Pomodoro / execution feedback    | Planned     |
 | 6     | Calibration / feedback loop      | Planned     |

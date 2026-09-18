@@ -681,7 +681,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             if t.state == "attivo" and t.planned_for == self.today
         }
         self.n_planned = len(planned_ids)
-        self.plan = [row for row in self.plan if row[0] not in planned_ids]
+        self.rows = [it for it in self.plan.items if it.todo_id not in planned_ids]
         self.by_id = {t.id: t for t in self.all_todos if t.id is not None}
 
     @staticmethod
@@ -770,26 +770,26 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                 ctx = self._context_lines()
                 if ctx:
                     yield Static("\n".join(ctx), id="planp-context")
-                n_in = sum(1 for _i, _s, r in self.plan if self._preselected(r))
+                n_in = sum(1 for it in self.rows if self._preselected(it.reasons))
                 yield Static(
                     T(
                         "planp_summary",
                         n=n_in,
                         m=self.n_planned,
-                        c=len(self.plan) - n_in,
+                        c=len(self.rows) - n_in,
                         h=int(self.hours),
                     ),
                     id="planp-summary",
                 )
-                if self.plan:
+                if self.rows:
                     yield SelectionList(
                         *[
                             (
-                                self._option_label(t_id, reasons),
-                                t_id,
-                                self._preselected(reasons),
+                                self._option_label(it.todo_id, it.reasons),
+                                it.todo_id,
+                                self._preselected(it.reasons),
                             )
-                            for t_id, _score, reasons in self.plan
+                            for it in self.rows
                         ],
                         id="planp-list",
                     )

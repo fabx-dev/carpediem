@@ -249,7 +249,7 @@ def test_label_motivi_senza_id_e_senza_parentesi_vuote(tmp_files):
     )
     screen = PlanProposalScreen(app.todos, lambda: None, today=_day(0))
     labels = {
-        t_id: screen._option_label(t_id, reasons) for t_id, _s, reasons in screen.plan
+        it.todo_id: screen._option_label(it.todo_id, it.reasons) for it in screen.rows
     }
     assert set(labels) == {1, 2}
     assert _T("plan_overdue") in labels[1]

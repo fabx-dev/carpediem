@@ -60,27 +60,28 @@ def estimate(todo, factor: float | None = None) -> int:
 def allocate(
     candidates: list, *, today_s: str, capacity: float, calib: float | None
 ) -> list:
-    """Seleziona i candidati: [(todo, score, reasons)] in ordine finale.
+    """Seleziona i candidati: [(todo, score, reasons, mandatory)] in ordine finale.
 
     Mandatory e gia' pianificati entrano sempre (possono sforare); gli altri
     in ordine di merito finche' c'e' capienza, poi motivo di taglio. I tagliati
-    restano in fondo (cut-last), mai nascosti."""
+    restano in fondo (cut-last), mai nascosti. Il mandatory passa attraverso
+    per il DayPlan (PlanItem lo porta come campo esplicito)."""
     included: list[tuple] = []
     rest: list[tuple] = []
     used = 0
     for t, result, reasons, mandatory in candidates:
         if mandatory or t.planned_for == today_s:
-            included.append((t, result, reasons))
+            included.append((t, result, reasons, mandatory))
             used += estimate(t, calib)
         else:
             rest.append((t, result, reasons))
     rest.sort(key=rank_key)
     for t, result, reasons in rest:
         if used + estimate(t, calib) <= capacity:
-            included.append((t, result, reasons))
+            included.append((t, result, reasons, False))
             used += estimate(t, calib)
         else:
-            included.append((t, result, [*reasons, explain.cut()]))
+            included.append((t, result, [*reasons, explain.cut()], False))
     included.sort(
         key=lambda e: (
             any(k == explain.CUT for k, _p in e[2]),

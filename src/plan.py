@@ -1,7 +1,8 @@
 """Pianificatore giornaliero deterministico (nessuna rete, nessuna AI).
 
 Compatibilita': plan_day() delega al Planner (implementazione in
-src/planner/: scoring, constraints, capacity, explain). Stesse regole,
+src/planner/: scoring, constraints, capacity, explain, models) e converte
+il DayPlan in [(id, score, reasons)] via to_legacy(). Stesse regole,
 stessi pesi, stesso formato [(id, score, reasons)] dove reasons e'
 [(chiave_i18n, params), ...] pronta per T(chiave, **params) nella UI:
 
@@ -58,6 +59,7 @@ def plan_day(
 ) -> list:
     """Ordina i task attivi per la giornata con score, reasons e tagli.
 
-    Wrapper compatibile: delega a Planner (factor None = auto-calibrazione).
+    Wrapper compatibile: Planner.propose() -> DayPlan -> to_legacy()
+    (factor None = auto-calibrazione).
     """
-    return Planner(todos, today=today, hours=hours, factor=factor).propose()
+    return Planner(todos, today=today, hours=hours, factor=factor).propose().to_legacy()

@@ -28,13 +28,14 @@ def is_skipped(todo, today_s: str) -> bool:
 
 def partition(scored: list, today_s: str) -> tuple[list, list]:
     """(candidati, scartati): gli scartati ricevono il motivo e sono ordinati
-    per merito; i candidati (inclusi i mandatory) vanno a capacity."""
+    per merito; i candidati (inclusi i mandatory) vanno a capacity.
+    Entrambi tengono il flag mandatory per il DayPlan."""
     candidates = []
     skipped = []
     for t, result, reasons, mandatory in scored:
         if is_skipped(t, today_s):
-            skipped.append((t, result, [*reasons, explain.skipped()]))
+            skipped.append((t, result, [*reasons, explain.skipped()], mandatory))
         else:
             candidates.append((t, result, reasons, mandatory))
     skipped.sort(key=rank_key)
-    return candidates, [(t, result, reasons) for t, result, reasons in skipped]
+    return candidates, skipped
