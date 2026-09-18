@@ -27,7 +27,7 @@ from src.models import (
     _pomo_label,
     _status,
 )
-from src.planner import Planner
+from src.planner import Planner, explain
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
@@ -672,7 +672,6 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.all_todos,
             today=self.today,
             hours=self.hours,
-            factor=domain.calibration_factor(self.all_todos),
         ).propose()
         # Semantica additiva: i gia' pianificati non si ripropongono (per
         # togliere c'e' il piano giorno con x). Restano nel computo capacita'.
@@ -687,11 +686,11 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
 
     @staticmethod
     def _is_cut(reasons) -> bool:
-        return any(k == "plan_cut" for k, _p in reasons)
+        return any(k == explain.CUT for k, _p in reasons)
 
     @staticmethod
     def _is_skipped(reasons) -> bool:
-        return any(k == "plan_skipped" for k, _p in reasons)
+        return any(k == explain.SKIPPED for k, _p in reasons)
 
     @classmethod
     def _preselected(cls, reasons) -> bool:
@@ -703,14 +702,14 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         due = _due_date_part(t.due) if t else ""
         extra = f" (scad. {due})" if due else ""
         why = ", ".join(
-            T(k, **p) for k, p in reasons if k not in ("plan_cut", "plan_skipped")
+            T(k, **p) for k, p in reasons if k not in (explain.CUT, explain.SKIPPED)
         )
         # Niente []: le option del SelectionList interpretano il markup Rich.
         # Niente #id in coda: gli id interni restano nel value, cosi' i motivi
         # (il vero contenuto della riga) non vengono troncati dal terminale.
         flags = "".join(
             f" — {T(k)}"
-            for k in ("plan_cut", "plan_skipped")
+            for k in (explain.CUT, explain.SKIPPED)
             if any(k == kk for kk, _p in reasons)
         )
         return f"{title}{extra} ({why}){flags}" if why else f"{title}{extra}{flags}"

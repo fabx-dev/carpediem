@@ -1,5 +1,6 @@
-"""Contratto del boundary Planner (Fase 1: delega pura a plan_day)."""
+"""Contratto del Planner (Fase 2: orchestratore; factor None = auto)."""
 
+from src.domain import calibration_factor
 from src.models import Priority
 from src.plan import plan_day
 from src.planner import Planner
@@ -64,3 +65,36 @@ def test_propose_non_muta_input_e_non_altera_vincoli():
 
 def test_propose_lista_vuota():
     assert Planner([], today=TODAY).propose() == plan_day([], today=TODAY) == []
+
+
+def _seed_ricco():
+    todos = []
+    for i in range(1, 6):
+        t = make_todo(f"Fatto{i}", todo_id=i, stima_pomo=2)
+        t.done = True
+        t.completed_at = "2026-09-12 10:00"
+        t.actual_pomo = 4
+        todos.append(t)
+    todos.append(make_todo("Attivo", todo_id=9, stima_pomo=2, due=TODAY))
+    return todos
+
+
+def test_factor_none_auto_calibra():
+    todos = _seed_ricco()
+    assert calibration_factor(todos) == 2.0
+    expected = plan_day(todos, today=TODAY, hours=6.0, factor=2.0)
+    assert Planner(todos, today=TODAY).propose() == expected
+    assert plan_day(todos, today=TODAY) == expected
+
+
+def test_factor_esplicito_rispettato_anche_con_dati():
+    todos = _seed_ricco()
+    assert Planner(todos, today=TODAY, factor=1.0).propose() == plan_day(
+        todos, today=TODAY, factor=1.0
+    )
+
+
+def test_propose_deterministico():
+    todos = _scenario()
+    first = Planner(todos, today=TODAY, hours=1.0, factor=2.0).propose()
+    assert Planner(todos, today=TODAY, hours=1.0, factor=2.0).propose() == first

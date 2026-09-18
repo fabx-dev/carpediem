@@ -1,17 +1,25 @@
-"""Application service Planner (Fase 1: boundary sopra plan_day).
+"""Application service Planner (Fase 2: orchestratore esplicito).
 
-Il Planner incapsula l'accesso alla logica di pianificazione esistente
-senza alterarla: propose() delega a plan_day() con gli stessi parametri
-e lo stesso formato di ritorno. La futura evoluzione (scoring, vincoli,
-capacita', scheduling) avverra' dietro questa interfaccia.
+Pipeline: eleggibilita' (constraints) -> merito (scoring) -> selezione
+(constraints + capacity) -> proposta [(id, score, reasons)] con motivi
+prodotti da explain. Nessun algoritmo cambiato rispetto a plan_day():
+stessi pesi, stessi vincoli, stessa capacita', stesso ordinamento.
+
+Factor: None (omesso o esplicito) = auto-calibrazione via
+domain.calibration_factor sui todos (la screen non conosce piu' la
+calibration); valore esplicito = usato cosi' com'e' (normalizzato in
+capacity). Su todos senza dati di calibrazione l'auto vale None.
 """
 
+from datetime import datetime
+
+from src.domain import calibration_factor
 from src.models import TodoItem
-from src.plan import plan_day
+from src.planner import capacity, constraints, scoring
 
 
 class Planner:
-    """Boundary applicativo attorno a plan_day()."""
+    """Boundary applicativo e orchestratore della proposta giornaliera."""
 
     def __init__(
         self,
@@ -28,9 +36,15 @@ class Planner:
 
     def propose(self) -> list:
         """Proposta giornaliera: [(id, score, reasons)] come plan_day()."""
-        return plan_day(
-            self.todos,
-            today=self.today,
-            hours=self.hours,
-            factor=self.factor,
+        today_d = scoring.parse_day(self.today or "") or datetime.now().date()
+        today_s = today_d.strftime("%Y-%m-%d")
+        raw = self.factor if self.factor is not None else calibration_factor(self.todos)
+        calib = capacity.normalize_factor(raw)
+        total = capacity.total(self.hours)
+        eligible = [t for t in self.todos if constraints.is_eligible(t)]
+        scored = scoring.score_all(eligible, self.todos, today_d, today_s, calib)
+        candidates, skipped = constraints.partition(scored, today_s)
+        included = capacity.allocate(
+            candidates, today_s=today_s, capacity=total, calib=calib
         )
+        return [(t.id, result, reasons) for t, result, reasons in [*included, *skipped]]

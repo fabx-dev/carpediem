@@ -1,4 +1,4 @@
-"""Boundary applicativo del Planner (Fase 1: delega a plan_day)."""
+"""Planner giornaliero: application service (scoring, constraints, capacity)."""
 
 from src.planner.service import Planner
 

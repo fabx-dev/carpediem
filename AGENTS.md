@@ -39,6 +39,8 @@ src/nlparse.py   parser deterministico NL it/en → dict uguale al result di Tod
 src/plan.py      plan_day() pura: score, capacita' ore/0.5 🍅, motivi (chiave, params)
 src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  a plan_day); usato da PlanProposalScreen; contratto in tests/test_planner.py
+                 Fase 2: Planner orchestratore (scoring/constraints/capacity/explain);
+                 plan.py resta wrapper compatibile; factor None = auto-calibrazione
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit()
@@ -457,6 +459,18 @@ Regole dure:
   `factor` resta calcolato nella screen (equivalenza byte-identica);
   contratto in `tests/test_planner.py` (6 test) + guardrail purezza esteso
   a `src/planner/*.py`. Niente bump versione (cambio invisibile).
+- **Planner Fase 2 (2026-09-18, fatto)**: `Planner` da boundary a orchestratore
+  (`scoring.py` merito+mandatory, `constraints.py` eleggibilita'/skip,
+  `capacity.py` monte-ore+selezione, `explain.py` chiavi reason congelate +
+  builder); `plan.py` wrapper compatibile (stessa firma, re-export costanti e
+  `_estimate` per i test); `factor=None` (omesso o esplicito) = auto via
+  `domain.calibration_factor`, esplicito rispettato — niente sentinella
+  (il legacy non distingueva omesso/esplicito, verificato su call-site+test);
+  screen non calcola piu' il factor e usa le costanti explain; pesi/euristiche
+  intoccati (differenziale legacy-vs-nuovo su 40+ scenari: zero divergenze);
+  test `test_planner_{scoring,constraints,capacity,explain}.py` (21 test) +
+  lock chiavi contro `STRINGS` it/en; `domain`/`app` intoccati. Niente bump
+  versione (cambio invisibile).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -535,8 +549,9 @@ tasks → scoring → ordering → capacity → ranked proposal
 ```
 
 I motivi (`plan_*`) sono già spiegabili e consumati da `PlanProposalScreen`.
-`plan_day` è raggiunto via `Planner.propose()` (`src/planner/service.py`)
-da `PlanProposalScreen.__init__`; `DailyPlanScreen` e `ReviewScreen` lavorano su
+`plan_day` è un wrapper compatibile che delega a `Planner.propose()`
+(`src/planner/service.py` orchestra scoring → constraints → capacity, motivi
+da `explain`); `DailyPlanScreen` e `ReviewScreen` lavorano su
 `planned_for` senza passare dal planner. Il flusso di conferma è già
 "propone → l'utente rivede → conferma" (additivo, vedi `planp_additive`).
 
@@ -849,14 +864,16 @@ implementare automaticamente l'intera fase successiva.**
 
 Stato al 2026-09-18, basato sul codice reale (non su aspirazioni). Phase 0 è
 completata di fatto (architettura mappata e documentata in §2/§7/§9.2). Phase 1
-completata: esiste `Planner` (`src/planner/service.py`, delega pura a `plan_day()`),
-usato da `PlanProposalScreen`; contratto in `tests/test_planner.py`.
+completata: esiste `Planner` (`src/planner/service.py`), usato da
+`PlanProposalScreen`. Phase 2 completata: `Planner` orchestra
+`scoring`/`constraints`/`capacity`/`explain`, `plan.py` e' wrapper compatibile,
+`factor=None` auto-calibra; contratto in `tests/test_planner*.py`.
 
 | Phase | Obiettivo                        | Stato       |
 | ----- | -------------------------------- | ----------- |
 | 0     | Baseline e comprensione          | Done        |
 | 1     | Explicit Planner boundary        | Done        |
-| 2     | Scoring / constraints / capacity | Planned     |
+| 2     | Scoring / constraints / capacity | Done        |
 | 3     | DayPlan model                    | Planned     |
 | 4     | Temporal scheduling              | Planned     |
 | 5     | Pomodoro / execution feedback    | Planned     |
