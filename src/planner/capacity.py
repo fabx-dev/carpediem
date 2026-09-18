@@ -6,13 +6,13 @@ successive. I mandatory (scaduti/oggi) e i gia' pianificati non si tagliano mai
 e possono sforare; gli altri riempiono greedy per merito; gli esclusi hanno
 motivo e restano visibili in fondo (non spariscono).
 
-Calibrazione: il factor (da domain.calibration_factor, calcolato dal Planner
-sui todos quando non fornito) corregge le stime consumate qui senza riscrivere
+Calibrazione: il factor (da calibration.factor_for sui todos quando non
+fornito, unica fonte domain) corregge le stime consumate qui senza riscrivere
 mai la stima originale; scoring si limita ad annotare il motivo. Motivazione:
 la calibrazione corregge durate -> appartiene alla capacita', non al merito.
 """
 
-from src.domain import CAL_CLAMP_MAX, CAL_CLAMP_MIN
+from src.domain import CAL_CLAMP_MAX, CAL_CLAMP_MIN, calibrated_estimate
 from src.models import _due_date_part
 from src.planner import explain
 from src.planner.scoring import rank_key
@@ -42,19 +42,11 @@ def normalize_factor(factor: float | None) -> float | None:
 def estimate(todo, factor: float | None = None) -> int:
     """Stima pomodori: base stima_pomo o DEFAULT; con factor, calibrata.
 
-    Il factor corregge senza riscrivere mai la stima originale;
-    clamp [0.5, 3.0] come in domain per coerenza."""
-    try:
-        base = int(todo.stima_pomo or 0) or DEFAULT_ESTIMATE
-    except (ValueError, TypeError):
-        base = DEFAULT_ESTIMATE
-    if factor is None:
-        return base
-    try:
-        f = max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, float(factor)))
-    except (ValueError, TypeError):
-        return base
-    return max(1, round(base * f))
+    Unica fonte: domain.calibrated_estimate (stessa semantica, niente
+    duplicazione); il factor corregge senza riscrivere mai la stima originale.
+    """
+    corrected, _used = calibrated_estimate(todo, factor)
+    return corrected
 
 
 def allocate(

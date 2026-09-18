@@ -13,9 +13,8 @@ capacity). Su todos senza dati di calibrazione l'auto vale None.
 
 from datetime import datetime
 
-from src.domain import calibration_factor
 from src.models import TodoItem
-from src.planner import capacity, constraints, scheduler, scoring
+from src.planner import calibration, capacity, constraints, scheduler, scoring
 from src.planner.explain import CUT
 from src.planner.models import DayPlan, PlanItem, ScheduledDayPlan
 
@@ -40,7 +39,11 @@ class Planner:
         """Proposta giornaliera come DayPlan (planned/cut/skipped + capacita')."""
         today_d = scoring.parse_day(self.today or "") or datetime.now().date()
         today_s = today_d.strftime("%Y-%m-%d")
-        raw = self.factor if self.factor is not None else calibration_factor(self.todos)
+        raw = (
+            self.factor
+            if self.factor is not None
+            else calibration.factor_for(self.todos)
+        )
         calib = capacity.normalize_factor(raw)
         total = capacity.total(self.hours)
         eligible = [t for t in self.todos if constraints.is_eligible(t)]

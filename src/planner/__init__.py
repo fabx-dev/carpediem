@@ -1,5 +1,6 @@
 """Planner giornaliero: application service (scoring, constraints, capacity)."""
 
+from src.planner.calibration import factor_for, observe, observe_all
 from src.planner.feedback import feedback
 from src.planner.models import (
     DayPlan,
@@ -20,6 +21,9 @@ __all__ = [
     "ScheduledDayPlan",
     "ScheduledItem",
     "TimeWindow",
+    "factor_for",
     "feedback",
+    "observe",
+    "observe_all",
     "schedule",
 ]

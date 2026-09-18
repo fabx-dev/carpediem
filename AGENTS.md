@@ -50,6 +50,9 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  Fase 5: feedback di esecuzione (feedback.py puro +
                  ExecutionFeedback in models.py: estimate/sessions/actual/completed);
                  solo derivazione, niente auto-calibrazione
+                 Fase 6: boundary di calibrazione (calibration.py sottile:
+                 observe/observe_all/factor_for, matematica in domain);
+                 capacity.estimate delega a domain.calibrated_estimate
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit()
@@ -526,6 +529,19 @@ Regole dure:
   niente rescheduling, niente calibration automatica (Fase 6);
   `tests/test_feedback.py` (9 test); `domain`/`app`/pomodoro/scoring/
   scheduler intoccati. Niente bump versione (solo derivazione).
+- **Planner Fase 6 (2026-09-18, fatto)**: boundary di calibrazione come adapter
+  sottile (`src/planner/calibration.py`: `observe`/`observe_all` derivano
+  coppie (estimate, actual) dagli `ExecutionFeedback` completati con entrambi
+  > 0 — sessions escluse, fonte resta `actual_pomo` manuale;
+  `factor_for` delega a `domain.calibration_factor`; mediana/min-samples/
+  clamp restano solo in `domain`, nessun secondo algoritmo, nessun ciclo
+  import); `capacity.estimate` delega a `domain.calibrated_estimate`
+  (equivalenza verificata su 81 combinazioni, chiude follow-up B);
+  `service` usa `calibration.factor_for` (stessi risultati);
+  test `test_calibration.py` (6 test: delega, observe, equivalenza
+  feedback↔todos a parita' di dati, edge <5/outlier/determinismo);
+  solo future (piani/actual/slot passati mai toccati), niente history in
+  Planner, niente auto-update, niente rescheduling. Niente bump versione.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -933,6 +949,9 @@ su `DayPlan` + `availability` esplicita (`src/planner/scheduler.py`,
 `propose()`/`plan_day()`/UI intoccati; `tests/test_scheduler.py`. Phase 5
 completata: `feedback()` deriva `ExecutionFeedback` da scheduled+todos
 (solo osservazione, niente auto-calibrazione); `tests/test_feedback.py`.
+Phase 6 completata: `calibration.py` boundary sottile (observe/factor_for,
+matematica in `domain`); `capacity.estimate` riusa `domain`;
+`tests/test_calibration.py`.
 
 | Phase | Obiettivo                        | Stato       |
 | ----- | -------------------------------- | ----------- |
@@ -942,7 +961,7 @@ completata: `feedback()` deriva `ExecutionFeedback` da scheduled+todos
 | 3     | DayPlan model                    | Done        |
 | 4     | Temporal scheduling              | Done        |
 | 5     | Pomodoro / execution feedback    | Done        |
-| 6     | Calibration / feedback loop      | Planned     |
+| 6     | Calibration / feedback loop      | Done        |
 | 7     | Calendar / fixed events          | Planned     |
 | 8     | External task sources            | Planned     |
 | 9     | UI as Planner consumer           | Planned     |
