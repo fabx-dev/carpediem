@@ -451,45 +451,6 @@ Regole dure:
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
-- **Sync**: accantonato (idee non chiare) — file-sync vs server vs SQLite+replica vs CRDT
-  vs BaaS, vedi thread in chat. Non riaprire di iniziativa.
-- **AI provider / Sprint AI-6** (sostituito da AI-1, vedi sotto; non implementare
-  il vecchio disegno: la condizione sui 5 giorni di briefing non esiste piu').
-- **Progetto AI-1** ("Chiedi a CarpeDiem", pianificato 2026-09-12, non iniziato):
-  comandi NL (rimanda/concentra/cosa-ci-sta/scomponi) con diff da confermare +
-  schermata "AI: connessioni" stile `/connect` + calibrazione stime personale.
-  Provider in ordine Locale → ChatGPT-login (OAuth riuso Codex) → Copilot
-  (OAuth ufficiale) → API key; implementare in ordine locale, apikey, copilot,
-  codex. Regole dure: consenso-sempre (la preview e' il consenso), mai segreti
-  in config/log/notify/backup, mai rete nei test (fake provider), mai scritture
-  senza conferma (solo additivo via `store.commit()`), niente nuovi tasti
-  globali, tutto it/en, trasporto stdlib (niente nuove dipendenze).
-  Slices: 0 seam `AIProvider` → mini-slice `scomponi` end-to-end → 1a connessioni
-  (device-flow-first, token in file 0600 per provider) → 1b altri comandi → 2
-  calibrazione (locale default, sempre conferma), ognuna con stop-criterion.
-  Regola OAuth: flusso non documentato che si rompe 2 volte per cause loro →
-  la riga si toglie invece di inseguirla. Dettagli nei report UX + tecnico
-  della sessione 2026-09-12 (connessioni stile SecurityScreen, diff stile
-  Buongiorno/Review, schermata AI dedicata in Sistema, chiave via
-  `TASKO_AI_KEY`/file 0600/campo mascherato, schermata Connessioni prima dei
-  comandi). Non partire senza via libera esplicito.
-- **Progetto Ponte-Calendario** (integrazione Calendario stile Todoist, pianificato
-  2026-09-12, non iniziato): overlay eventi read-only solo in Agenda + push manuale
-  dei soli task con ora su calendario separato `CarpeDiem` + reschedule-back limitato.
-  Google Calendar prima (BYO client-ID, loopback stdlib), Outlook dopo; mai sync
-  Tasks/To Do come task-list, mai auto-sync. Dettagli in
-  `docs/piano-ponte-calendario.md`. Non partire senza via libera esplicito.
-- **Web app sullo stesso backend** (proposta utente): opzioni A read-only → B server locale CRUD
-  (TUI/CLI client, telefono via LAN) → C hosting pubblico. Serve risposta a: basta la LAN?
-  autostart invisibile? stack Python+template o altro? Slice A come validazione con stop se inutile.
-- Quick-win rimasti: da rivalutare dopo agenda/export iCal. ("Smart oggi" fatto dal planner; stime esistevano già.)
-- Pomodoro cross-device dichiarato fuori scope v1 (timer resta locale).
-- **Packaging distro** (discusso 2026-09-14, accantonato): PyPI/pipx resta l'unico
-  canale; niente `.deb`/PPA, `.rpm`/COPR, `PKGBUILD`/AUR per ora — rivalutare solo
-  su domanda reale o volontario per-distro. Se si riparte: prima slice AUR da sdist
-  PyPI (repo AUR separato, test `makepkg` + `namcap` in container Arch fresco,
-  `python-textual` gia' in `[extra]`), poi PPA/COPR; `[extra]` ufficiale solo dopo
-  trazione AUR (10 voti/1% pkgstats) + sponsor Package Maintainer.
 - **Lancio/visibilita'** (discusso 2026-09-14, in attesa): testi annuncio it/en pronti
   in chat + screenshot per lingua; r/commandline bloccato (progetti <30 giorni
   rimossi + regola 8 alternative + disclosure AI) — candidati ora: r/tui,
