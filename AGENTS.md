@@ -589,6 +589,18 @@ Regole dure:
   niente sync bidirezionale, niente OAuth/rete, niente UI nuova;
   `tests/test_external_import.py` (5 test: modello, lookup, idempotenza,
   no-id, planner/scheduler). Niente bump versione.
+- **Fase 9 (2026-09-18, verifica + guardrail, zero produzione)**: la
+  migrazione UI era gia' realizzata in 6.5/7 (`PlanProposalScreen` unico
+  percorso `Planner→DayPlan→Scheduler→ScheduledDayPlan`); audit: zero
+  chiamate produttive a `plan_day()` (solo wrapper compat + test),
+  DailyPlan/Agenda/Calendar/Day/Week sono viste di lettura su
+  `planned_for`/`due` (non planning), `ReviewScreen._candidates` e'
+  presentazione intenzionale (NON migrare). Aggiunto solo
+  `tests/test_arch.py` (3 guardrail UI: niente costanti merito/capacita'
+  in screens+app, niente definizioni locali di propose/schedule/Planner,
+  niente `plan_day(`/`src.plan` legacy in produzione — con regex che non
+  inghiottano `action_plan_day`/`src.planner`); nessuna screen vietata in
+  quanto tale: future consumer legit via boundary. Niente bump versione.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -1011,7 +1023,7 @@ matematica in `domain`); `capacity.estimate` riusa `domain`;
 | 6     | Calibration / feedback loop      | Done        |
 | 7     | Calendar / fixed events          | Done        |
 | 8     | External task sources            | Done        |
-| 9     | UI as Planner consumer           | Planned     |
+| 9     | UI as Planner consumer           | Done        |
 | 10    | Optional Planner extraction      | Future      |
 
 > Nota: **non** spostare una fase su "In progress"/"Done" finché l'implementazione
