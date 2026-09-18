@@ -51,7 +51,7 @@ def test_vuoto_nessuno_slot(tmp_files):
             await pilot.pause()
             txt = screen_texts(app.screen)
             assert _T("planp_slots_none") in txt
-            assert "–" not in txt  # nessuno slot senza finestra
+            assert "09:00–" not in txt  # nessuno slot senza finestra
 
     asyncio.run(t())
 
@@ -267,5 +267,34 @@ def test_riga_evento_invalida_segnalata(tmp_files):
             txt = screen_texts(screen)
             assert "10:00–11:00 EVENTO: Ok" in txt  # valida applicata
             assert "xx" in txt  # invalida segnalata, senza crash
+
+    asyncio.run(t())
+
+
+def test_apertura_in_cima_focus_lista(tmp_files):
+    """Il pannello si apre in cima (contesto+disponibilita' visibili) ma il
+    focus resta sulla lista: s = salva ovunque, e lo scroll segue lo spunto."""
+
+    async def t():
+        for size in ((120, 40), (100, 30), (80, 24)):
+            app = make_app(_todos())
+            async with app.run_test(size=size) as pilot:
+                await pilot.pause()
+                await pilot.press("P")
+                await pilot.pause()
+                await pilot.pause()
+                screen = app.screen
+                assert screen.focused.id == "planp-list", (size, screen.focused)
+                assert screen.query_one("#planp-scroll").scroll_offset.y == 0, size
+                # Gli input dell'ora devono contenere le cifre dentro la
+                # cornice (border+padding mangiano 6 colonne: 14 -> 8 utili).
+                start = screen.query_one("#planp-start")
+                assert start.region.width >= 14, (size, start.region)
+                row = screen.query_one("#planp-avail-row")
+                box = screen.query_one("#planp-box")
+                assert (
+                    row.region.x + row.region.width
+                    <= box.region.x + box.region.width + 1
+                ), size
 
     asyncio.run(t())

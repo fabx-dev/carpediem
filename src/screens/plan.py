@@ -684,6 +684,19 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         height: 5;
         margin-bottom: 1;
     }
+    #planp-avail-row {
+        height: 3;
+        margin-bottom: 1;
+    }
+    #planp-avail-row Input {
+        width: 14;
+        height: 3;
+    }
+    #planp-avail-dash {
+        width: auto;
+        height: 3;
+        padding: 1 1 0 1;
+    }
     #planp-legend {
         height: auto;
     }
@@ -952,10 +965,11 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                     ),
                     id="planp-summary",
                 )
-                yield Label(T("planp_start"), id="planp-start-label")
-                yield Input(placeholder=T("planp_start_ph"), id="planp-start")
-                yield Label(T("planp_end"), id="planp-end-label")
-                yield Input(placeholder=T("planp_end_ph"), id="planp-end")
+                yield Label(T("planp_avail"), id="planp-avail-label")
+                with Horizontal(id="planp-avail-row"):
+                    yield Input(placeholder=T("planp_start_ph"), id="planp-start")
+                    yield Label("–", id="planp-avail-dash")
+                    yield Input(placeholder=T("planp_end_ph"), id="planp-end")
                 yield Label(T("planp_events"), id="planp-events-label")
                 yield TextArea(id="planp-events")
                 yield Static(self._slot_lines(), id="planp-slots")
@@ -979,6 +993,11 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                 yield Button(T("form_cancel"), id="planp-close", variant="default")
 
     def on_mount(self) -> None:
+        # Focus sulla lista (s = salva ovunque: nei campi di testo i caratteri
+        # sono consumati dall'input) ma scroll in cima: si vede contesto,
+        # disponibilita' ed eventi; quando si spunta, lo scroll segue il
+        # cursore della lista. scroll_home differito: il layout finisce
+        # dopo l'idle e il primo render riporterebbe lo scroll a meta'.
         try:
             self.query_one("#planp-list", SelectionList).focus()
         except Exception:
@@ -986,6 +1005,13 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                 self.query_one("#planp-confirm", Button).focus()
             except Exception:
                 self.focus()
+        self.call_after_refresh(self._scroll_top)
+
+    def _scroll_top(self) -> None:
+        try:
+            self.query_one("#planp-scroll").scroll_home(animate=False)
+        except Exception:
+            pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "planp-close":
