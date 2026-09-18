@@ -523,6 +523,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "planp_empty": "[green]Niente da pianificare: nessun task attivo.[/]",
         "n_planp_saved": "Piano di oggi: {n} aggiunti ({k} già presenti), {r} rimandati a domani.",
         "planp_done": "[green]Piano di oggi completo: niente altro da proporre. Vedi con piano giorno (p).[/]",
+        "planp_start": "Da che ora parti? (HH:MM, vuoto = senza orari)",
+        "planp_start_ph": "es: 09:00",
+        "planp_start_bad": "[yellow]Ora non valida: usa HH:MM (es: 09:00).[/]",
+        "planp_slots_none": "[dim]Inserisci l'ora di partenza per vedere gli orari previsti.[/]",
+        "planp_slots_un": "Senza orario: {t}",
         # Smart list salvate
         "menu_smart_t": "Smart list",
         "menu_smart_h": "Filtri salvati da applicare in un click",
@@ -1168,6 +1173,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "planp_empty": "[green]Nothing to plan: no active tasks.[/]",
         "n_planp_saved": "Today plan: {n} added ({k} already there), {r} postponed to tomorrow.",
         "planp_done": "[green]Today plan complete: nothing else to propose. See with day plan (p).[/]",
+        "planp_start": "What time do you start? (HH:MM, empty = no times)",
+        "planp_start_ph": "e.g. 09:00",
+        "planp_start_bad": "[yellow]Invalid time: use HH:MM (e.g. 09:00).[/]",
+        "planp_slots_none": "[dim]Enter the start time to see the scheduled times.[/]",
+        "planp_slots_un": "Unscheduled: {t}",
         # Saved smart lists
         "menu_smart_t": "Smart lists",
         "menu_smart_h": "Saved filters to apply in one click",

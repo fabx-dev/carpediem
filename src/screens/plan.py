@@ -8,6 +8,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import (
     Button,
+    Input,
     Label,
     ListItem,
     ListView,
@@ -28,6 +29,7 @@ from src.models import (
     _status,
 )
 from src.planner import Planner, explain
+from src.planner.models import ScheduledDayPlan, TimeWindow
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
@@ -635,6 +637,13 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
     }
     #planp-summary {
         height: auto;
+    }
+    #planp-start {
+        height: auto;
+        margin-bottom: 1;
+    }
+    #planp-slots {
+        height: auto;
         margin-bottom: 1;
     }
     #planp-legend {
@@ -683,6 +692,69 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.n_planned = len(planned_ids)
         self.rows = [it for it in self.plan.items if it.todo_id not in planned_ids]
         self.by_id = {t.id: t for t in self.all_todos if t.id is not None}
+        # Slot temporali: input utente esplicito, mai default. Vuoto = niente slot.
+        self.start_text = ""
+        self.sched: ScheduledDayPlan | None = None
+
+    def _parse_start(self, value: str):
+        """(ok, datetime|None): vuoto = (True, None), invalido = (False, None)."""
+        clean = (value or "").strip()
+        if not clean:
+            return True, None
+        try:
+            return True, datetime.strptime(f"{self.today} {clean}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            return False, None
+
+    def _refresh_sched(self) -> None:
+        """Ricalcola lo ScheduledDayPlan dall'input (solo rendering)."""
+        ok, start = self._parse_start(self.start_text)
+        if not ok or start is None:
+            self.sched = None
+            return
+        # day_hours e' una durata di capacita', non working hours: la finestra
+        # e' [inizio utente, inizio + day_hours], mai un default 09-18.
+        window = TimeWindow(start, start + timedelta(hours=self.hours))
+        self.sched = Planner.schedule(self.plan, [window])
+
+    def _slot_lines(self) -> str:
+        """Righe orari HH:MM per le voci in proposta (rows); solo rendering."""
+        ok, start = self._parse_start(self.start_text)
+        if start is None and ok:
+            return T("planp_slots_none")
+        if not ok:
+            return T("planp_start_bad")
+        if self.sched is None:  # start valido ma sched mancante: mai crash da UI
+            return T("planp_slots_none")
+        shown = {it.todo_id for it in self.rows}
+        lines = []
+        for s in self.sched.scheduled:
+            if s.item.todo_id not in shown:
+                continue
+            t = self.by_id.get(s.item.todo_id)
+            title = _escape_markup(t.title) if t else f"#{s.item.todo_id}"
+            lines.append(
+                f"{s.start.strftime('%H:%M')}–{s.end.strftime('%H:%M')} {title}"
+            )
+        tail = []
+        for it in self.sched.unscheduled:
+            if it.todo_id not in shown:
+                continue
+            t = self.by_id.get(it.todo_id)
+            tail.append(_escape_markup(t.title) if t else f"#{it.todo_id}")
+        if tail:
+            lines.append(T("planp_slots_un", t=", ".join(tail)))
+        return "\n".join(lines) if lines else T("planp_slots_none")
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "planp-start":
+            return
+        self.start_text = event.value
+        self._refresh_sched()
+        try:
+            self.query_one("#planp-slots", Static).update(self._slot_lines())
+        except Exception:
+            pass
 
     @staticmethod
     def _is_cut(reasons) -> bool:
@@ -781,6 +853,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                     ),
                     id="planp-summary",
                 )
+                yield Label(T("planp_start"), id="planp-start-label")
+                yield Input(placeholder=T("planp_start_ph"), id="planp-start")
+                yield Static(self._slot_lines(), id="planp-slots")
                 if self.rows:
                     yield SelectionList(
                         *[

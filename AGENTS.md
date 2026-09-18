@@ -542,6 +542,18 @@ Regole dure:
   feedback↔todos a parita' di dati, edge <5/outlier/determinismo);
   solo future (piani/actual/slot passati mai toccati), niente history in
   Planner, niente auto-update, niente rescheduling. Niente bump versione.
+- **Slot in Buongiorno (2026-09-18, fatto, Fase 6.5)**: `PlanProposalScreen`
+  mostra gli slot dello scheduler da ora di partenza esplicita (`#planp-start`
+  HH:MM, vuoto = niente slot, invalido = hint senza crash, mai persistita);
+  finestra `[inizio, inizio + day_hours]` (durata di capacita', non working
+  hours, niente default 09-18); `Planner.schedule()` sul `DayPlan`, rendering
+  puro di `scheduled` (`HH:MM–HH:MM titolo`) + sezione `Senza orario` dagli
+  `unscheduled` strutturali (niente `plan_unscheduled`, cut fuori); conferma
+  `planned_for` invariata, niente auto-start/rescheduling/pomodoro/calendario;
+  chiavi `planp_start(_ph/_bad)` + `planp_slots_none/un` it/en;
+  `tests/test_plan_slots.py` (6 pilot: vuoto, slot+ordine, invalido,
+  unscheduled, midnight-clippato, conferma); `src/planner/` intoccato.
+  Niente bump versione (solo display).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
