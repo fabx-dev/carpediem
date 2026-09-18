@@ -258,3 +258,22 @@ def test_picker_bottone_icona(tmp_files):
             assert btn.tooltip
 
     run(t())
+
+
+def test_form_stima_colonna_larghezza(tmp_files):
+    """La colonna stima deve contenere label e placeholder (nuovo popup leggibile)."""
+
+    for size in ((120, 40), (70, 20)):
+
+        async def t(size=size):
+            app = make_app([])
+            async with app.run_test(size=size) as pilot:
+                await pilot.pause()
+                app.action_new_todo()
+                await pilot.pause()
+                await pilot.pause()
+                assert type(app.screen).__name__ == "TodoFormScreen"
+                col = app.screen.query_one("#col-stima")
+                assert col.size.width >= 28, (size, col.size.width)
+
+        run(t())

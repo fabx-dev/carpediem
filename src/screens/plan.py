@@ -730,15 +730,18 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.n_planned = len(planned_ids)
         self.rows = [it for it in self.plan.items if it.todo_id not in planned_ids]
         self.by_id = {t.id: t for t in self.all_todos if t.id is not None}
-        # Slot temporali: input utente esplicito, mai default. Vuoto = niente slot.
-        # Eventi fissi: temporanei come l'ora di inizio, mai persistiti.
+        # Disponibilità: input utente esplicito (start/end), mai default.
+        # day_hours resta la capacita' quantitativa, non working hours.
+        # Eventi fissi: temporanei come gli orari, mai persistiti.
         self.start_text = ""
+        self.end_text = ""
         self.events_text = ""
         self.events: list = []
         self.events_bad: list = []
         self.sched: ScheduledDayPlan | None = None
+        self.slot_error: str | None = None
 
-    def _parse_start(self, value: str):
+    def _parse_time(self, value: str):
         """(ok, datetime|None): vuoto = (True, None), invalido = (False, None)."""
         clean = (value or "").strip()
         if not clean:
@@ -750,16 +753,25 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
 
     def _refresh_sched(self) -> None:
         """Ricalcola lo ScheduledDayPlan dall'input (solo rendering)."""
-        ok, start = self._parse_start(self.start_text)
-        if not ok or start is None:
-            self.sched = None
+        self.slot_error = None
+        self.sched = None
+        ok_start, start = self._parse_time(self.start_text)
+        ok_end, end = self._parse_time(self.end_text)
+        if start is None and ok_start:
+            return  # senza orari: nessuna finestra, hint base
+        if not ok_start:
+            self.slot_error = "planp_start_bad"
+            return
+        if not ok_end or end is None:
+            self.slot_error = "planp_end_missing"
+            return
+        # end <= start (overnight compreso) non e' una finestra valida qui.
+        if end <= start:
+            self.slot_error = "planp_window_bad"
             return
         self.events, self.events_bad = parse_event_lines(self.events_text, self.today)
-        # day_hours e' una durata di capacita', non working hours: la finestra
-        # e' [inizio utente, inizio + day_hours], mai un default 09-18.
-        window = TimeWindow(start, start + timedelta(hours=self.hours))
         self.sched = Planner.schedule(
-            self.plan, [window], busy=events_to_busy(self.events)
+            self.plan, [TimeWindow(start, end)], busy=events_to_busy(self.events)
         )
 
     def _slot_lines(self) -> str:
@@ -768,12 +780,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         Fonde gli eventi originali con gli slot (ordinamento display, mai
         scheduling); gli eventi fuori availability non si mostrano.
         """
-        ok, start = self._parse_start(self.start_text)
-        if start is None and ok:
-            return T("planp_slots_none")
-        if not ok:
-            return T("planp_start_bad")
-        if self.sched is None:  # start valido ma sched mancante: mai crash da UI
+        if self.slot_error is not None:
+            return T(self.slot_error)
+        if self.sched is None:
             return T("planp_slots_none")
         shown = {it.todo_id for it in self.rows}
         entries = []  # (start, order, line): task prima degli eventi a pari ora
@@ -818,9 +827,12 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         return "\n".join(lines) if lines else T("planp_slots_none")
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        if event.input.id != "planp-start":
+        if event.input.id not in ("planp-start", "planp-end"):
             return
-        self.start_text = event.value
+        if event.input.id == "planp-start":
+            self.start_text = event.value
+        else:
+            self.end_text = event.value
         self._update_slots()
 
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
@@ -942,6 +954,8 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                 )
                 yield Label(T("planp_start"), id="planp-start-label")
                 yield Input(placeholder=T("planp_start_ph"), id="planp-start")
+                yield Label(T("planp_end"), id="planp-end-label")
+                yield Input(placeholder=T("planp_end_ph"), id="planp-end")
                 yield Label(T("planp_events"), id="planp-events-label")
                 yield TextArea(id="planp-events")
                 yield Static(self._slot_lines(), id="planp-slots")

@@ -123,8 +123,8 @@ class TodoFormScreen(ModalScreen[dict | None]):
         margin-right: 1;
     }
     #col-stima {
-        width: 20;
-        min-width: 12;
+        width: 28;
+        min-width: 18;
         height: auto;
         margin-left: 1;
     }
