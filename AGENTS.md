@@ -37,6 +37,8 @@ src/screens/     package per area (form/views/plan/system/menu + _shared + re-ex
 src/nlparse.py   parser deterministico NL it/en → dict uguale al result di TodoFormScreen;
                  sigilli #tag *progetto !prio ~stima //note, parse_with_found() per merge
 src/plan.py      plan_day() pura: score, capacita' ore/0.5 🍅, motivi (chiave, params)
+src/planner/     service Planner (application boundary, Fase 1: propose() delega
+                 a plan_day); usato da PlanProposalScreen; contratto in tests/test_planner.py
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit()
@@ -446,8 +448,15 @@ Regole dure:
   media di mele e pere); `DetailScreen` riga actual, `StatsScreen` riga fattore
   con `calibration_samples`; `tests/test_actual.py` (9 pilot) + unit factor in
   `test_plan.py`. Lezione: validazione pure testabile senza DOM vale anche qui
-  (`_save_smart` precedent); gli hook duplicati home/piano condividono la
-  stessa popup dumb invece di un nuovo seam.
+   (`_save_smart` precedent); gli hook duplicati home/piano condividono la
+   stessa popup dumb invece di un nuovo seam.
+- **Planner boundary Fase 1 (2026-09-18, fatto)**: `src/planner/` package
+  (`__init__` re-export + `service.Planner`, delega pura a `plan_day()`,
+  nessuna normalizzazione, nessuna eccezione trasformata);
+  `PlanProposalScreen` usa `Planner(...).propose()` (unico call-site);
+  `factor` resta calcolato nella screen (equivalenza byte-identica);
+  contratto in `tests/test_planner.py` (6 test) + guardrail purezza esteso
+  a `src/planner/*.py`. Niente bump versione (cambio invisibile).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -526,8 +535,8 @@ tasks → scoring → ordering → capacity → ranked proposal
 ```
 
 I motivi (`plan_*`) sono già spiegabili e consumati da `PlanProposalScreen`.
-`plan_day` è chiamato direttamente da `PlanProposalScreen.__init__`
-(`src/screens/plan.py:671`); `DailyPlanScreen` e `ReviewScreen` lavorano su
+`plan_day` è raggiunto via `Planner.propose()` (`src/planner/service.py`)
+da `PlanProposalScreen.__init__`; `DailyPlanScreen` e `ReviewScreen` lavorano su
 `planned_for` senza passare dal planner. Il flusso di conferma è già
 "propone → l'utente rivede → conferma" (additivo, vedi `planp_additive`).
 
@@ -840,13 +849,13 @@ implementare automaticamente l'intera fase successiva.**
 
 Stato al 2026-09-18, basato sul codice reale (non su aspirazioni). Phase 0 è
 completata di fatto (architettura mappata e documentata in §2/§7/§9.2). Phase 1
-**non è ancora iniziata**: non esiste alcuna classe `Planner`, `plan_day()`
-viene chiamato direttamente da `PlanProposalScreen` (src/screens/plan.py:671).
+completata: esiste `Planner` (`src/planner/service.py`, delega pura a `plan_day()`),
+usato da `PlanProposalScreen`; contratto in `tests/test_planner.py`.
 
 | Phase | Obiettivo                        | Stato       |
 | ----- | -------------------------------- | ----------- |
 | 0     | Baseline e comprensione          | Done        |
-| 1     | Explicit Planner boundary        | Planned (next) |
+| 1     | Explicit Planner boundary        | Done        |
 | 2     | Scoring / constraints / capacity | Planned     |
 | 3     | DayPlan model                    | Planned     |
 | 4     | Temporal scheduling              | Planned     |

@@ -197,11 +197,13 @@ def test_validate_smart_name():
 
 
 def test_arch_purezza_no_import_app_ui():
-    """Guardrail god-class: domain/plan/models mai verso app/screens/T()."""
+    """Guardrail god-class: domain/plan/planner/models mai verso app/screens/T()."""
     import pathlib
 
-    for mod in ("domain", "plan", "models"):
-        src = pathlib.Path(f"src/{mod}.py").read_text(encoding="utf-8")
+    files = ["src/domain.py", "src/plan.py", "src/models.py"]
+    files += sorted(str(p) for p in pathlib.Path("src/planner").glob("*.py"))
+    for path in files:
+        src = pathlib.Path(path).read_text(encoding="utf-8")
         assert "from src.app" not in src and "import src.app" not in src
         assert "from src.screens" not in src and "import src.screens" not in src
-        assert "from src.lang import" not in src or mod == "models"
+        assert "from src.lang import" not in src or path == "src/models.py"

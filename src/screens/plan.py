@@ -27,7 +27,7 @@ from src.models import (
     _pomo_label,
     _status,
 )
-from src.plan import plan_day
+from src.planner import Planner
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
@@ -668,12 +668,12 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.hours = max(1.0, float(hours))
         except (ValueError, TypeError):
             self.hours = 6.0
-        self.plan = plan_day(
+        self.plan = Planner(
             self.all_todos,
             today=self.today,
             hours=self.hours,
             factor=domain.calibration_factor(self.all_todos),
-        )
+        ).propose()
         # Semantica additiva: i gia' pianificati non si ripropongono (per
         # togliere c'e' il piano giorno con x). Restano nel computo capacita'.
         planned_ids = {
