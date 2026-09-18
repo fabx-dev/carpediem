@@ -3,6 +3,19 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.11.1] - 2026-09-18
+
+### Fixed
+- Buongiorno availability now asks for an explicit start AND end time
+  (`HH:MM` each, side by side on one row) instead of deriving the end from
+  the daily capacity; invalid/empty combinations show a hint and never
+  schedule. `day_hours` (settings) is labeled as capacity, not working
+  hours, in the plan popup, the load line and the settings screen.
+- The morning panel opens at the top (context and availability visible):
+  the initial scroll used to jump to the bottom, hiding everything above.
+- The task form's estimate column is wide enough for its label and
+  placeholder (previously clipped since the new placeholder text).
+
 ## [0.11.0] - 2026-09-18
 
 ### Planning / scheduling
