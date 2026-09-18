@@ -613,6 +613,27 @@ Regole dure:
   solo con un consumer esterno reale. Nessuna modifica di produzione, nessun
   refactor propedeutico (micro-rafforzamento guardrail scartato: valore
   marginale basso). Niente bump versione.
+- **Bugfix UX Buongiorno (2026-09-18, fatto, post-release 0.11.0)**: disponibilita'
+  con start/end espliciti (`TimeWindow(start, end)`, niente piu' `end = start +
+  day_hours`; overnight `end <= start` rifiutato con hint; `day_hours` resta
+  capacita', etichette disambiguate: `planp_summary`/`brief_m_load`/`set_hours`
+  dicono "capacita'"); riga unica affiancata `[09:00] – [18:00]` (input 14 col
+  per superare border+padding dell'Input: contenuto utile 8, le cifre stanno
+  in cornice); colonna stima form 20→28 (placeholder allungato in 0.11.0
+  troncato); focus apertura sulla lista + `scroll_home` differito via
+  `call_after_refresh` (il pannello si apre in cima: prima lo scroll partiva
+  dal fondo e si vedevano solo le scelte). Lezioni: (a) focus iniziale su
+  Input NON si puo' fare — consuma `s` e rompe "s = salva ovunque"
+  (`test_conferma_con_s` l'ha beccato); (b) `scroll_visible` del layout
+  provvisorio sopravvive al relayout -> scroll_home differito; (c) "eventi
+  fissi ignorati" segnalato dall'utente era il PROCESSO TUI STANTIO (python
+  non ricarica a runtime: riavviare dopo le modifiche, non e' un bug);
+  (d) `.venv` aveva il fossile `carpediem 0.5.1` installato (l'entry point
+  `carpediem` del venv girava la copia vecchia!) -> reinstallato editable
+  con `pip install -e .`; test: `test_plan_slots.py` riscritto (12 pilot:
+  start/end espliciti, end mancante/uguale/minore, pausa pranzo senza overlap,
+  apertura in cima a 3 taglie) + `test_form_stima_colonna_larghezza`
+  (>=28 a 120x40 e 70x20). Commits `06d546e`, `bb58e98`.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
