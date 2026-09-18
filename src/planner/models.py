@@ -60,6 +60,20 @@ class TimeWindow:
 
 
 @dataclass(frozen=True)
+class FixedEvent:
+    """Evento fisso esterno al Planner: vincolo temporale, mai un Task.
+
+    Solo titolo + intervallo; niente score/priorita'/ricorrenze/persistenza.
+    Non passa da scoring/capacity/calibration: diventa busy per lo scheduler
+    tramite proiezione pura (events_to_busy), che resta fuori dal modello.
+    """
+
+    title: str
+    start: datetime
+    end: datetime
+
+
+@dataclass(frozen=True)
 class ScheduledItem:
     """Voce del DayPlan collocata: riusa il PlanItem, aggiunge lo slot."""
 

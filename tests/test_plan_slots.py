@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
-from textual.widgets import Input
+from textual.widgets import Input, TextArea
 
 from src.lang import T as _T
 from src.models import Priority
@@ -149,5 +149,74 @@ def test_conferma_invaiata_con_slot(tmp_files):
             assert by_id[1].planned_for == _day(0)
             assert by_id[2].planned_for == _day(0)
             assert by_id[3].planned_for == _day(0)
+
+    asyncio.run(t())
+
+
+async def _set_events(pilot, screen, text):
+    area = screen.query_one("#planp-events", TextArea)
+    area.text = text
+    area.post_message(TextArea.Changed(area))
+    await pilot.pause()
+    await pilot.pause()
+
+
+def test_evento_in_timeline_e_slot_spostati(tmp_files):
+    async def t():
+        app = make_app(_todos())
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.press("P")
+            await pilot.pause()
+            await pilot.pause()
+            screen = app.screen
+            screen.query_one("#planp-start", Input).value = "09:00"
+            await pilot.pause()
+            await _set_events(pilot, screen, "10:00-11:00 Riunione")
+            txt = screen_texts(screen)
+            assert "09:00–09:30 A-ritardo" in txt
+            assert "10:00–11:00 EVENTO: Riunione" in txt
+            # B da 1h non entra piu' prima dell'evento (va dopo);
+            # C da 30min entra in 09:30-10:00 (first-fit nell'ordine Planner).
+            assert "11:00–12:00 B-oggi" in txt
+            assert "09:30–10:00 C-libero" in txt
+
+    asyncio.run(t())
+
+
+def test_evento_fuori_finestra_non_mostrato(tmp_files):
+    async def t():
+        app = make_app(_todos())
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.press("P")
+            await pilot.pause()
+            await pilot.pause()
+            screen = app.screen
+            screen.query_one("#planp-start", Input).value = "09:00"
+            await pilot.pause()
+            await _set_events(pilot, screen, "20:00-21:00 Sera")
+            txt = screen_texts(screen)
+            assert "Sera" not in txt  # fuori [09:00, 09:00+6h): non renderizzato
+            assert "09:00–09:30 A-ritardo" in txt  # scheduling invariato
+
+    asyncio.run(t())
+
+
+def test_riga_evento_invalida_segnalata(tmp_files):
+    async def t():
+        app = make_app(_todos())
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.press("P")
+            await pilot.pause()
+            await pilot.pause()
+            screen = app.screen
+            screen.query_one("#planp-start", Input).value = "09:00"
+            await pilot.pause()
+            await _set_events(pilot, screen, "10:00-11:00 Ok\nxx")
+            txt = screen_texts(screen)
+            assert "10:00–11:00 EVENTO: Ok" in txt  # valida applicata
+            assert "xx" in txt  # invalida segnalata, senza crash
 
     asyncio.run(t())

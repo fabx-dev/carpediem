@@ -13,7 +13,13 @@ slot = unscheduled: mai overlap, mai ore inventate, mai durate modificate.
 from datetime import datetime, timedelta
 
 from src.planner.capacity import POMO_HOURS
-from src.planner.models import PlanItem, ScheduledDayPlan, ScheduledItem, TimeWindow
+from src.planner.models import (
+    FixedEvent,
+    PlanItem,
+    ScheduledDayPlan,
+    ScheduledItem,
+    TimeWindow,
+)
 
 
 def _day_bounds(day) -> tuple:
@@ -76,6 +82,23 @@ def _subtract(free: list, busy: list) -> list:
 
 def _duration(item: PlanItem) -> timedelta:
     return timedelta(hours=POMO_HOURS * max(0, item.estimate_pomo))
+
+
+def events_to_busy(events) -> tuple:
+    """Proiezione pura FixedEvent -> TimeWindow per il parametro busy.
+
+    Solo (start, end) con end > start; niente merge/clip (restano dentro
+    schedule, unica sede della logica temporale)."""
+    out = []
+    for e in events or ():
+        if (
+            isinstance(e, FixedEvent)
+            and isinstance(e.start, datetime)
+            and isinstance(e.end, datetime)
+            and e.start < e.end
+        ):
+            out.append(TimeWindow(e.start, e.end))
+    return tuple(out)
 
 
 def schedule(plan, availability, busy=()) -> ScheduledDayPlan:

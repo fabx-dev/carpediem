@@ -528,6 +528,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "planp_start_bad": "[yellow]Ora non valida: usa HH:MM (es: 09:00).[/]",
         "planp_slots_none": "[dim]Inserisci l'ora di partenza per vedere gli orari previsti.[/]",
         "planp_slots_un": "Senza orario: {t}",
+        "planp_events": "Eventi fissi (uno per riga: HH:MM-HH:MM Titolo, vuoto = nessuno)",
+        "planp_events_bad": "[yellow]Righe evento ignorate: {t}[/]",
+        "planp_event_tag": "EVENTO:",
         # Smart list salvate
         "menu_smart_t": "Smart list",
         "menu_smart_h": "Filtri salvati da applicare in un click",
@@ -1178,6 +1181,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "planp_start_bad": "[yellow]Invalid time: use HH:MM (e.g. 09:00).[/]",
         "planp_slots_none": "[dim]Enter the start time to see the scheduled times.[/]",
         "planp_slots_un": "Unscheduled: {t}",
+        "planp_events": "Fixed events (one per line: HH:MM-HH:MM Title, empty = none)",
+        "planp_events_bad": "[yellow]Ignored event lines: {t}[/]",
+        "planp_event_tag": "EVENT:",
         # Saved smart lists
         "menu_smart_t": "Smart lists",
         "menu_smart_h": "Saved filters to apply in one click",

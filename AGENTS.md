@@ -564,6 +564,21 @@ Regole dure:
   **Follow-up separato (mini-fase futura, non implementare ora)**: "stima
   mancante ≠ stima 1" — es. `estimate_pomo = None` nel modello, rendering
   onesto ("durata da definire"), gestione apposita in scheduler/testi.
+- **Eventi fissi in Buongiorno (2026-09-18, fatto, Fase 7)**: `FixedEvent`
+  frozen in `models.py` (title/start/end, mai un Task, fuori da scoring/
+  capacity/calibration); `scheduler.events_to_busy()` proiezione pura
+  (niente merge, core `schedule()` intoccato, busy resta hard constraint);
+  `PlanProposalScreen` con `#planp-events` (TextArea temporanea, mai
+  persistita, una riga `HH:MM-HH:MM Titolo`, parsing puro
+  `parse_event_lines`, invalide ignorate con hint); timeline unita
+  FixedEvent+ScheduledItem ordinata per start con tag `EVENTO:` (rendering
+  da eventi originali, mai da `busy` normalizzato; fuori-availability non
+  mostrati; niente free-time); sezione `Senza orario` invariata, conferma
+  invariata; chiavi `planp_events(_bad)` + `planp_event_tag` it/en;
+  `tests/test_phase7_events.py` (11 puri: parsing/proiezione/casi §4/
+  midnight/mandatory/DayPlan invariato) + 3 pilot in `test_plan_slots.py`;
+  niente calendario esterno, niente ricorrenze, niente rescheduling.
+  Niente bump versione.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -984,7 +999,7 @@ matematica in `domain`); `capacity.estimate` riusa `domain`;
 | 4     | Temporal scheduling              | Done        |
 | 5     | Pomodoro / execution feedback    | Done        |
 | 6     | Calibration / feedback loop      | Done        |
-| 7     | Calendar / fixed events          | Planned     |
+| 7     | Calendar / fixed events          | Done        |
 | 8     | External task sources            | Planned     |
 | 9     | UI as Planner consumer           | Planned     |
 | 10    | Optional Planner extraction      | Future      |

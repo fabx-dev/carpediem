@@ -1,5 +1,6 @@
 """Pianificazione giornata: piano giorno, review, proposta smart, briefing sera. Dipendono solo da models/storage/lang/nlparse/plan/domain (+ _shared). Mai app."""
 
+import re
 from datetime import datetime, timedelta
 
 from textual.app import ComposeResult
@@ -14,6 +15,7 @@ from textual.widgets import (
     ListView,
     SelectionList,
     Static,
+    TextArea,
 )
 
 from src import domain
@@ -28,8 +30,8 @@ from src.models import (
     _pomo_label,
     _status,
 )
-from src.planner import Planner, explain
-from src.planner.models import ScheduledDayPlan, TimeWindow
+from src.planner import Planner, events_to_busy, explain
+from src.planner.models import FixedEvent, ScheduledDayPlan, TimeWindow
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
@@ -49,6 +51,38 @@ class PlanRow(ListItem):
         super().__init__(*args, **kwargs)
         self.task_id = task_id
         self.section = section
+
+
+_EVENT_RE = re.compile(r"^\s*(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})(?:\s+(.*?))?\s*$")
+
+
+def parse_event_lines(text: str, day_s: str):
+    """(eventi, righe_scartate): un FixedEvent per riga `HH:MM-HH:MM Titolo`.
+
+    Puro (presentation): valida orari e ordinamento, mai scheduling. Titolo
+    opzionale; righe vuote ignorate; righe invalide segnalate, non bloccanti.
+    """
+    events: list = []
+    bad: list = []
+    for raw in (text or "").splitlines():
+        clean = raw.strip()
+        if not clean:
+            continue
+        m = _EVENT_RE.match(raw)
+        if not m:
+            bad.append(clean)
+            continue
+        try:
+            start = datetime.strptime(f"{day_s} {m.group(1)}", "%Y-%m-%d %H:%M")
+            end = datetime.strptime(f"{day_s} {m.group(2)}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            bad.append(clean)
+            continue
+        if end <= start:
+            bad.append(clean)
+            continue
+        events.append(FixedEvent((m.group(3) or "").strip(), start, end))
+    return events, bad
 
 
 class PlanListView(ListView):
@@ -646,6 +680,10 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         height: auto;
         margin-bottom: 1;
     }
+    #planp-events {
+        height: 5;
+        margin-bottom: 1;
+    }
     #planp-legend {
         height: auto;
     }
@@ -693,7 +731,11 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.rows = [it for it in self.plan.items if it.todo_id not in planned_ids]
         self.by_id = {t.id: t for t in self.all_todos if t.id is not None}
         # Slot temporali: input utente esplicito, mai default. Vuoto = niente slot.
+        # Eventi fissi: temporanei come l'ora di inizio, mai persistiti.
         self.start_text = ""
+        self.events_text = ""
+        self.events: list = []
+        self.events_bad: list = []
         self.sched: ScheduledDayPlan | None = None
 
     def _parse_start(self, value: str):
@@ -712,13 +754,20 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         if not ok or start is None:
             self.sched = None
             return
+        self.events, self.events_bad = parse_event_lines(self.events_text, self.today)
         # day_hours e' una durata di capacita', non working hours: la finestra
         # e' [inizio utente, inizio + day_hours], mai un default 09-18.
         window = TimeWindow(start, start + timedelta(hours=self.hours))
-        self.sched = Planner.schedule(self.plan, [window])
+        self.sched = Planner.schedule(
+            self.plan, [window], busy=events_to_busy(self.events)
+        )
 
     def _slot_lines(self) -> str:
-        """Righe orari HH:MM per le voci in proposta (rows); solo rendering."""
+        """Timeline unita FixedEvent + ScheduledItem; solo rendering.
+
+        Fonde gli eventi originali con gli slot (ordinamento display, mai
+        scheduling); gli eventi fuori availability non si mostrano.
+        """
         ok, start = self._parse_start(self.start_text)
         if start is None and ok:
             return T("planp_slots_none")
@@ -727,15 +776,37 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         if self.sched is None:  # start valido ma sched mancante: mai crash da UI
             return T("planp_slots_none")
         shown = {it.todo_id for it in self.rows}
-        lines = []
+        entries = []  # (start, order, line): task prima degli eventi a pari ora
         for s in self.sched.scheduled:
             if s.item.todo_id not in shown:
                 continue
             t = self.by_id.get(s.item.todo_id)
             title = _escape_markup(t.title) if t else f"#{s.item.todo_id}"
-            lines.append(
-                f"{s.start.strftime('%H:%M')}–{s.end.strftime('%H:%M')} {title}"
+            entries.append(
+                (
+                    s.start,
+                    0,
+                    f"{s.start.strftime('%H:%M')}–{s.end.strftime('%H:%M')} {title}",
+                )
             )
+        for e in self.events:
+            if not any(
+                a.start < e.end and e.start < a.end for a in self.sched.availability
+            ):
+                continue
+            name = f" {_escape_markup(e.title)}" if e.title else ""
+            entries.append(
+                (
+                    e.start,
+                    1,
+                    f"{e.start.strftime('%H:%M')}–{e.end.strftime('%H:%M')} {T('planp_event_tag')}{name}",
+                )
+            )
+        entries.sort(key=lambda en: (en[0], en[1]))
+        lines = [line for _s, _o, line in entries]
+        if self.events_bad:
+            names = ", ".join(_escape_markup(b) for b in self.events_bad)
+            lines.insert(0, T("planp_events_bad", t=names))
         tail = []
         for it in self.sched.unscheduled:
             if it.todo_id not in shown:
@@ -750,6 +821,22 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         if event.input.id != "planp-start":
             return
         self.start_text = event.value
+        self._update_slots()
+
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
+        try:
+            changed = event.text_area.id == "planp-events"
+        except AttributeError:
+            changed = False
+        if not changed:
+            return
+        try:
+            self.events_text = self.query_one("#planp-events", TextArea).text
+        except Exception:
+            return
+        self._update_slots()
+
+    def _update_slots(self) -> None:
         self._refresh_sched()
         try:
             self.query_one("#planp-slots", Static).update(self._slot_lines())
@@ -855,6 +942,8 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                 )
                 yield Label(T("planp_start"), id="planp-start-label")
                 yield Input(placeholder=T("planp_start_ph"), id="planp-start")
+                yield Label(T("planp_events"), id="planp-events-label")
+                yield TextArea(id="planp-events")
                 yield Static(self._slot_lines(), id="planp-slots")
                 if self.rows:
                     yield SelectionList(
