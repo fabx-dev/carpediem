@@ -601,6 +601,18 @@ Regole dure:
   niente `plan_day(`/`src.plan` legacy in produzione — con regex che non
   inghiottano `action_plan_day`/`src.planner`); nessuna screen vietata in
   quanto tale: future consumer legit via boundary. Niente bump versione.
+- **Fase 10 (2026-09-18, chiusa come audit puro, zero produzione)**: audit
+  di estrazione del Planner eseguito (dependency graph completo, verifica
+  import `src.planner` senza bootstrap — niente Textual/Rich/storage/app/
+  screens; unico modulo applicativo transitivo `src.lang` via `models`,
+  senza side-effect; API pubblica esplicita senza dettagli interni).
+  Risultato: **non estrarre** — il boundary e' gia' isolato e protetto
+  (guardrail purity + arch), le dipendenze da `domain` sono deliberate
+  (calibration source of truth), nessun consumer esterno giustifica
+  packaging/versioning/CI. Estrazione richiesta potrebbe essere riesaminata
+  solo con un consumer esterno reale. Nessuna modifica di produzione, nessun
+  refactor propedeutico (micro-rafforzamento guardrail scartato: valore
+  marginale basso). Niente bump versione.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -1024,7 +1036,7 @@ matematica in `domain`); `capacity.estimate` riusa `domain`;
 | 7     | Calendar / fixed events          | Done        |
 | 8     | External task sources            | Done        |
 | 9     | UI as Planner consumer           | Done        |
-| 10    | Optional Planner extraction      | Future      |
+| 10    | Optional Planner extraction      | Done (audit: non estrarre) |
 
 > Nota: **non** spostare una fase su "In progress"/"Done" finché l'implementazione
 > non esiste davvero nel codice e i test non passano. La tabella va aggiornata
