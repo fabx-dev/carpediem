@@ -82,3 +82,29 @@ class ScheduledDayPlan:
     unscheduled: tuple = ()
     availability: tuple = ()
     busy: tuple = ()
+
+
+@dataclass(frozen=True)
+class ExecutionFeedback:
+    """Cosa e' successo davvero a una voce pianificata (Fase 5, derivato).
+
+    Solo lettura dei dati esistenti, mai scritture: estimate dal PlanItem,
+    scheduled dallo ScheduledDayPlan, actual dallo stato del Todo.
+    - estimate_pomo: unita' astratta di stima (mai minuti).
+    - estimate_minutes: stima in minuti via POMO_HOURS (unica conversione).
+    - scheduled_start/end: slot assegnato, None se mai schedulato.
+    - actual_pomo: pomodori dichiarati dall'utente (input calibrazione).
+    - actual_minutes: minuti dichiarati dall'utente (puo' essere 0).
+    - sessions: sessioni Pomodoro completate (evidence automatica).
+    - completed: stato, indipendente dall'actual (sessione != task).
+    """
+
+    todo_id: int
+    estimate_pomo: int
+    estimate_minutes: int
+    scheduled_start: datetime | None
+    scheduled_end: datetime | None
+    sessions: int
+    actual_pomo: int
+    actual_minutes: int
+    completed: bool

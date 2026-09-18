@@ -47,6 +47,9 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  Fase 4: scheduler temporale deterministico (scheduler.py puro +
                  TimeWindow/ScheduledItem/ScheduledDayPlan in models.py);
                  Planner.schedule() thin wrapper; availability esplicita, niente default
+                 Fase 5: feedback di esecuzione (feedback.py puro +
+                 ExecutionFeedback in models.py: estimate/sessions/actual/completed);
+                 solo derivazione, niente auto-calibrazione
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit()
@@ -509,6 +512,20 @@ Regole dure:
   casi §24, invarianti §25, determinismo, conservazione); `domain`/`app`/
   pomodoro intoccati, niente calendario esterno, niente AI.
   Niente bump versione (estensione non usata ancora da nessun consumer).
+- **Planner Fase 5 (2026-09-18, fatto)**: feedback di esecuzione come pura
+  derivazione (`src/planner/feedback.py`: `feedback(scheduled, todos)` →
+  un `ExecutionFeedback` per voce planned, stesso ordine, niente scritture);
+  modello in `models.py` (frozen: `estimate_pomo` unita' astratta +
+  `estimate_minutes` via `POMO_HOURS`, `scheduled_start/end` o None,
+  `sessions` = pomodoros, `actual_pomo/minutes` = dichiarazione utente,
+  `completed` da stato); semantica 25/30 chiusa a unita' astratte
+  (`POMO_HOURS` unica fonte stima→minuti, timer resta 25 di default,
+  calibration gia' count-based e invariata); riuso meccanismi esistenti
+  (`credit_pomodoro` accredita solo focus completati, stop = 0, `X`
+  anticipato = 1 sessione); niente wiring app/UI, niente actual auto,
+  niente rescheduling, niente calibration automatica (Fase 6);
+  `tests/test_feedback.py` (9 test); `domain`/`app`/pomodoro/scoring/
+  scheduler intoccati. Niente bump versione (solo derivazione).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -913,7 +930,9 @@ completata: `Planner.propose()` restituisce `DayPlan`
 `test_planner_dayplan.py`. Phase 4 completata: `schedule()` deterministico
 su `DayPlan` + `availability` esplicita (`src/planner/scheduler.py`,
 `ScheduledDayPlan` in `models.py`); `Planner.schedule()` wrapper;
-`propose()`/`plan_day()`/UI intoccati; `tests/test_scheduler.py`.
+`propose()`/`plan_day()`/UI intoccati; `tests/test_scheduler.py`. Phase 5
+completata: `feedback()` deriva `ExecutionFeedback` da scheduled+todos
+(solo osservazione, niente auto-calibrazione); `tests/test_feedback.py`.
 
 | Phase | Obiettivo                        | Stato       |
 | ----- | -------------------------------- | ----------- |
@@ -922,7 +941,7 @@ su `DayPlan` + `availability` esplicita (`src/planner/scheduler.py`,
 | 2     | Scoring / constraints / capacity | Done        |
 | 3     | DayPlan model                    | Done        |
 | 4     | Temporal scheduling              | Done        |
-| 5     | Pomodoro / execution feedback    | Planned     |
+| 5     | Pomodoro / execution feedback    | Done        |
 | 6     | Calibration / feedback loop      | Planned     |
 | 7     | Calendar / fixed events          | Planned     |
 | 8     | External task sources            | Planned     |
