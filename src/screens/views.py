@@ -1232,6 +1232,53 @@ class DayScreen(CloseMixin, ModalScreen[None]):
             pass
 
 
+class CalendarGrid(Static):
+    """Griglia mensile con giorni cliccabili.
+
+    Textual 3.x non dispatcha piu' le azioni-in-markup [@click=...] (meta
+    assente dai segmenti renderizzati): il click viene risolto qui,
+    mappando riga/colonna sul giorno. Struttura: riga 0 = intestazione,
+    poi coppie di righe per settimana (numeri / marche), celle da 5
+    caratteri + 1 separatore."""
+
+    CELL = 6
+
+    def __init__(self, content: str, year: int, month: int, **kwargs) -> None:
+        super().__init__(content, **kwargs)
+        self.year = year
+        self.month = month
+
+    def _day_at(self, x: int, y: int) -> int | None:
+        """Il giorno sotto la colonna/riga di testo, o None (header/vuoto)."""
+        try:
+            cl = calendar.Calendar(firstweekday=0)
+            weeks = cl.monthdayscalendar(self.year, self.month)
+        except Exception:
+            return None
+        if y <= 0:  # intestazione giorni
+            return None
+        week, half = divmod(y - 1, 2)
+        if week >= len(weeks):
+            return None
+        pos = x // self.CELL
+        if not 0 <= pos < 7:
+            return None
+        return weeks[week][pos] or None
+
+    def on_click(self, event) -> None:
+        try:
+            day = self._day_at(event.x, event.y)
+        except Exception:
+            return
+        if day:
+            try:
+                handler = getattr(self.app, "action_open_day", None)
+                if callable(handler):
+                    handler(self.year, self.month, day)
+            except Exception:
+                pass
+
+
 class CalendarScreen(CloseMixin, ModalScreen[None]):
     """Screen to show todos on a monthly calendar grid."""
 
@@ -1309,7 +1356,9 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
                 yield Button(T("nav_next"), id="next-btn", variant="default")
             with VerticalScroll(id="calendar-scroll"):
                 with Horizontal(id="calendar-grid-wrap"):
-                    yield Static(self._render_grid(), id="calendar-grid")
+                    yield CalendarGrid(
+                        self._render_grid(), self.year, self.month, id="calendar-grid"
+                    )
                 yield Static(T("cal_legend"), id="calendar-legend")
             yield Button(T("ui_close_esc"), id="calendar-close", variant="default")
 
@@ -1360,9 +1409,7 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
                         )
                     marks += f"[dim]{suffix}[/]"
                     plain_marks += suffix
-                day_cells.append(
-                    f"[@click=app.action_open_day({self.year},{self.month},{day})]{number_markup}[/]"
-                )
+                day_cells.append(number_markup)
                 task_cells.append(
                     self._center_markup(marks, len(plain_marks), 5)
                     if marks

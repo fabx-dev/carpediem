@@ -176,6 +176,47 @@ class ClickableDataTable(DataTable):
         await super()._on_click(event)
 
 
+class PomodoroBar(Static):
+    """Barra del timer con hint cliccabili (apri/pausa/completa).
+
+    Textual 3.x non dispatcha piu' le azioni-in-markup [@click=...] (meta
+    assente dai segmenti renderizzati, verificato sperimentalmente): i
+    click si risolvono qui, mappando la colonna sulla parola dell'hint.
+    L'ultima occorrenza del testo e' sempre l'hint (il titolo del task lo
+    precede), quindi rfind non puo' confondere titolo e comando."""
+
+    def _hints(self) -> tuple:
+        """(parola, action app) nell'ordine del testo, parole localizzate."""
+        return (
+            (T("pomo_hint_open"), "action_start_pomodoro"),
+            (T("pomo_hint_pause"), "action_pomodoro_pause"),
+            (T("pomo_hint_done"), "action_pomodoro_finish"),
+            (T("pomo_hint_skip"), "action_pomodoro_finish"),
+        )
+
+    def on_click(self, event) -> None:
+        try:
+            rendered = self.render()
+            plain = rendered.plain if hasattr(rendered, "plain") else str(rendered)
+            text_col = event.x - 2  # border (1) + padding (1)
+        except Exception:
+            return
+        if text_col < 0:
+            return
+        for word, action in self._hints():
+            if not word:
+                continue
+            pos = plain.rfind(word)
+            if pos >= 0 and pos <= text_col < pos + len(word):
+                try:
+                    handler = getattr(self.app, action, None)
+                    if callable(handler):
+                        handler()
+                except Exception:
+                    pass
+                return
+
+
 def _demo_todos(start_id: int = 1) -> list[TodoItem]:
     """Dati di esempio con date relative a oggi (onboarding)."""
     today = datetime.now().date()
@@ -635,7 +676,7 @@ class TodoApp(App):
             id="kanban-bar",
             classes="" if mode == "testo" else "hidden",
         )
-        yield Static("", id="pomodoro-bar", classes="hidden")
+        yield PomodoroBar("", id="pomodoro-bar", classes="hidden")
         yield Static(self._stats_text(), id="stats-bar")
         yield Static(self._help_text(), id="help-panel", classes="hidden")
         yield Footer(show_command_palette=False)
@@ -1710,10 +1751,12 @@ class TodoApp(App):
         total_min = max(1, self.focus_total_secs // 60)
         dots = self._cycle_dots()
         x_key = "pomo_hint_skip" if self._is_break() else "pomo_hint_done"
+        # Gli hint NON usano [@click=...]: Textual 3.x non lo dispatcha piu'
+        # (meta assente nei segmenti). I click li gestisce PomodoroBar.on_click.
         hints = (
-            f" [dim][o] [@click=app.action_start_pomodoro][underline]{T('pomo_hint_open')}[/underline][/]"
-            f"  [O] [@click=app.action_pomodoro_pause][underline]{T('pomo_hint_pause')}[/underline][/]"
-            f"  [X] [@click=app.action_pomodoro_finish][underline]{T(x_key)}[/underline][/][/dim]"
+            f" [dim][o] [underline]{T('pomo_hint_open')}[/underline][/]"
+            f"  [O] [underline]{T('pomo_hint_pause')}[/underline][/]"
+            f"  [X] [underline]{T(x_key)}[/underline][/][/dim]"
         )
         if self.focus_paused_secs is not None:
             state = f"[yellow]⏸ {T('pomo_paused')} {clock}/{total_min:02d}:00[/yellow]"

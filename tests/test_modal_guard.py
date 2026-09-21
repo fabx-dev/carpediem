@@ -89,6 +89,9 @@ def test_calendar_day_apre_giorno_sopra_calendario(tmp_files):
 
 
 def test_calendar_day_click_punta_a_handler_reale(tmp_files):
+    """Il calendario NON usa piu' il markup [@click] (morto in Textual 3.x):
+    il giorno deve risolversi via CalendarGrid._day_at verso l'action reale."""
+
     async def t():
         app = make_app(
             [make_todo("A", todo_id=1, due=datetime.now().strftime("%Y-%m-%d"))]
@@ -99,13 +102,27 @@ def test_calendar_day_click_punta_a_handler_reale(tmp_files):
             await pilot.pause()
             await pilot.pause()
             grid = screen_texts(app.screen)
-            assert "app.action_open_day(" in grid
+            assert "app.action_open_day(" not in grid  # markup morto: assente
             assert callable(getattr(app, "action_open_day"))
+            import calendar as cal
+
+            today = datetime.now()
+            widget = app.screen.query_one("#calendar-grid")
+            weeks = cal.Calendar(firstweekday=0).monthdayscalendar(
+                today.year, today.month
+            )
+            wi = next(w for w, days in enumerate(weeks) if today.day in days)
+            di = weeks[wi].index(today.day)
+            # la mappa riga/colonna -> giorno funziona (y=0 header -> None)
+            assert widget._day_at(di * 6 + 2, 1 + wi * 2) == today.day
+            assert widget._day_at(di * 6 + 2, 0) is None
 
     run(t())
 
 
 def test_pomodoro_bar_click_puntano_a_handler_reali(tmp_files):
+    """La barra NON usa piu' il markup [@click] (morto in Textual 3.x): gli
+    hint devono essere parole localizzate mappate a handler reali esistenti."""
     app = make_app([make_todo("A", todo_id=1)])
     app.focus_task_id = 1
     app.focus_total_secs = 25 * 60
@@ -113,13 +130,16 @@ def test_pomodoro_bar_click_puntano_a_handler_reali(tmp_files):
     app.focus_phase = "focus"
     app.focus_paused_secs = None
     text = app._pomodoro_text()
-    for handler in (
-        "app.action_start_pomodoro",
-        "app.action_pomodoro_pause",
-        "app.action_pomodoro_finish",
-    ):
-        assert handler in text, handler
-        assert callable(getattr(app, handler.split(".")[1]))
+    assert "app.action_start_pomodoro" not in text  # markup morto: assente
+    import src.app as app_mod
+
+    bar = app_mod.PomodoroBar("")
+    for word, action in bar._hints():
+        assert callable(getattr(app, action)), action
+        if word not in ("completa", "salta"):
+            assert word in text, word
+    # "completa"/"salta" sono alternati per fase: esattamente uno nel testo
+    assert ("completa" in text) != ("salta" in text)
 
 
 def test_tpl_empty_hint_minuscola(tmp_files):
