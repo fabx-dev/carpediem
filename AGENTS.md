@@ -651,7 +651,7 @@ Regole dure:
   mai. Whitelist config: `_validate_day_window` in load E save (mai solleva,
   cap 30 eventi, titolo 120 char) + round-trip su tutte le chiavi.
   Rendering timeline condiviso in `_timeline_lines` (Buongiorno e piano
-  giorno, stesso modulo). Chiavi nuove: `plan_sec_slots` it/en; riuso
+  giorno, stesso modulo). Chiavi nuove: `plan_sec_window` it/en; riuso
   `planp_event_tag`/`planp_slots_un`. `tests/test_day_window.py` (15:
   validazione, roundtrip, conferma/Esc/stale, timeline confermati, eventi,
   degradazione, layout 3 taglie). Revisione deliberata della decisione
@@ -659,6 +659,28 @@ Regole dure:
   Piano Giorno = scheda operativa della giornata). Nota: i 6 fallimenti in
   `tests/test_ui_regression.py` (file untracked WIP di sessione precedente)
   sono PRE-ESISTENTI, riproducono anche senza modifiche (verificato via stash).
+  Commit `51e79de`.
+- **Righe timed operative nel piano giorno (2026-09-21, fatto, 0.12.0
+  secondo commit)**: la prima versione della timeline era una sezione
+  read-only separata sopra i pianificati (duplicazione: timing non
+  lavorabile, task lavorabili senza timing, segnalati dall'utente). Ora la
+  sezione `Pianificati per oggi` DIVENTA la timeline quando c'e' finestra:
+  task schedulati = `PlanRow` operative con prefisso orario in riga
+  (`HH:MM–HH:MM titolo`, Enter/Space/o/O/x funzionano), eventi fissi inline
+  disabled informativi in posizione cronologica, task senza slot operativi
+  in coda senza prefisso (niente riga-riassunto "Senza orario", niente
+  suffisso). Ordine: slot first-fit = cronologico = merito, nessuna seconda
+  selezione/ordinamento; `_planned_children` presenta i risultati
+  Planner+Scheduler, `compose` usa `custom` per la sezione planned quando
+  c'e' finestra (loop generico invariato per le altre sezioni). Header
+  planned esteso con `{win}` ("— Timeline HH:MM–HH:MM", chiave
+  `plan_sec_window`); `plan_sec_slots` rimossa (mai pubblicata).
+  `_timeline_lines` resta di Buongiorno (stringhe); il piano giorno
+  costruisce righe, non linee. Verifica manuale: pattern esatto
+  A/B/EVENTO/C/D con interazioni full (Enter/Space/x su righe timed).
+  mypy: payload union `TodoItem | FixedEvent` va ristretto con
+  `isinstance` (le tuple eterogenee non bastano), variabile `row` riusata
+  in loop diversi -> rinominare.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

@@ -321,10 +321,10 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         ]
 
     @staticmethod
-    def _row(t: TodoItem, marker: str, extra: str = "") -> str:
+    def _row(t: TodoItem, marker: str, extra: str = "", prefix: str = "") -> str:
         plbl = _pomo_label(t)
         pomo = f" [red]{plbl}[/]" if plbl else ""
-        return f"  [cyan]{marker}[/] {_status(t)} {_escape_markup(t.title)}{extra}  [dim]#{t.id}[/]{pomo}"
+        return f"  [cyan]{marker}[/] {_status(t)} {prefix}{_escape_markup(t.title)}{extra}  [dim]#{t.id}[/]{pomo}"
 
     def _confirmed_dayplan(self) -> DayPlan:
         """DayPlan sintetico dei SOLO task confermati (planned_for == oggi).
@@ -345,33 +345,77 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             factor=plan.factor,
         )
 
-    def _timeline_children(self) -> list[ListItem]:
-        """Sezione timeline della scheda operativa (solo rendering).
+    def _planned_children(self, planned: list[TodoItem], parts) -> list[ListItem]:
+        """Righe operative della sezione pianificati, con timing in riga.
 
-        Richiede la finestra scritta da Buongiorno: senza orari nessuna
-        sezione (piano = solo task, nessun default 09:00-18:00). Righe
-        disabled: consultabile, non operativa (l'esecuzione resta sui task).
+        Solo presentazione dei risultati gia' prodotti: Buongiorno decide
+        cosa entra (planned_for), il Planner da' l'ordine di merito, lo
+        Scheduler gli slot — qui nessuna seconda selezione/ordine.
+        - task schedulati: PlanRow operative con prefisso orario, nell'ordine
+          degli slot (first-fit = cronologico = merito);
+        - eventi fissi: righe disabled informative, intercalati per orario
+          (non sono task, non alterano l'ordine dei task);
+        - task senza slot: operativi in coda, senza prefisso temporale.
         """
-        parts = day_window_parts(self.window, self.today)
-        if parts is None:
-            return []
         start, end, events = parts
-        planned = self._planned_todos()
-        if not planned:
-            return []
         sched = Planner.schedule(
             self._confirmed_dayplan(),
             [TimeWindow(start, end)],
             busy=events_to_busy(events),
         )
-        shown = {t.id for t in planned}
+        scheduled_ids = {s.item.todo_id for s in sched.scheduled}
         by_id = {t.id: t for t in self.all_todos if t.id is not None}
-        lines = _timeline_lines(sched, events, shown, by_id)
-        if not lines:
-            return []
-        window_lbl = f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
-        rows = [ListItem(Label(T("plan_sec_slots", window=window_lbl)), disabled=True)]
-        rows.extend(ListItem(Label(f"  {line}"), disabled=True) for line in lines)
+        entries = []  # (start, task-prima-dell'evento, payload, prefix)
+        for s in sched.scheduled:
+            todo = by_id.get(s.item.todo_id)
+            if todo is None:
+                continue
+            prefix = f"{s.start.strftime('%H:%M')}–{s.end.strftime('%H:%M')} "
+            entries.append((s.start, 0, todo, prefix))
+        for e in events:
+            if not any(a.start < e.end and e.start < a.end for a in sched.availability):
+                continue
+            entries.append((e.start, 1, e, ""))
+        entries.sort(key=lambda en: (en[0], en[1]))
+        rows: list[ListItem] = []
+        for _st, _o, payload, prefix in entries:
+            if isinstance(payload, FixedEvent):
+                name = f" {_escape_markup(payload.title)}" if payload.title else ""
+                label = (
+                    f"{payload.start.strftime('%H:%M')}–{payload.end.strftime('%H:%M')}"
+                    f" {T('planp_event_tag')}{name}"
+                )
+                rows.append(ListItem(Label(f"  {label}"), disabled=True))
+            else:
+                rows.append(
+                    PlanRow(
+                        Label(self._row(payload, "x", "", prefix)),
+                        task_id=payload.id,
+                        section="planned",
+                    )
+                )
+        # Coda: pianificati senza slot (ordine di merito dallo scheduler).
+        tail_ids = [it.todo_id for it in sched.unscheduled]
+        for tid in tail_ids:
+            todo = by_id.get(tid)
+            if todo is not None:
+                rows.append(
+                    PlanRow(
+                        Label(self._row(todo, "x")),
+                        task_id=todo.id,
+                        section="planned",
+                    )
+                )
+        # Difensivo: confermati mai coperti (es. id None) restano visibili.
+        for t in planned:
+            if t.id not in scheduled_ids and t.id not in tail_ids:
+                rows.append(
+                    PlanRow(
+                        Label(self._row(t, "x")),
+                        task_id=t.id,
+                        section="planned",
+                    )
+                )
         return rows
 
     def compose(self) -> ComposeResult:
@@ -390,46 +434,82 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 load_f = sum(t.pomodoros for t in planned)
                 load_s = sum(getattr(t, "stima_pomo", 0) or 0 for t in planned)
                 load = T("plan_load", f=load_f, s=load_s) if load_s else ""
+            # Finestra operativa di Buongiorno: solo con pianificati (mai
+            # default di orari); le righe planned diventano timed operative.
+            win_parts = day_window_parts(self.window, self.today) if planned else None
+            win_lbl = (
+                T(
+                    "plan_sec_window",
+                    window=f"{win_parts[0]:%H:%M}–{win_parts[1]:%H:%M}",
+                )
+                if win_parts
+                else ""
+            )
             sections = [
-                (T("plan_sec_planned", load=load), "planned", planned, "x"),
+                (
+                    T("plan_sec_planned", win=win_lbl, load=load),
+                    "planned",
+                    planned,
+                    "x",
+                ),
                 (T("plan_sec_due"), "due", due, "+"),
                 (T("plan_sec_overdue"), "overdue", overdue, "+"),
                 (T("plan_sec_upcoming"), "upcoming", upcoming, "+"),
                 (T("plan_sec_unplanned"), "unplanned", unplanned, "+"),
             ]
+            custom = (
+                {"planned": self._planned_children(planned, win_parts)}
+                if (win_parts)
+                else {}
+            )
             items = [t for _h, _k, todos, _m in sections for t in todos]
-            timeline = self._timeline_children()
-            if items or timeline:
+            if items:
                 keep = getattr(self, "_keep_id", None)
                 keep_section = getattr(self, "_keep_section", None)
                 children = []
-                children.extend(timeline)
                 found_keep: int | None = None
                 first_in_section: int | None = None
                 for header, kind, todos, marker in sections:
-                    if not todos:
-                        continue
-                    children.append(ListItem(Label(header), disabled=True))
-                    for t in todos:
-                        extra = (
-                            T("plan_overdue_row", due=t.due)
-                            if kind in ("overdue", "upcoming")
-                            else ""
-                        )
-                        row = PlanRow(
-                            Label(self._row(t, marker, extra)),
-                            task_id=t.id,
-                            section=kind,
-                        )
-                        if found_keep is None and t.id == keep:
-                            found_keep = len(children)
-                        if (
-                            first_in_section is None
-                            and keep_section is not None
-                            and kind == keep_section
-                        ):
-                            first_in_section = len(children)
-                        children.append(row)
+                    rows_kind = custom.get(kind)
+                    if rows_kind is None:
+                        if not todos:
+                            continue
+                        children.append(ListItem(Label(header), disabled=True))
+                        for t in todos:
+                            extra = (
+                                T("plan_overdue_row", due=t.due)
+                                if kind in ("overdue", "upcoming")
+                                else ""
+                            )
+                            row = PlanRow(
+                                Label(self._row(t, marker, extra)),
+                                task_id=t.id,
+                                section=kind,
+                            )
+                            if found_keep is None and t.id == keep:
+                                found_keep = len(children)
+                            if (
+                                first_in_section is None
+                                and keep_section is not None
+                                and kind == keep_section
+                            ):
+                                first_in_section = len(children)
+                            children.append(row)
+                    else:
+                        if not rows_kind:
+                            continue
+                        children.append(ListItem(Label(header), disabled=True))
+                        for child in rows_kind:
+                            tid = getattr(child, "task_id", None)
+                            if found_keep is None and tid is not None and tid == keep:
+                                found_keep = len(children)
+                            if (
+                                first_in_section is None
+                                and keep_section is not None
+                                and kind == keep_section
+                            ):
+                                first_in_section = len(children)
+                            children.append(child)
                 if found_keep is None:
                     found_keep = first_in_section
                 initial = (

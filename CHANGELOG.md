@@ -11,13 +11,14 @@ Entries in English from now on.
   confirmation (`day_window` in the config, structured — events as
   `start`/`end`/`title` fields, never re-parsed strings) and the plan
   re-schedules exactly the confirmed tasks (`planned_for == today`) with
-  the Planner merit order and the deterministic scheduler. The timeline
-  appears as the first list section: `HH:MM–HH:MM title` rows with
-  `EVENT:` fixed-event rows and an "Unscheduled" tail; rows are read-only,
-  execution stays on the task rows (Enter/Space/o unchanged).
-- Graceful degradation kept: no start/end in Buongiorno (or stale window
-  from a previous day) -> the plan shows only tasks, no timeline, no
-  default 09:00–18:00 ever.
+  the Planner merit order and the deterministic scheduler.
+- The "Planned for today" section becomes the timeline when a window is
+  set: scheduled tasks show an inline `HH:MM–HH:MM` prefix in slot order
+  and are fully operational (Enter/Space/o/O/x work on them); fixed events
+  appear inline as read-only `EVENT:` rows in chronological position;
+  tasks without a slot stay operational at the tail, without a time
+  prefix. No window -> the plan shows plain task rows as before (no
+  default 09:00–18:00 ever).
 - Esc in Buongiorno still writes nothing; confirming with an
   invalid/empty window clears the persisted one (no stale reuse).
 

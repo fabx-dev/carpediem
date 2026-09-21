@@ -175,9 +175,7 @@ def test_buongiorno_esc_non_scrive_finestra(tmp_files):
             await pilot.pause()
             await pilot.pause()
             assert app.config.get("day_window") is None
-            assert _T("plan_sec_slots", window="09:00–18:00") not in screen_texts(
-                app.screen
-            )
+            assert "09:00–09:30" not in screen_texts(app.screen)
 
     asyncio.run(t())
 
@@ -232,7 +230,10 @@ def test_piano_senza_finestra_solo_task(tmp_files):
             await pilot.pause()
             await _open_plan(pilot, app)
             txt = screen_texts(app.screen)
-            assert _T("plan_sec_planned", load="")[:20] in txt or "A-ritardo" in txt
+            assert _T("plan_sec_planned", win="", load="")[:20] in txt or (
+                "A-ritardo" in txt
+            )
+            assert _T("plan_sec_window", window="09:00–18:00") not in txt
             assert _T("planp_event_tag") not in txt
             assert "09:00–" not in txt
 
@@ -253,7 +254,8 @@ def test_piano_finestra_stale_ignorata(tmp_files):
 
 def test_piano_timeline_task_confermati(tmp_files):
     """Esattamente i confermati, organizzati temporalmente: ordine di merito
-    dal Planner, ma nessuna riproposta (tutti i planned_for hanno uno slot)."""
+    dal Planner, ma nessuna riproposta (tutti i planned_for hanno uno slot
+    o restano in coda senza orario, sempre operativi)."""
 
     async def t():
         app = make_app(_todos(planned=True))
@@ -262,12 +264,14 @@ def test_piano_timeline_task_confermati(tmp_files):
             await pilot.pause()
             await _open_plan(pilot, app)
             txt = screen_texts(app.screen)
-            assert _T("plan_sec_slots", window="09:00–18:00") in txt
+            # Timeline nell'header della sezione pianificati.
+            assert _T("plan_sec_window", window="09:00–18:00") in txt
             assert "09:00–09:30 A-ritardo" in txt
             assert "09:30–10:30 B-oggi" in txt
             assert "10:30–11:00 C-libero" in txt
-            # Nessuna riproposta: i confermati oltre capacita' restano nella
-            # timeline come "Senza orario", mai spariti.
+            # Nessuna riproposta: i confermati oltre capacita' restano in
+            # coda come righe operative SENZA prefisso orario (niente
+            # riga-riassunto "Senza orario: ...").
             app2 = make_app(_todos(planned=True))
             app2.config["day_window"] = {
                 "date": _day(0),
@@ -280,7 +284,9 @@ def test_piano_timeline_task_confermati(tmp_files):
             await pilot.pause()
             txt2 = screen_texts(app2.screen)
             assert "09:00–09:30 A-ritardo" in txt2
-            assert _T("planp_slots_un", t="B-oggi, C-libero") in txt2
+            assert _T("planp_slots_un", t="") not in txt2  # niente riassunto
+            assert "B-oggi" in txt2 and "C-libero" in txt2
+            assert "09:00–09:30 B-oggi" not in txt2  # senza slot, senza orario
 
     asyncio.run(t())
 
@@ -313,15 +319,30 @@ def test_piano_timeline_solo_task_confermati(tmp_files):
             await pilot.pause()
             await _open_plan(pilot, app)
             txt = screen_texts(app.screen)
-            assert _T("plan_sec_slots", window="09:00–18:00") not in txt
+            assert _T("plan_sec_window", window="09:00–18:00") not in txt
             assert "09:00–09:30" not in txt
 
     asyncio.run(t())
 
 
-def test_piano_timeline_operativita_invariata(tmp_files):
-    """La timeline e' consultabile ma non operativa; le righe task funzionano
-    come prima (highlight raggiungibile, sezioni intatte)."""
+def _label_text(c) -> str:
+    """Testo della prima Label della riga (compatibile Textual 3.x/8.x)."""
+    labels = c.query("Label")
+    if not labels:
+        return ""
+    w = labels.first()
+    content = getattr(w, "content", None)
+    if content is None:
+        content = getattr(w, "renderable", "")
+    return str(content)
+
+
+def test_piano_righe_timed_operative(tmp_files):
+    """Le righe con orario sono PlanRow operative: _cur le identifica come
+    (task_id, "planned") e Enter apre il dettaglio dalla riga timed."""
+    from textual.widgets import ListView
+
+    from src.screens.plan import PlanRow
 
     async def t():
         app = make_app(_todos(planned=True))
@@ -329,17 +350,96 @@ def test_piano_timeline_operativita_invariata(tmp_files):
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await _open_plan(pilot, app)
-            from textual.widgets import ListView
-
             lv = app.screen.query_one("#plan-section", ListView)
-            # Sotto la timeline ci sono ancora le sezioni con le righe task.
-            texts = screen_texts(app.screen)
-            assert "A-ritardo" in texts and "C-libero" in texts
-            # Freccia dalla prima riga abilitata: si naviga senza crash.
-            for _ in range(6):
-                await pilot.press("down")
-                await pilot.pause()
-            assert lv.highlighted_child is not None
+            # Le righe timed della sezione planned sono PlanRow con task_id.
+            timed = [
+                c
+                for c in lv.children
+                if isinstance(c, PlanRow)
+                and c.section == "planned"
+                and "–" in _label_text(c)
+            ]
+            assert len(timed) == 3  # tutti e tre confermati con slot
+            # Highlight sulla prima riga timed: identificata correttamente.
+            first = timed[0]
+            lv.index = list(lv.children).index(first)
+            await pilot.pause()
+            item = lv.highlighted_child
+            assert getattr(item, "task_id", None) == 1
+            assert getattr(item, "section", None) == "planned"
+            # Enter dalla riga timed apre il dettaglio.
+            await pilot.press("enter")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DetailScreen"
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+
+    asyncio.run(t())
+
+
+def test_piano_riga_timed_x_rimuove(tmp_files):
+    """x su una riga con orario la rimuove dal piano (operativita' piena)."""
+    from textual.widgets import ListView
+
+    from src.screens.plan import PlanRow
+
+    async def t():
+        app = make_app(_todos(planned=True))
+        app.config["day_window"] = _window(_day(0))
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_plan(pilot, app)
+            lv = app.screen.query_one("#plan-section", ListView)
+            timed = [
+                c
+                for c in lv.children
+                if isinstance(c, PlanRow) and c.section == "planned"
+            ]
+            first = timed[0]
+            lv.index = list(lv.children).index(first)
+            await pilot.pause()
+            await pilot.press("x")
+            await pilot.pause()
+            await pilot.pause()
+            by_id = {t.id: t for t in app.todos}
+            assert by_id[first.task_id].planned_for != _day(0)
+
+    asyncio.run(t())
+
+
+def test_piano_eventi_disabled_e_task_operativi(tmp_files):
+    """Gli eventi fissi sono righe disabled informative; i task (con e senza
+    slot) restano righe abilitate."""
+    from textual.widgets import ListItem, ListView
+
+    from src.screens.plan import PlanRow
+
+    async def t():
+        app = make_app(_todos(planned=True))
+        app.config["day_window"] = _window(
+            _day(0), [{"start": "13:00", "end": "14:00", "title": "Pranzo"}]
+        )
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_plan(pilot, app)
+            lv = app.screen.query_one("#plan-section", ListView)
+
+            def row_text(c):
+                return _label_text(c)
+
+            n_events = 0
+            for c in lv.children:
+                if "EVENTO:" in row_text(c):
+                    n_events += 1
+                    # Riga evento: ListItem (non PlanRow) disabled.
+                    assert isinstance(c, ListItem) and not isinstance(c, PlanRow)
+                    assert c.disabled
+                elif isinstance(c, PlanRow) and c.section == "planned":
+                    # Task pianificati (con o senza slot): sempre operativi.
+                    assert not c.disabled
+            assert n_events == 1
 
     asyncio.run(t())
 
