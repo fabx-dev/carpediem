@@ -150,7 +150,13 @@ Regole dure:
   chiama `store.commit()` (es. `+` nel piano) scrive sui path reali. Precedente
   2026-09-14: script senza `TASKO_HOME` sovrascrisse `~/.todo_app.json` con 4 task
   finti, recuperato dal backup zip del giorno prima (i test `pytest` erano salvi
-  grazie alla fixture `tmp_files`).
+  grazie alla fixture `tmp_files`). **Recidiva 2026-09-21, piu' grave**: heredoc di
+  debug di 10 righe senza isolamento durante il fix di test -> wipe dei dati reali
+  cifrati (recuperati dal zip auto-backup del mattino) — vedi incidente in §7. Le
+  due regole dure: (a) nessun `TodoApp()`/`run_test`/import di `src.app` senza
+  `TASKO_HOME` nel MEDesimo comando, verificato con `echo` prima dei run sensibili;
+  (b) dopo un debug sospetto, controllare mtime/dimensione di `~/.todo_app.json`
+  PRIMA di continuare (un wipe e' un file non-envelope o un envelope minuscolo).
 - Screenshot SVG per cambi visivi: script con `TASKO_HOME` **fresca per run** (il restore del
   pomodoro altera i run successivi!), estrazione testo via regex `<text>` + `html.unescape`
   (gli spazi sono `&#160;`: normalizzare prima di cercare), verifica sopra+SOTTO il fold
@@ -681,6 +687,58 @@ Regole dure:
   mypy: payload union `TodoItem | FixedEvent` va ristretto con
   `isinstance` (le tuple eterogenee non bastano), variabile `row` riusata
   in loop diversi -> rinominare.
+- **Planning ↔ Pomodoro ↔ Execution (2026-09-21, fatto, commit 386bfe2)**:
+  primo collegamento reale dei tre mondi, zero rescheduling.
+  (12.1) `_refresh_open_plans()` in app: ricompone i DailyPlanScreen nello
+  `screen_stack` dopo gli eventi Pomodoro (start/complete_focus/
+  finish_break/stop), preservando l'highlight via `_keep_id` letto da
+  `_current()` PRIMA del recompose; `_restore_pomodoro` non toccato (gira
+  solo a startup/unlock, nessun piano puo' essere aperto). Un solo refresh
+  per evento (`_start_phase` aggiorna solo la home). (12.3) seam
+  `current_pomo` (getter `task_id | None`) + `_marker()`: `▶` sulla riga
+  del task corrente, solo presentazione, max una riga, sparito a stop/fine
+  break. (12.6) `scheduled_for_today()` = UNICA costruzione
+  Piano-Giorno/Briefing (confermati -> merito propose -> slot schedule;
+  degenere senza finestra: ScheduledDayPlan con slot None, mai orari
+  inventati); `include_done=True` (briefing) include i confermati non
+  attivi nel ritorno ma FUORI dal dayplan (lo Scheduler non colloca i non
+  attivi) — individuati via `completed_at == oggi` perche' `apply_state`
+  azzerava `planned_for` al completamento (comportamento pre-esistente,
+  domain.py:122). `_exec_lines` nel Briefing sera = PRIMO consumer in
+  produzione di `planner.feedback()`; attivi in ordine di merito con slot,
+  non-attivi derivati dal todo (slot None, stima raw senza fallback or-1,
+  che resta solo di pianificazione); la stampa plain include la sezione.
+  D1–D4 approvate: stop=0 sessioni, actual_pomo solo manuale (ActualScreen),
+  Pomodoro richiede un task, feedback nel briefing. i18n:
+  `brief_e_sec_exec`/`brief_exec_row` it/en. `tests/test_execution.py`
+  (13). Lezioni: nei test import di MODULO (`plan_mod.PlanRow`) — i
+  `from ... import` di classi restano stale dopo il reload di conftest e
+  rompono ogni `isinstance`; l'ActualScreen si salva via bottone
+  (`#actual-save`), l'Input consuma la `s`; 2 🍅 = 1h (POMO_HOURS, non
+  1.5h); `calendario-picker` nel WIP e' flaky sotto carico (passa
+  standalone).
+- **INCIDENTE dati (2026-09-21, ~13:49, risolto)**: ripetuto l'errore del
+  2026-09-14 — heredoc di DEBUG con `TodoApp()` + `run_test` lanciati
+  SENZA `TASKO_HOME` durante il debug dei test Fase 12. Il processo
+  senza chiave ha incontrato il file cifrato reale ->
+  `save_todos_synced` con `_is_crypto_unreadable=True` ha riscritto la
+  memoria (task finti del debug) al posto dei dati, in plaintext; i
+  `.bak.json` successivi hanno distrutto la catena di backup a un livello
+  (il vero dato e' sopravvissuto SOLO nello zip auto-backup del mattino).
+  Ripristinato da `Tasko_backups/tasko_20260921_102022_*.zip` (solo
+  todos.json, config/pomodoro intatti); perdute le modifiche 10:20->13:49
+  (planned_for di Buongiorno, ri-fatte in 10 secondi). REGOLE PIU' DURE:
+  (1) QUALUNQUE processo che importi `src.app` o monti l'app — anche un
+  heredoc di 10 righe, anche read-only NELLE INTENZIONI — parte SEMPRE
+  con `export TASKO_HOME=$(mktemp -d)` nel MEDesimo comando (l'export di
+  un comando precedente non basta: ogni invocation bash e' un'altra
+  shell? no, la shell e' persistente, ma l'export va verificato con
+  `echo` prima di ogni run sensibile); (2) il copia-incolla di script di
+  verifica va controllato per il prefisso TASKO_HOME PRIMA di eseguire;
+  (3) dopo qualsiasi debug non isolato sospetto, controllare mtime e
+  dimensione di `~/.todo_app.json` PRIMA di continuare; (4) un wipe da
+  debug plaintext e' riconoscibile dal file che diventa non-envelope
+  (leggibile) o da envelope minuscolo.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
