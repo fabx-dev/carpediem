@@ -459,12 +459,15 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                         section="planned",
                     )
                 )
-        # Coda: pianificati senza slot (ordine di merito dallo scheduler).
+        # Linea di divisione tra la parte con timing (slot + eventi) e la
+        # coda senza slot: solo se entrambe le parti esistono (mai linee
+        # orfane). Disabled come gli eventi: non operativa.
+        tail_rows: list[ListItem] = []
         tail_ids = [it.todo_id for it in sched.unscheduled]
         for tid in tail_ids:
             todo = by_id.get(tid)
             if todo is not None:
-                rows.append(
+                tail_rows.append(
                     PlanRow(
                         Label(self._row(todo, self._marker(todo.id, "x"))),
                         task_id=todo.id,
@@ -474,13 +477,16 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         # Difensivo: confermati mai coperti (es. id None) restano visibili.
         for t in planned:
             if t.id not in scheduled_ids and t.id not in tail_ids:
-                rows.append(
+                tail_rows.append(
                     PlanRow(
                         Label(self._row(t, self._marker(t.id, "x"))),
                         task_id=t.id,
                         section="planned",
                     )
                 )
+        if rows and tail_rows:
+            rows.append(ListItem(Label("  [dim]────────────[/]"), disabled=True))
+        rows.extend(tail_rows)
         return rows
 
     def compose(self) -> ComposeResult:

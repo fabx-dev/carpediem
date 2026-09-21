@@ -269,6 +269,11 @@ def test_piano_timeline_task_confermati(tmp_files):
             assert "09:00–09:30 A-ritardo" in txt
             assert "09:30–10:30 B-oggi" in txt
             assert "10:30–11:00 C-libero" in txt
+            # Tutti con slot -> nessuna linea di divisione orfana.
+            from textual.widgets import ListView
+
+            lv = app.screen.query_one("#plan-section", ListView)
+            assert not any("────" in _label_text(c) for c in lv.children)
             # Nessuna riproposta: i confermati oltre capacita' restano in
             # coda come righe operative SENZA prefisso orario (niente
             # riga-riassunto "Senza orario: ...").
@@ -287,6 +292,23 @@ def test_piano_timeline_task_confermati(tmp_files):
             assert _T("planp_slots_un", t="") not in txt2  # niente riassunto
             assert "B-oggi" in txt2 and "C-libero" in txt2
             assert "09:00–09:30 B-oggi" not in txt2  # senza slot, senza orario
+            # Linea di divisione tra la parte con timing e la coda:
+            # esattamente una, disabled, tra le due parti.
+            from textual.widgets import ListItem
+
+            lv2 = app2.screen.query_one("#plan-section", ListView)
+            divs = [
+                c
+                for c in lv2.children
+                if isinstance(c, ListItem) and c.disabled and "────" in _label_text(c)
+            ]
+            assert len(divs) == 1
+            texts_children = [_label_text(c) for c in lv2.children]
+            idx_div = next(i for i, t_ in enumerate(texts_children) if "────" in t_)
+            assert "B-oggi" in texts_children[idx_div + 1]  # coda subito dopo
+            assert any(
+                "09:00–09:30" in t_ for t_ in texts_children[:idx_div]
+            )  # timing sopra
 
     asyncio.run(t())
 
