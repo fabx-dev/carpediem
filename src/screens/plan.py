@@ -31,7 +31,14 @@ from src.models import (
     _status,
 )
 from src.planner import Planner, events_to_busy, explain
-from src.planner.models import DayPlan, FixedEvent, ScheduledDayPlan, TimeWindow
+from src.planner import feedback as planner_feedback
+from src.planner.models import (
+    DayPlan,
+    FixedEvent,
+    PlanItem,
+    ScheduledDayPlan,
+    TimeWindow,
+)
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
@@ -121,6 +128,69 @@ def day_window_parts(window: dict | None, day_s: str):
                 continue
             events.append(FixedEvent(str(ev.get("title", "") or ""), es, ee))
     return start, end, events
+
+
+def scheduled_for_today(
+    todos: list[TodoItem],
+    today: str,
+    hours: float,
+    window: dict | None,
+    include_done: bool = False,
+):
+    """(ScheduledDayPlan, eventi, confermati) di oggi; (None, [], []) se vuoto.
+
+    Unico punto di costruzione condiviso da Piano Giorno e Briefing: i
+    PlanItem (score/stima/mandatory) arrivano dalla proposta del Planner
+    filtrata sui SOLO confermati (planned_for == oggi) — nessuna seconda
+    selezione — e lo slot dallo Scheduler. Senza finestra valida:
+    ScheduledDayPlan degenere (tutti unscheduled, slot None) — lo
+    scheduling vero richiede la finestra scritta da Buongiorno, mai
+    orari inventati.
+
+    include_done (briefing): include i confermati non attivi (es.
+    completati) nel ritorno `planned` ma FUORI dal dayplan: lo Scheduler
+    non colloca i non attivi per contratto (propose li esclude) e le loro
+    righe esecutive derivano direttamente dal todo (slot None). Il
+    completato-today e' individuato da completed_at (apply_state azzera
+    planned_for al completamento: comportamento esistente)."""
+    if include_done:
+        planned = [
+            t
+            for t in todos
+            if t.planned_for == today
+            or (t.state == "completato" and str(t.completed_at or "")[:10] == today)
+        ]
+    else:
+        planned = [t for t in todos if t.planned_for == today and t.state == "attivo"]
+    if not planned:
+        return None, [], []
+    plan = Planner(todos, today=today, hours=hours).propose()
+    items_by_id = {it.todo_id: it for it in plan.items}
+    attivi = [t for t in planned if t.state == "attivo"]
+    ordered = [items_by_id[t.id] for t in attivi if t.id in items_by_id]
+    ordered_ids = {it.todo_id for it in ordered}
+    for t in attivi:  # ripiego per attivi senza PlanItem (id orfani)
+        if t.id is not None and t.id not in ordered_ids:
+            try:
+                est = int(t.stima_pomo or 0) or 1
+            except (ValueError, TypeError):
+                est = 1
+            ordered.append(PlanItem(t.id, 0, (), est, False))
+            ordered_ids.add(t.id)
+    dayplan = DayPlan(
+        plan.day,
+        planned=tuple(ordered),
+        capacity_pomo=plan.capacity_pomo,
+        factor=plan.factor,
+    )
+    parts = day_window_parts(window, today)
+    if parts is None:
+        return ScheduledDayPlan(dayplan), [], planned
+    start, end, events = parts
+    sched = Planner.schedule(
+        dayplan, [TimeWindow(start, end)], busy=events_to_busy(events)
+    )
+    return sched, events, planned
 
 
 def _timeline_lines(
@@ -239,6 +309,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         on_pomodoro_pause=None,
         hours: float = 6.0,
         window: dict | None = None,
+        current_pomo=None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
@@ -249,6 +320,8 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         # Timer pomodoro (vive in app): start su id esplicito, pausa globale.
         self.on_pomodoro_start = on_pomodoro_start
         self.on_pomodoro_pause = on_pomodoro_pause
+        # Getter del task corrente del timer (task_id | None): solo marker.
+        self.current_pomo = current_pomo
         self.today = today or datetime.now().strftime("%Y-%m-%d")
         try:
             self.hours = max(1.0, float(hours))
@@ -326,26 +399,20 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         pomo = f" [red]{plbl}[/]" if plbl else ""
         return f"  [cyan]{marker}[/] {_status(t)} {prefix}{_escape_markup(t.title)}{extra}  [dim]#{t.id}[/]{pomo}"
 
-    def _confirmed_dayplan(self) -> DayPlan:
-        """DayPlan sintetico dei SOLO task confermati (planned_for == oggi).
+    def _marker(self, tid, base: str) -> str:
+        """Marker di riga: ▶ sul task corrente del Pomodoro, altrimenti base.
 
-        Nessuna seconda decisione di selezione: Buongiorno decide cosa entra
-        nel piano, qui si organizza temporalmente cio' che e' entrato. I
-        PlanItem (score, stima, mandatory) arrivano dalla proposta del
-        Planner, filtrati sull'insieme confermato: l'ordine di merito resta
-        fonte del Planner, mai una riproposta.
-        """
-        plan = Planner(self.all_todos, today=self.today, hours=self.hours).propose()
-        confirmed = {t.id for t in self._planned_todos()}
-        items = [it for it in plan.items if it.todo_id in confirmed]
-        return DayPlan(
-            plan.day,
-            planned=tuple(items),
-            capacity_pomo=plan.capacity_pomo,
-            factor=plan.factor,
-        )
+        Puramente presentazionale: il timer vive in app, qui solo il getter
+        (task_id | None). Nessun timer -> nessun marker corrente."""
+        try:
+            cur = self.current_pomo() if callable(self.current_pomo) else None
+        except Exception:
+            cur = None
+        return "▶" if cur is not None and cur == tid else base
 
-    def _planned_children(self, planned: list[TodoItem], parts) -> list[ListItem]:
+    def _planned_children(
+        self, sched: ScheduledDayPlan, events: list, planned: list[TodoItem]
+    ) -> list[ListItem]:
         """Righe operative della sezione pianificati, con timing in riga.
 
         Solo presentazione dei risultati gia' prodotti: Buongiorno decide
@@ -357,12 +424,6 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
           (non sono task, non alterano l'ordine dei task);
         - task senza slot: operativi in coda, senza prefisso temporale.
         """
-        start, end, events = parts
-        sched = Planner.schedule(
-            self._confirmed_dayplan(),
-            [TimeWindow(start, end)],
-            busy=events_to_busy(events),
-        )
         scheduled_ids = {s.item.todo_id for s in sched.scheduled}
         by_id = {t.id: t for t in self.all_todos if t.id is not None}
         entries = []  # (start, task-prima-dell'evento, payload, prefix)
@@ -389,7 +450,11 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             else:
                 rows.append(
                     PlanRow(
-                        Label(self._row(payload, "x", "", prefix)),
+                        Label(
+                            self._row(
+                                payload, self._marker(payload.id, "x"), "", prefix
+                            )
+                        ),
                         task_id=payload.id,
                         section="planned",
                     )
@@ -401,7 +466,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             if todo is not None:
                 rows.append(
                     PlanRow(
-                        Label(self._row(todo, "x")),
+                        Label(self._row(todo, self._marker(todo.id, "x"))),
                         task_id=todo.id,
                         section="planned",
                     )
@@ -411,7 +476,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             if t.id not in scheduled_ids and t.id not in tail_ids:
                 rows.append(
                     PlanRow(
-                        Label(self._row(t, "x")),
+                        Label(self._row(t, self._marker(t.id, "x"))),
                         task_id=t.id,
                         section="planned",
                     )
@@ -424,7 +489,11 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             yield Label(
                 f"[b]{T('plan_title', date=today_display)}[/b]", id="plan-title"
             )
-            planned = self._planned_todos()
+            # Contesto esecutivo di oggi: UNICA costruzione condivisa col
+            # Briefing (confermati -> merito Planner -> slot Scheduler).
+            sched, events, planned = scheduled_for_today(
+                self.all_todos, self.today, self.hours, self.window
+            )
             due = self._due_today()
             overdue = self._overdue()
             upcoming = self._upcoming()
@@ -436,13 +505,15 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 load = T("plan_load", f=load_f, s=load_s) if load_s else ""
             # Finestra operativa di Buongiorno: solo con pianificati (mai
             # default di orari); le righe planned diventano timed operative.
-            win_parts = day_window_parts(self.window, self.today) if planned else None
             win_lbl = (
                 T(
                     "plan_sec_window",
-                    window=f"{win_parts[0]:%H:%M}–{win_parts[1]:%H:%M}",
+                    window=(
+                        f"{sched.availability[0].start:%H:%M}"
+                        f"–{sched.availability[0].end:%H:%M}"
+                    ),
                 )
-                if win_parts
+                if sched is not None and sched.availability
                 else ""
             )
             sections = [
@@ -458,8 +529,8 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 (T("plan_sec_unplanned"), "unplanned", unplanned, "+"),
             ]
             custom = (
-                {"planned": self._planned_children(planned, win_parts)}
-                if (win_parts)
+                {"planned": self._planned_children(sched, events, planned)}
+                if sched is not None and sched.availability
                 else {}
             )
             items = [t for _h, _k, todos, _m in sections for t in todos]
@@ -482,7 +553,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                                 else ""
                             )
                             row = PlanRow(
-                                Label(self._row(t, marker, extra)),
+                                Label(self._row(t, self._marker(t.id, marker), extra)),
                                 task_id=t.id,
                                 section=kind,
                             )
@@ -1324,6 +1395,8 @@ class BriefingScreen(CloseMixin, ModalScreen[str | None]):
         today: str | None = None,
         daily_goal: int = 0,
         on_print=None,
+        hours: float = 6.0,
+        window: dict | None = None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
@@ -1333,12 +1406,78 @@ class BriefingScreen(CloseMixin, ModalScreen[str | None]):
         except (ValueError, TypeError):
             self.daily_goal = 0
         self.on_print = on_print
+        try:
+            self.hours = max(1.0, float(hours))
+        except (ValueError, TypeError):
+            self.hours = 6.0
+        # Finestra operativa scritta da Buongiorno (se ancora di oggi).
+        self.window = window if isinstance(window, dict) else None
 
     def _done_on(self, day: str) -> list[TodoItem]:
         return _done_on_day(self.all_todos, day)
 
     def _pomo_on(self, day: str) -> int:
         return _pomo_on_day(self.all_todos, day)
+
+    def _exec_lines(self) -> list[str]:
+        """Sezione "pianificato vs eseguito": primo consumer reale di
+        planner.feedback() sui confermati di oggi. Solo lettura — i dati
+        (sessioni/actual/stato) sono gia' sui task, lo slot dallo
+        Scheduler via scheduled_for_today (condivisa col piano giorno).
+        Senza finestra: righe senza slot (slot None nel feedback)."""
+        sched, _events, planned = scheduled_for_today(
+            self.all_todos, self.today, self.hours, self.window, include_done=True
+        )
+        if sched is None:
+            return []
+        state_labels = {
+            "attivo": T("state_attivo"),
+            "in_sospeso": T("state_sospeso"),
+            "completato": T("state_completato"),
+        }
+        todos_by_id = {t.id: t for t in self.all_todos if t.id is not None}
+        lines = [T("brief_e_sec_exec")]
+        # Attivi: feedback dello Scheduler (slot + esecuzione), ordine di merito.
+        lines.extend(
+            "  "
+            + T(
+                "brief_exec_row",
+                slot=(
+                    f"{fb.scheduled_start:%H:%M}–{fb.scheduled_end:%H:%M} "
+                    if fb.scheduled_start and fb.scheduled_end
+                    else ""
+                ),
+                t=_escape_markup(todos_by_id[fb.todo_id].title)
+                if fb.todo_id in todos_by_id
+                else f"#{fb.todo_id}",
+                est=fb.estimate_pomo,
+                done=fb.sessions,
+                act=fb.actual_pomo,
+                state=state_labels.get(todos_by_id[fb.todo_id].state, "")
+                if fb.todo_id in todos_by_id
+                else "",
+            )
+            for fb in planner_feedback(sched, self.all_todos)
+        )
+        # Non attivi (es. completati): fuori dallo Scheduler per contratto,
+        # righe derivate direttamente dal todo (slot None; stima raw, il
+        # fallback or-1 e' solo di pianificazione).
+        for t in planned:
+            if t.state == "attivo":
+                continue
+            lines.append(
+                "  "
+                + T(
+                    "brief_exec_row",
+                    slot="",
+                    t=_escape_markup(t.title),
+                    est=int(t.stima_pomo or 0),
+                    done=int(t.pomodoros or 0),
+                    act=int(t.actual_pomo or 0),
+                    state=state_labels.get(t.state, ""),
+                )
+            )
+        return lines
 
     def _evening_lines(self) -> list[str]:
         done = self._done_on(self.today)
@@ -1368,6 +1507,7 @@ class BriefingScreen(CloseMixin, ModalScreen[str | None]):
             lines.append("  " + T("brief_e_left_empty"))
         else:
             lines.append("  " + T("brief_e_left_never"))
+        lines.extend(self._exec_lines())
         return lines
 
     def compose(self) -> ComposeResult:

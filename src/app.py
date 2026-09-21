@@ -590,6 +590,25 @@ class TodoApp(App):
         """Callback delle screen di pianificazione: salva e aggiorna la tabella."""
         self._save_data()
         self._populate_table()
+        self._refresh_open_plans()
+
+    def _refresh_open_plans(self) -> None:
+        """Ricomponi i Piano Giorno aperti (anche sotto una modal).
+
+        Dopo gli eventi Pomodoro (start/credito/stop/break) la lista del
+        piano giorno resta sullo schermo con conteggi/stati/marker
+        obsoleti: prima della ricomposizione la riga evidenziata diventa
+        _keep_id (highlight preservato), il timer vive in app e il focus
+        della screen non viene toccato."""
+        try:
+            for screen in self.screen_stack:
+                if isinstance(screen, DailyPlanScreen):
+                    tid, section = screen._current()
+                    screen._keep_id = tid
+                    screen._keep_section = section
+                    screen.refresh(recompose=True)
+        except Exception:
+            pass
 
     def _save_config(self) -> None:
         try:
@@ -1339,6 +1358,7 @@ class TodoApp(App):
                 on_pomodoro_pause=self.action_pomodoro_pause,
                 hours=hours,
                 window=window,
+                current_pomo=lambda: self.focus_task_id,
             )
         )
 
@@ -1380,6 +1400,18 @@ class TodoApp(App):
             goal = int(self.config.get("daily_goal", 0) or 0)
         except (ValueError, TypeError):
             goal = 0
+        try:
+            hours = float(self.config.get("day_hours", 6) or 6)
+        except (ValueError, TypeError):
+            hours = 6.0
+        # Contesto esecutivo: stessa finestra del piano giorno (solo oggi).
+        today = datetime.now().strftime("%Y-%m-%d")
+        cfg_window = self.config.get("day_window")
+        window = (
+            cfg_window
+            if isinstance(cfg_window, dict) and cfg_window.get("date") == today
+            else None
+        )
 
         def on_print(m: str, day: str, text: str):
             out_dir = _home() / "CarpeDiem_screenshots"
@@ -1393,7 +1425,13 @@ class TodoApp(App):
                 self.action_open_review()
 
         self.push_screen(
-            BriefingScreen(self.todos, daily_goal=goal, on_print=on_print),
+            BriefingScreen(
+                self.todos,
+                daily_goal=goal,
+                on_print=on_print,
+                hours=hours,
+                window=window,
+            ),
             on_briefing_done,
         )
 
@@ -1615,6 +1653,7 @@ class TodoApp(App):
         self.notify(
             T("n_pomo_start", t=_escape_markup(todo.title), m=self.POMODORO_MIN)
         )
+        self._refresh_open_plans()
         self._open_pomodoro_popup()
 
     def action_start_pomodoro(self) -> None:
@@ -1916,6 +1955,7 @@ class TodoApp(App):
         self._clear_pomodoro_state()
         self._save_pomodoro()
         self._populate_table()
+        self._refresh_open_plans()
         self.notify(T("n_stopped"))
 
     def _complete_focus(self) -> None:
@@ -1940,6 +1980,9 @@ class TodoApp(App):
             )
         )
         self._beep(1)
+        # Un solo refresh per evento: _start_phase ha gia' aggiornato la home,
+        # qui si ricompone il Piano Giorno aperto (🍅/marker corrente).
+        self._refresh_open_plans()
 
     def _finish_break(self, skipped: bool) -> None:
         was_long = self.focus_phase == "long"
@@ -1948,6 +1991,7 @@ class TodoApp(App):
         self._clear_pomodoro_state()
         self._save_pomodoro()
         self._populate_table()
+        self._refresh_open_plans()
         if skipped:
             self.notify(T("n_skipped"))
         elif was_long:
