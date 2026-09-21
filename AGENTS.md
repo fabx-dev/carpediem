@@ -634,6 +634,31 @@ Regole dure:
   start/end espliciti, end mancante/uguale/minore, pausa pranzo senza overlap,
   apertura in cima a 3 taglie) + `test_form_stima_colonna_larghezza`
   (>=28 a 120x40 e 70x20). Commits `06d546e`, `bb58e98`.
+- **Piano giorno scheda operativa (2026-09-21, fatto, 0.12.0)**: la finestra
+  orari + eventi fissi di Buongiorno ora vengono PERSISTITI alla conferma in
+  `config["day_window"]` (strutturata: `{date, start, end, events:
+  [{start, end, title}]}` — eventi gia' campi separati, mai stringhe da
+  riparsare; conversione esplicita config->FixedEvent via
+  `day_window_parts`). Il piano giorno `p` la rilegge e ri-schedula
+  ESATTAMENTE i confermati (`planned_for == oggi`, ordine di merito da
+  `propose()` filtrato sull'insieme confermato, `Planner.schedule()` per gli
+  slot): timeline come prima sezione lista (righe disabled, consultabile non
+  operativa), eventi con tag `EVENTO:`, coda "Senza orario". Nessuna seconda
+  selezione: Buongiorno decide cosa entra nel piano, il piano giorno lo
+  organizza temporalmente. Degradazione pattuita: senza finestra (o stale di
+  un giorno prima) -> solo task, zero timeline, mai default 09:00-18:00;
+  conferma con finestra invalida/vuota -> cancella lo stale; Esc non scrive
+  mai. Whitelist config: `_validate_day_window` in load E save (mai solleva,
+  cap 30 eventi, titolo 120 char) + round-trip su tutte le chiavi.
+  Rendering timeline condiviso in `_timeline_lines` (Buongiorno e piano
+  giorno, stesso modulo). Chiavi nuove: `plan_sec_slots` it/en; riuso
+  `planp_event_tag`/`planp_slots_un`. `tests/test_day_window.py` (15:
+  validazione, roundtrip, conferma/Esc/stale, timeline confermati, eventi,
+  degradazione, layout 3 taglie). Revisione deliberata della decisione
+  Fase 6.5 "mai persistita" su richiesta utente (Buongiorno = proposta,
+  Piano Giorno = scheda operativa della giornata). Nota: i 6 fallimenti in
+  `tests/test_ui_regression.py` (file untracked WIP di sessione precedente)
+  sono PRE-ESISTENTI, riproducono anche senza modifiche (verificato via stash).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

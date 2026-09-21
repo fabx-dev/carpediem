@@ -1,6 +1,7 @@
 """Persistenza: paths, load/save todos/template/config/archive/pomodoro/backup."""
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -472,12 +473,69 @@ DEFAULT_CONFIG: dict = {
     "sounds": True,
     "day_hours": 6,
     "smart_lists": [],
+    "day_window": None,
 }
 
 
 FILTER_STATES = ("attivo", "in_sospeso", "completati", None)
 SMART_STATES = ("attivo", "in_sospeso", "completati", None)
 MAX_SMART_LISTS = 10
+MAX_DAY_EVENTS = 30
+_TIME_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _valid_hhmm(value) -> str | None:
+    """HH:MM canonico a 2 cifre, o None se invalido. Mai solleva."""
+    if not isinstance(value, str):
+        return None
+    m = _TIME_RE.match(value.strip())
+    if not m:
+        return None
+    h, mi = int(m.group(1)), int(m.group(2))
+    if h > 23 or mi > 59:
+        return None
+    return f"{h:02d}:{mi:02d}"
+
+
+def _validate_day_window(value) -> dict | None:
+    """Finestra operativa del giorno scritta da Buongiorno alla conferma.
+
+    Forma strutturata: {date, start, end, events: [{start, end, title}]} —
+    gli eventi NON sono stringhe da riparsare: gia' campi separati, la
+    conversione a FixedEvent nel piano giorno e' esplicita e senza parsing.
+    Tollerante: qualunque problema scarta (None o evento singolo scartato),
+    mai solleva. Eventi: max MAX_DAY_EVENTS, titolo <= 120 char, start < end.
+    """
+    if not isinstance(value, dict):
+        return None
+    date_s = value.get("date")
+    if not isinstance(date_s, str) or not _DATE_RE.match(date_s.strip()):
+        return None
+    try:
+        datetime.strptime(date_s.strip(), "%Y-%m-%d")
+    except ValueError:
+        return None
+    start = _valid_hhmm(value.get("start"))
+    end = _valid_hhmm(value.get("end"))
+    if not start or not end or start >= end:
+        return None
+    raw_events = value.get("events")
+    if not isinstance(raw_events, list):
+        raw_events = []
+    events: list[dict] = []
+    for ev in raw_events:
+        if not isinstance(ev, dict):
+            continue
+        es = _valid_hhmm(ev.get("start"))
+        ee = _valid_hhmm(ev.get("end"))
+        if not es or not ee or es >= ee:
+            continue
+        title = str(ev.get("title", "") or "").strip()
+        events.append({"start": es, "end": ee, "title": title[:120]})
+        if len(events) >= MAX_DAY_EVENTS:
+            break
+    return {"date": date_s.strip(), "start": start, "end": end, "events": events}
 
 
 def _validate_smart_lists(value) -> list[dict]:
@@ -552,6 +610,7 @@ def load_config() -> dict:
     cfg["sounds"] = bool(data.get("sounds", True))
     cfg["day_hours"] = _clamp_int(data.get("day_hours", 6), 6, 1, 16)
     cfg["smart_lists"] = _validate_smart_lists(data.get("smart_lists", []))
+    cfg["day_window"] = _validate_day_window(data.get("day_window"))
     return cfg
 
 
@@ -573,6 +632,7 @@ def save_config(cfg: dict) -> None:
         "sounds": bool(cfg.get("sounds", True)),
         "day_hours": _clamp_int(cfg.get("day_hours", 6), 6, 1, 16),
         "smart_lists": _validate_smart_lists(cfg.get("smart_lists", [])),
+        "day_window": _validate_day_window(cfg.get("day_window")),
         "lang": str(cfg.get("lang", "auto")).lower()
         if str(cfg.get("lang", "auto")).lower() in ("auto", "it", "en")
         else "auto",

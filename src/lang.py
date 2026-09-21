@@ -472,6 +472,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # Piano
         "plan_title": "Il mio piano - {date}",
         "plan_sec_planned": "[b]Pianificati per oggi (x rimuove){load}:[/b]",
+        "plan_sec_slots": "[b]Timeline ({window}):[/b]",
         "plan_sec_due": "[b]Scadono oggi (aggiungi con [cyan]+[/]):[/b]",
         "plan_sec_overdue": "[b][red]In ritardo (aggiungi con [cyan]+[/]):[/red][/b]",
         "plan_sec_upcoming": "[b]Prossimi (aggiungi con [cyan]+[/]):[/b]",
@@ -1128,6 +1129,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # Plan
         "plan_title": "My plan - {date}",
         "plan_sec_planned": "[b]Planned for today (x removes){load}:[/b]",
+        "plan_sec_slots": "[b]Timeline ({window}):[/b]",
         "plan_sec_due": "[b]Due today (add with [cyan]+[/]):[/b]",
         "plan_sec_overdue": "[b][red]Overdue (add with [cyan]+[/]):[/red][/b]",
         "plan_sec_upcoming": "[b]Upcoming (add with [cyan]+[/]):[/b]",

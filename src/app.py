@@ -1319,6 +1319,17 @@ class TodoApp(App):
         self.push_screen(DayScreen(date_str, todos))
 
     def action_view_daily_plan(self) -> None:
+        today = datetime.now().strftime("%Y-%m-%d")
+        cfg_window = self.config.get("day_window")
+        window = (
+            cfg_window
+            if isinstance(cfg_window, dict) and cfg_window.get("date") == today
+            else None
+        )
+        try:
+            hours = float(self.config.get("day_hours", 6) or 6)
+        except (ValueError, TypeError):
+            hours = 6.0
         self.push_screen(
             DailyPlanScreen(
                 self.todos,
@@ -1326,6 +1337,8 @@ class TodoApp(App):
                 on_add=self.store.add,
                 on_pomodoro_start=self._start_pomodoro_for,
                 on_pomodoro_pause=self.action_pomodoro_pause,
+                hours=hours,
+                window=window,
             )
         )
 
@@ -1344,8 +1357,23 @@ class TodoApp(App):
         except (ValueError, TypeError):
             hours = 6.0
         self.push_screen(
-            PlanProposalScreen(self.todos, self._on_plan_changed, hours=hours)
+            PlanProposalScreen(
+                self.todos,
+                self._on_plan_changed,
+                hours=hours,
+                on_window=self._save_day_window,
+            )
         )
+
+    def _save_day_window(self, payload: dict | None) -> None:
+        """Contesto operativo del giorno (orari + eventi fissi) da Buongiorno.
+
+        None = finestra assente/invalida alla conferma -> cancella lo stale."""
+        if payload is None:
+            self.config.pop("day_window", None)
+        else:
+            self.config["day_window"] = payload
+        self._save_config()
 
     def _briefing_evening(self) -> None:
         try:

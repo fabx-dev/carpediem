@@ -31,7 +31,7 @@ from src.models import (
     _status,
 )
 from src.planner import Planner, events_to_busy, explain
-from src.planner.models import FixedEvent, ScheduledDayPlan, TimeWindow
+from src.planner.models import DayPlan, FixedEvent, ScheduledDayPlan, TimeWindow
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
@@ -83,6 +83,97 @@ def parse_event_lines(text: str, day_s: str):
             continue
         events.append(FixedEvent((m.group(3) or "").strip(), start, end))
     return events, bad
+
+
+def day_window_parts(window: dict | None, day_s: str):
+    """Conversione esplicita config `day_window` -> (start, end, [FixedEvent]).
+
+    Gli eventi sono gia' campi separati nel config (mai stringhe da
+    riparsare): qui si costruiscono i datetime del giorno e i FixedEvent.
+    None se finestra assente/invalida -> piano giorno solo task, nessun
+    default di orari (la disponibilita' resta esplicita, Fase 4).
+    """
+    if not isinstance(window, dict):
+        return None
+    try:
+        start = datetime.strptime(
+            f"{day_s} {window.get('start', '')}", "%Y-%m-%d %H:%M"
+        )
+        end = datetime.strptime(f"{day_s} {window.get('end', '')}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        return None
+    if end <= start:
+        return None
+    events: list[FixedEvent] = []
+    raw = window.get("events")
+    if isinstance(raw, list):
+        for ev in raw:
+            if not isinstance(ev, dict):
+                continue
+            try:
+                es = datetime.strptime(
+                    f"{day_s} {ev.get('start', '')}", "%Y-%m-%d %H:%M"
+                )
+                ee = datetime.strptime(f"{day_s} {ev.get('end', '')}", "%Y-%m-%d %H:%M")
+            except ValueError:
+                continue
+            if ee <= es:
+                continue
+            events.append(FixedEvent(str(ev.get("title", "") or ""), es, ee))
+    return start, end, events
+
+
+def _timeline_lines(
+    sched: ScheduledDayPlan,
+    events: list,
+    shown: set,
+    by_id: dict,
+    bad_names: tuple = (),
+) -> list[str]:
+    """Righe timeline: task schedulati + eventi fissi ordinati per inizio.
+
+    Condivisa da Buongiorno e piano giorno (solo rendering, mai scheduling):
+    task prima degli eventi a pari ora; eventi fuori availability esclusi;
+    in coda gli unscheduled strutturali tra quelli richiesti (`shown`).
+    """
+    entries = []  # (start, order, line): task prima degli eventi a pari ora
+    for s in sched.scheduled:
+        if s.item.todo_id not in shown:
+            continue
+        t = by_id.get(s.item.todo_id)
+        title = _escape_markup(t.title) if t else f"#{s.item.todo_id}"
+        entries.append(
+            (
+                s.start,
+                0,
+                f"{s.start.strftime('%H:%M')}–{s.end.strftime('%H:%M')} {title}",
+            )
+        )
+    for e in events:
+        if not any(a.start < e.end and e.start < a.end for a in sched.availability):
+            continue
+        name = f" {_escape_markup(e.title)}" if e.title else ""
+        entries.append(
+            (
+                e.start,
+                1,
+                f"{e.start.strftime('%H:%M')}–{e.end.strftime('%H:%M')} {T('planp_event_tag')}{name}",
+            )
+        )
+    entries.sort(key=lambda en: (en[0], en[1]))
+    lines = [line for _s, _o, line in entries]
+    if bad_names:
+        names = ", ".join(_escape_markup(b) for b in bad_names)
+        lines.insert(0, T("planp_events_bad", t=names))
+    tail = []
+    for it in sched.unscheduled:
+        if it.todo_id not in shown:
+            continue
+        t = by_id.get(it.todo_id)
+        tail.append(_escape_markup(t.title) if t else f"#{it.todo_id}")
+    if tail:
+        lines.append(T("planp_slots_un", t=", ".join(tail)))
+    return lines
 
 
 class PlanListView(ListView):
@@ -146,6 +237,8 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         on_add=None,
         on_pomodoro_start=None,
         on_pomodoro_pause=None,
+        hours: float = 6.0,
+        window: dict | None = None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
@@ -157,6 +250,13 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         self.on_pomodoro_start = on_pomodoro_start
         self.on_pomodoro_pause = on_pomodoro_pause
         self.today = today or datetime.now().strftime("%Y-%m-%d")
+        try:
+            self.hours = max(1.0, float(hours))
+        except (ValueError, TypeError):
+            self.hours = 6.0
+        # Contesto operativo scritto da Buongiorno (orari + eventi fissi
+        # strutturati). Assente/invalido = scheda solo task, senza timeline.
+        self.window = window if isinstance(window, dict) else None
 
     def _planned_todos(self) -> list[TodoItem]:
         return [
@@ -226,6 +326,54 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         pomo = f" [red]{plbl}[/]" if plbl else ""
         return f"  [cyan]{marker}[/] {_status(t)} {_escape_markup(t.title)}{extra}  [dim]#{t.id}[/]{pomo}"
 
+    def _confirmed_dayplan(self) -> DayPlan:
+        """DayPlan sintetico dei SOLO task confermati (planned_for == oggi).
+
+        Nessuna seconda decisione di selezione: Buongiorno decide cosa entra
+        nel piano, qui si organizza temporalmente cio' che e' entrato. I
+        PlanItem (score, stima, mandatory) arrivano dalla proposta del
+        Planner, filtrati sull'insieme confermato: l'ordine di merito resta
+        fonte del Planner, mai una riproposta.
+        """
+        plan = Planner(self.all_todos, today=self.today, hours=self.hours).propose()
+        confirmed = {t.id for t in self._planned_todos()}
+        items = [it for it in plan.items if it.todo_id in confirmed]
+        return DayPlan(
+            plan.day,
+            planned=tuple(items),
+            capacity_pomo=plan.capacity_pomo,
+            factor=plan.factor,
+        )
+
+    def _timeline_children(self) -> list[ListItem]:
+        """Sezione timeline della scheda operativa (solo rendering).
+
+        Richiede la finestra scritta da Buongiorno: senza orari nessuna
+        sezione (piano = solo task, nessun default 09:00-18:00). Righe
+        disabled: consultabile, non operativa (l'esecuzione resta sui task).
+        """
+        parts = day_window_parts(self.window, self.today)
+        if parts is None:
+            return []
+        start, end, events = parts
+        planned = self._planned_todos()
+        if not planned:
+            return []
+        sched = Planner.schedule(
+            self._confirmed_dayplan(),
+            [TimeWindow(start, end)],
+            busy=events_to_busy(events),
+        )
+        shown = {t.id for t in planned}
+        by_id = {t.id: t for t in self.all_todos if t.id is not None}
+        lines = _timeline_lines(sched, events, shown, by_id)
+        if not lines:
+            return []
+        window_lbl = f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
+        rows = [ListItem(Label(T("plan_sec_slots", window=window_lbl)), disabled=True)]
+        rows.extend(ListItem(Label(f"  {line}"), disabled=True) for line in lines)
+        return rows
+
     def compose(self) -> ComposeResult:
         today_display = _format_date_it(self.today)
         with Vertical(id="plan-box"):
@@ -250,10 +398,12 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 (T("plan_sec_unplanned"), "unplanned", unplanned, "+"),
             ]
             items = [t for _h, _k, todos, _m in sections for t in todos]
-            if items:
+            timeline = self._timeline_children()
+            if items or timeline:
                 keep = getattr(self, "_keep_id", None)
                 keep_section = getattr(self, "_keep_section", None)
                 children = []
+                children.extend(timeline)
                 found_keep: int | None = None
                 first_in_section: int | None = None
                 for header, kind, todos, marker in sections:
@@ -282,7 +432,11 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                         children.append(row)
                 if found_keep is None:
                     found_keep = first_in_section
-                initial = found_keep if found_keep is not None else 1
+                initial = (
+                    found_keep
+                    if found_keep is not None
+                    else next((i for i, c in enumerate(children) if not c.disabled), 0)
+                )
                 yield PlanListView(*children, id="plan-section", initial_index=initial)
             else:
                 yield Static(T("plan_empty"))
@@ -719,10 +873,14 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         on_change,
         today: str | None = None,
         hours: float = 6.0,
+        on_window=None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
         self.on_change = on_change
+        # Contesto operativo (orari + eventi fissi): alla conferma va al piano
+        # giorno via callback (le screen non salvano mai su disco).
+        self.on_window = on_window
         self.today = today or datetime.now().strftime("%Y-%m-%d")
         try:
             self.hours = max(1.0, float(hours))
@@ -753,6 +911,8 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.events_bad: list = []
         self.sched: ScheduledDayPlan | None = None
         self.slot_error: str | None = None
+        self.window_start = None
+        self.window_end = None
 
     def _parse_time(self, value: str):
         """(ok, datetime|None): vuoto = (True, None), invalido = (False, None)."""
@@ -768,6 +928,8 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         """Ricalcola lo ScheduledDayPlan dall'input (solo rendering)."""
         self.slot_error = None
         self.sched = None
+        self.window_start = None
+        self.window_end = None
         ok_start, start = self._parse_time(self.start_text)
         ok_end, end = self._parse_time(self.end_text)
         if start is None and ok_start:
@@ -783,9 +945,32 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.slot_error = "planp_window_bad"
             return
         self.events, self.events_bad = parse_event_lines(self.events_text, self.today)
+        self.window_start, self.window_end = start, end
         self.sched = Planner.schedule(
             self.plan, [TimeWindow(start, end)], busy=events_to_busy(self.events)
         )
+
+    def _window_payload(self) -> dict | None:
+        """Payload strutturato per il config; None = nessuna finestra valida.
+
+        Eventi gia' campi separati (niente stringhe da riparsare): la
+        conversione config -> FixedEvent nel piano giorno e' esplicita
+        (day_window_parts)."""
+        if self.window_start is None or self.window_end is None:
+            return None
+        return {
+            "date": self.today,
+            "start": self.window_start.strftime("%H:%M"),
+            "end": self.window_end.strftime("%H:%M"),
+            "events": [
+                {
+                    "start": e.start.strftime("%H:%M"),
+                    "end": e.end.strftime("%H:%M"),
+                    "title": e.title,
+                }
+                for e in self.events
+            ],
+        }
 
     def _slot_lines(self) -> str:
         """Timeline unita FixedEvent + ScheduledItem; solo rendering.
@@ -798,45 +983,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         if self.sched is None:
             return T("planp_slots_none")
         shown = {it.todo_id for it in self.rows}
-        entries = []  # (start, order, line): task prima degli eventi a pari ora
-        for s in self.sched.scheduled:
-            if s.item.todo_id not in shown:
-                continue
-            t = self.by_id.get(s.item.todo_id)
-            title = _escape_markup(t.title) if t else f"#{s.item.todo_id}"
-            entries.append(
-                (
-                    s.start,
-                    0,
-                    f"{s.start.strftime('%H:%M')}–{s.end.strftime('%H:%M')} {title}",
-                )
-            )
-        for e in self.events:
-            if not any(
-                a.start < e.end and e.start < a.end for a in self.sched.availability
-            ):
-                continue
-            name = f" {_escape_markup(e.title)}" if e.title else ""
-            entries.append(
-                (
-                    e.start,
-                    1,
-                    f"{e.start.strftime('%H:%M')}–{e.end.strftime('%H:%M')} {T('planp_event_tag')}{name}",
-                )
-            )
-        entries.sort(key=lambda en: (en[0], en[1]))
-        lines = [line for _s, _o, line in entries]
-        if self.events_bad:
-            names = ", ".join(_escape_markup(b) for b in self.events_bad)
-            lines.insert(0, T("planp_events_bad", t=names))
-        tail = []
-        for it in self.sched.unscheduled:
-            if it.todo_id not in shown:
-                continue
-            t = self.by_id.get(it.todo_id)
-            tail.append(_escape_markup(t.title) if t else f"#{it.todo_id}")
-        if tail:
-            lines.append(T("planp_slots_un", t=", ".join(tail)))
+        lines = _timeline_lines(
+            self.sched, self.events, shown, self.by_id, tuple(self.events_bad)
+        )
         return "\n".join(lines) if lines else T("planp_slots_none")
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -1032,6 +1181,11 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         # Solo additivo: aggiunge i selezionati, non toglie mai i pianificati.
         selected = self._selected_ids()
         n, r = domain.proposal_plan(self.all_todos, selected, self.today)
+        # La finestra (se valida) diventa contesto operativo del piano giorno;
+        # None/invalida = senza orari (cancella lo stale di un giorno prima).
+        # Esc non arriva qui: senza conferma nessuna scrittura.
+        if self.on_window is not None:
+            self.on_window(self._window_payload())
         self.on_change()
         self.notify(T("n_planp_saved", n=n, k=self.n_planned, r=r))
         self.dismiss()

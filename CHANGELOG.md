@@ -3,6 +3,24 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.12.0] - 2026-09-21
+
+### Added
+- The day plan (`p`) is now the operational sheet of the day: the
+  availability window and fixed events set in Buongiorno are persisted at
+  confirmation (`day_window` in the config, structured — events as
+  `start`/`end`/`title` fields, never re-parsed strings) and the plan
+  re-schedules exactly the confirmed tasks (`planned_for == today`) with
+  the Planner merit order and the deterministic scheduler. The timeline
+  appears as the first list section: `HH:MM–HH:MM title` rows with
+  `EVENT:` fixed-event rows and an "Unscheduled" tail; rows are read-only,
+  execution stays on the task rows (Enter/Space/o unchanged).
+- Graceful degradation kept: no start/end in Buongiorno (or stale window
+  from a previous day) -> the plan shows only tasks, no timeline, no
+  default 09:00–18:00 ever.
+- Esc in Buongiorno still writes nothing; confirming with an
+  invalid/empty window clears the persisted one (no stale reuse).
+
 ## [0.11.1] - 2026-09-18
 
 ### Fixed
