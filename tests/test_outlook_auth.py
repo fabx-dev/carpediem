@@ -53,9 +53,10 @@ class FakeClient:
         self.scopes_seen = list(scopes)
         return self.silent
 
-    def initiate_auth_code_flow(self, scopes, redirect_uri=None):
+    def initiate_auth_code_flow(self, scopes, redirect_uri=None, login_hint=None):
         self.scopes_seen = list(scopes)
         self.redirect_seen = redirect_uri
+        self.login_hint_seen = login_hint
         return dict(self.auth_flow or {})
 
     def acquire_token_by_authorization_code(self, code, scopes=None, redirect_uri=None):
@@ -133,6 +134,20 @@ def test_authcode_start_apre_browser_e_redirect_loopback(tmp_files):
     assert opened == ["https://login.microsoftonline.com/x/authorize?a=1"]
     assert started["uri"].startswith("https://")
     assert c._client.redirect_seen == "http://127.0.0.1:9/callback"
+    assert c._client.login_hint_seen == "m.rossi@azienda.it"
+
+
+def test_authcode_login_hint_vuoto_none(tmp_files):
+    cfg = dict(CFG, account="")
+    c = OutlookClient(
+        cfg,
+        client=FakeClient(),
+        cache=FakeCache(),
+        listener_factory=lambda: FakeListener(),
+        opener=lambda url: True,
+    )
+    c.authcode_start()
+    assert c._client.login_hint_seen is None
 
 
 def test_authcode_start_browser_ko_url_manuale(tmp_files):

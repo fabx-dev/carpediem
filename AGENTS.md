@@ -809,6 +809,9 @@ Regole dure:
   hook `cancel` dedicato (Esc in setup chiude il socket, niente orfani),
   attesa con timeout 180s. Lezione: `self._server` va tipizzato `Any`
   (mypy non vede gli attributi dinamici `auth_result`/`got_result`).
+  L'account di setup passa come `login_hint` (browser con email
+  precompilata: password+2FA solo lì, mai ROPC — con MFA fallirebbe
+  comunque con AADSTS50076).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

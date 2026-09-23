@@ -246,9 +246,12 @@ class OutlookClient:
         except Exception as exc:
             raise OutlookError("loopback_bind_failed", str(exc)[:120])
         redirect_uri = listener.redirect_uri
+        account = str(self.cfg.get("account", "") or "") or None
         try:
             flow = client.initiate_auth_code_flow(
-                scopes=list(GRAPH_SCOPES), redirect_uri=redirect_uri
+                scopes=list(GRAPH_SCOPES),
+                redirect_uri=redirect_uri,
+                login_hint=account,
             )
         except Exception as exc:
             listener.close()

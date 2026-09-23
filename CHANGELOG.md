@@ -12,6 +12,9 @@ Entries in English from now on.
   to copy by hand), waits for the login, and Esc closes the local
   listener without leaving sockets behind. Silent fetch, token
   storage, scopes and all security gates are unchanged.
+- The setup account email is passed as `login_hint`, so the browser
+  opens with the email prefilled: password + 2FA stay in the browser
+  and are never typed twice.
 
 ## [0.13.1] - 2026-09-23
 
