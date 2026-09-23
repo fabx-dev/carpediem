@@ -1271,14 +1271,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                     ),
                     id="planp-summary",
                 )
-                yield Label(T("planp_avail"), id="planp-avail-label")
-                with Horizontal(id="planp-avail-row"):
-                    yield Input(placeholder=T("planp_start_ph"), id="planp-start")
-                    yield Label("–", id="planp-avail-dash")
-                    yield Input(placeholder=T("planp_end_ph"), id="planp-end")
-                yield Label(T("planp_events"), id="planp-events-label")
-                yield TextArea(id="planp-events")
-                yield Static(self._slot_lines(), id="planp-slots")
+                # La proposta PRIMA degli input: e' il cuore della screen e a
+                # 120x40 deve stare sopra il fold (disponibilita'/eventi/slot
+                # seguono sotto; causa -> effetto resta leggibile scorrendo).
                 if self.rows:
                     yield SelectionList(
                         *[
@@ -1293,6 +1288,14 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                     )
                 else:
                     yield Static(T("planp_done" if self.n_planned else "planp_empty"))
+                yield Label(T("planp_avail"), id="planp-avail-label")
+                with Horizontal(id="planp-avail-row"):
+                    yield Input(placeholder=T("planp_start_ph"), id="planp-start")
+                    yield Label("–", id="planp-avail-dash")
+                    yield Input(placeholder=T("planp_end_ph"), id="planp-end")
+                yield Label(T("planp_events"), id="planp-events-label")
+                yield TextArea(id="planp-events")
+                yield Static(self._slot_lines(), id="planp-slots")
             yield Static(T("rev_legend"), id="planp-legend")
             with Horizontal(id="planp-buttons", classes="btn-row"):
                 yield Button(T("form_save"), id="planp-confirm", variant="default")
@@ -1300,9 +1303,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
 
     def on_mount(self) -> None:
         # Focus sulla lista (s = salva ovunque: nei campi di testo i caratteri
-        # sono consumati dall'input) ma scroll in cima: si vede contesto,
-        # disponibilita' ed eventi; quando si spunta, lo scroll segue il
-        # cursore della lista. scroll_home differito: il layout finisce
+        # sono consumati dall'input) ma scroll in cima: si vedono contesto,
+        # proposta, disponibilita' ed eventi; quando si spunta, lo scroll segue
+        # il cursore della lista. scroll_home differito: il layout finisce
         # dopo l'idle e il primo render riporterebbe lo scroll a meta'.
         try:
             self.query_one("#planp-list", SelectionList).focus()

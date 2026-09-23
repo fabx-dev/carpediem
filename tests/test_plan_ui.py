@@ -358,3 +358,32 @@ def test_menu_palette_e_settings_ore(tmp_files):
             assert saved["day_hours"] == 4
 
     asyncio.run(t())
+
+
+def test_proposta_sopra_il_fold(tmp_files):
+    """La lista proposta precede disponibilita'/eventi/slot nel DOM e sta
+    sopra il fold dello scroll a 120x40 (il cuore della screen e' visibile
+    all'apertura, senza scroll)."""
+
+    async def t():
+        app = make_app(_todos())
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.press("P")
+            await pilot.pause()
+            await pilot.pause()
+            scr = app.screen
+            assert type(scr).__name__ == "PlanProposalScreen"
+            ids = [
+                w.id
+                for w in scr.query_one("#planp-scroll").query("*")
+                if w.id and w.id.startswith("planp-")
+            ]
+            assert ids.index("planp-list") < ids.index("planp-avail-label")
+            assert ids.index("planp-list") < ids.index("planp-slots")
+            scroll = scr.query_one("#planp-scroll")
+            vp = scroll.scrollable_content_region
+            sl = scr.query_one("#planp-list", SelectionList)
+            assert sl.region.y < vp.y + vp.height
+
+    asyncio.run(t())

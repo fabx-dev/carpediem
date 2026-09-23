@@ -217,6 +217,64 @@ def test_ricerca_e_filtri(tmp_files):
     run(t())
 
 
+def test_esc_pulisce_ricerca_attiva(tmp_files):
+    """Esc sulla home pulisce la SOLA ricerca (altri filtri intatti);
+    a ricerca vuota e' no-op, sotto modale resta inerte."""
+
+    async def t():
+        app = make_app(
+            [
+                make_todo("Dentista", project="casa", tags=["x"]),
+                make_todo("Spesa", todo_id=2),
+            ]
+        )
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.press("/")
+            await pilot.pause()
+            for ch in "dent":
+                await pilot.press(ch)
+            await pilot.press("enter")
+            await pilot.pause()
+            assert app.filter_search == "dent"
+            assert len(app._row_map) == 1
+            await pilot.press("escape")
+            await pilot.pause()
+            assert app.filter_search == ""
+            assert len(app._row_map) == 2
+            # Gli altri filtri non si toccano: tag attivo + ricerca -> Esc
+            # pulisce solo la ricerca.
+            app.filter_tag = "x"
+            app.filter_search = "dent"
+            app._populate_table()
+            assert len(app._row_map) == 1
+            await pilot.press("escape")
+            await pilot.pause()
+            assert app.filter_search == ""
+            assert app.filter_tag == "x"
+            assert len(app._row_map) == 1  # solo Dentista ha il tag x
+            # No-op a ricerca vuota: nessun crash, tabella invariata.
+            app.filter_tag = None
+            app._populate_table()
+            assert len(app._row_map) == 2
+            await pilot.press("escape")
+            await pilot.pause()
+            assert app.filter_search == "" and len(app._row_map) == 2
+            # Sotto modale Esc chiude senza pulire (guard).
+            app.filter_search = "dent"
+            app._populate_table()
+            await pilot.press("/")
+            await pilot.pause()
+            assert type(app.screen).__name__ == "SearchScreen"
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ != "SearchScreen"  # chiusa
+            assert app.filter_search == "dent"
+
+    run(t())
+
+
 def test_clear_filters_resetta_anche_config(tmp_files):
     async def t():
         app = make_app([make_todo("A")])

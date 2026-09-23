@@ -433,6 +433,7 @@ class TodoApp(App):
         Binding("t", "filter_by_tag", "Filtro tag", show=False),
         Binding("g", "filter_by_project", "Filtro progetto", show=False),
         Binding("slash", "search_todos", T("b_search"), show=True),
+        Binding("escape", "clear_search", "Pulisci ricerca", show=False),
         Binding("q", "quit", T("b_quit")),
         Binding("c", "view_calendar", "Calendario", show=False),
         Binding("w", "view_week", "Settimana", show=False),
@@ -1569,6 +1570,18 @@ class TodoApp(App):
             self._populate_table()
 
         self.push_screen(SearchScreen(self.filter_search), on_submit)
+
+    def action_clear_search(self) -> None:
+        """Esc sulla home pulisce la SOLA ricerca attiva (no-op altrimenti).
+
+        Sotto modale resta inerte via check_action (fuori _MODAL_SAFE_ACTIONS);
+        gli altri filtri non si toccano (per quelli c'e' Pulisci filtri)."""
+        if not (getattr(self, "filter_search", "") or "").strip():
+            return
+        self.filter_search = ""
+        self.active_smart = None  # tocco manuale: la smart resta salvata
+        self.notify(T("n_search_clear"))
+        self._populate_table()
 
     def _smart_snapshot(self) -> str:
         """Descrizione del filtro attuale per la SmartListScreen."""

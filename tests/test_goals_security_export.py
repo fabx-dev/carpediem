@@ -94,3 +94,22 @@ def test_export_stats_csv_e_markdown(tmp_files, monkeypatch):
 
     monkeypatch.setattr(app_module, "_home", lambda: tmp_files)
     run(t())
+
+
+def test_stats_undated_mai_negativo(tmp_files):
+    """Dati incoerenti (log senza contatore) non mostrano 'senza data: -N'."""
+
+    async def t():
+        bad = make_todo("B", done=True, completed_at=_ds(0) + " 09:00")
+        bad.pomodoro_log.append(_ds(0) + " 09:00")
+        bad.pomodoros = 0  # incoerente di proposito: datati > totale
+        app = make_app([bad])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.action_view_stats()
+            await pilot.pause()
+            await pilot.pause()
+            txt = screen_texts(app.screen)
+            assert "senza data" not in txt and "undated" not in txt
+
+    run(t())

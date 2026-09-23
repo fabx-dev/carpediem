@@ -549,7 +549,7 @@ class StatsScreen(CloseMixin, ModalScreen[None]):
                     T("stats_pomo", t=pomo_goal_txt, f=pomo_14, tot=pomo_total),
                     classes="stats-line",
                 )
-                if pomo_undated:
+                if pomo_undated > 0:
                     yield Static(
                         T("stats_undated", n=pomo_undated), classes="stats-line"
                     )

@@ -737,8 +737,33 @@ Regole dure:
   verifica va controllato per il prefisso TASKO_HOME PRIMA di eseguire;
   (3) dopo qualsiasi debug non isolato sospetto, controllare mtime e
   dimensione di `~/.todo_app.json` PRIMA di continuare; (4) un wipe da
-  debug plaintext e' riconoscibile dal file che diventa non-envelope
+  debug plaintext e' riconoscibile dal file che diventa   non-envelope
   (leggibile) o da envelope minuscolo.
+- **Buongiorno sopra il fold (2026-09-22, fatto)**: con finestra+eventi
+  compilati la proposta usciva dal viewport a 120x40 (contenuto ~27 righe
+  vs 21 visibili: la lista stava a y=32, fold a 30) — chi apriva `P` non
+  vedeva cosa doveva confermare (emerso rigenerando gli screenshot README:
+  la lista esisteva nel DOM ma non nel render). Fix: `SelectionList`
+  composta subito dopo il summary, PRIMA di disponibilita'/eventi/slot
+  (causa -> effetto resta scorrendo verso il basso); focus-on-list e
+  `scroll_home` differito invariati. Regression test
+  `test_proposta_sopra_il_fold` (ordine DOM + `sl.region.y < fold` a
+  120x40). Lezione: un widget presente nel DOM non e' necessariamente
+  visibile — gli shot vanno verificati via regex `<text>`, non per
+  esistenza widget.
+- **Stats undated mai negativo (2026-09-22, fatto)**: `stats_undated` con
+  `if pomo_undated:` mostrava `di cui senza data: -6` con dati incoerenti
+  (log senza contatore: totale < datati) — ora `> 0`; test
+  `test_stats_undated_mai_negativo`. L'app coerente non lo produce mai
+  (`credit_pomodoro` tiene log+contatore in sync), ma la guardia e'
+  dovuta.
+- **Esc pulisce la ricerca (2026-09-22, fatto)**: a ricerca attiva sulla home
+  `Esc` azzera il SOLO `filter_search` (stato/tag/progetto intatti, sgancio
+  smart come ogni tocco manuale, no-op silenzioso a ricerca vuota); sotto
+  modale resta inerte via `check_action` (fuori `_MODAL_SAFE_ACTIONS`), quindi
+  `SearchScreen` resta annulla-chiudi. Test `test_esc_pulisce_ricerca_attiva`.
+  Lezione test: dopo il dismiss lo screen base si chiama `Screen`, non
+  `TodoApp` — asserire `!= "SearchScreen"`.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
