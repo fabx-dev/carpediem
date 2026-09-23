@@ -3,6 +3,14 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.12.1] - 2026-09-23
+
+### Changed
+- Buongiorno commitments field relabeled from "Eventi fissi" / "Fixed
+  events" to "Impegni pianificati" / "Scheduled commitments": the box
+  holds both calendar appointments and manually declared busy blocks,
+  not only fixed events.
+
 ## [0.12.0] - 2026-09-21
 
 ### Added

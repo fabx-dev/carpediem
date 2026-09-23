@@ -534,7 +534,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "planp_window_bad": "[yellow]La fine deve essere dopo l'inizio (stesso giorno).[/]",
         "planp_slots_none": "[dim]Indica inizio e fine disponibilità per vedere gli orari previsti (vuoti = senza orari).[/]",
         "planp_slots_un": "Senza orario: {t}",
-        "planp_events": "Eventi fissi (uno per riga: HH:MM-HH:MM Titolo, vuoto = nessuno)",
+        "planp_events": "Impegni pianificati (uno per riga: HH:MM-HH:MM Titolo, vuoto = nessuno)",
         "planp_events_bad": "[yellow]Righe evento ignorate: {t}[/]",
         "planp_event_tag": "EVENTO:",
         # Smart list salvate
@@ -1193,7 +1193,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "planp_window_bad": "[yellow]The end must be after the start (same day).[/]",
         "planp_slots_none": "[dim]Enter availability start and end to see the scheduled times (empty = no times).[/]",
         "planp_slots_un": "Unscheduled: {t}",
-        "planp_events": "Fixed events (one per line: HH:MM-HH:MM Title, empty = none)",
+        "planp_events": "Scheduled commitments (one per line: HH:MM-HH:MM Title, empty = none)",
         "planp_events_bad": "[yellow]Ignored event lines: {t}[/]",
         "planp_event_tag": "EVENT:",
         # Saved smart lists
