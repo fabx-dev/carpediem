@@ -2,3 +2,4 @@ textual>=0.86.0,<4.0.0
 cryptography>=42
 textual-plotext>=1.0.1,<2
 plotext>=5.2.8,<6
+msal>=1.30,<2
