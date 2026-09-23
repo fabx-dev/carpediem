@@ -3,6 +3,21 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.12.2] - 2026-09-23
+
+### Fixed
+- Small-terminal layouts that hid critical buttons: the Pomodoro and
+  Goals dialogs now use the fixed-frame pattern (90% box, scrollable
+  content, pinned buttons) so every button stays reachable at 70x20
+  and 80x24 instead of falling outside the viewport.
+- Review and Settings no longer open pre-scrolled toward the bottom:
+  the focus-follow scroll is reset with a deferred `scroll_home`
+  (same fix class as the Buongiorno fold bug).
+- New permanent UI regression gate (`tests/test_ui_regression.py`,
+  45 scenarios x 4 sizes): staged-Esc screens (menu) get up to 3
+  presses, Button labels count as declared content, and the archive
+  scenario uses the real archive file.
+
 ## [0.12.1] - 2026-09-23
 
 ### Changed

@@ -662,9 +662,9 @@ Regole dure:
   validazione, roundtrip, conferma/Esc/stale, timeline confermati, eventi,
   degradazione, layout 3 taglie). Revisione deliberata della decisione
   Fase 6.5 "mai persistita" su richiesta utente (Buongiorno = proposta,
-  Piano Giorno = scheda operativa della giornata). Nota: i 6 fallimenti in
-  `tests/test_ui_regression.py` (file untracked WIP di sessione precedente)
-  sono PRE-ESISTENTI, riproducono anche senza modifiche (verificato via stash).
+  Piano Giorno = scheda operativa della giornata).
+  Nota (superata in 0.12.2): i 6 fallimenti in `tests/test_ui_regression.py`
+  visti qui erano del WIP non ancora fissato — vedi voce apposita sotto.
   Commit `51e79de`.
 - **Righe timed operative nel piano giorno (2026-09-21, fatto, 0.12.0
   secondo commit)**: la prima versione della timeline era una sezione
@@ -764,6 +764,17 @@ Regole dure:
   `SearchScreen` resta annulla-chiudi. Test `test_esc_pulisce_ricerca_attiva`.
   Lezione test: dopo il dismiss lo screen base si chiama `Screen`, non
   `TodoApp` — asserire `!= "SearchScreen"`.
+- **UI regression WIP fissato (2026-09-23, fatto, 0.12.2)**: i 6 scenari
+  falliti di `tests/test_ui_regression.py` (45 scenari x 4 taglie) erano
+  quasi tutti veri bug, non aspettative sbagliate: Review/Settings aprivano
+  pre-scrollate (focus trascina lo scroll, fix con `scroll_home` differito
+  come Buongiorno); Pomodoro/Goals a 70x20/80x24 nascondevano i bottoni
+  fuori viewport senza scroll possibile (passate al pattern cornice fissa
+  + scroll + bottoni fissi); menu con Esc a stadi (il runner preme fino a
+  3 volte). Due fix di test legittimi: lo scenario archivio scriveva nello
+  store invece che nel file archive (passava per trasparenza della tabella
+  home nel render!) e il content-check ignora le label dei Button (ora
+  incluse: presenza del dato, troncamenti restano sul render).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

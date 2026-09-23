@@ -47,7 +47,12 @@ class GoalsScreen(ModalScreen[dict | None]):
     #goals-box {
         width: 52;
         max-width: 90%;
-        height: auto;
+        height: 90%;
+        max-height: 90%;
+    }
+    #goals-scroll {
+        height: 1fr;
+        margin-bottom: 1;
     }
     #goals-hint {
         color: $text-muted;
@@ -79,13 +84,16 @@ class GoalsScreen(ModalScreen[dict | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="goals-box"):
             yield Label(T("goals_title"), id="goals-title")
-            yield Label(T("goals_hint"), id="goals-hint")
-            yield Label(T("goals_daily"))
-            yield Input(str(self.daily), id="goals-daily")
-            yield Label(T("goals_weekly"))
-            yield Input(str(self.weekly), id="goals-weekly")
-            yield Label(T("goals_pomo"))
-            yield Input(str(self.pomo_daily), id="goals-pomo")
+            # Campi in scroll + bottoni fissi: a 70x20 il box auto usciva
+            # dal viewport e Salva/Annulla erano irraggiungibili.
+            with VerticalScroll(id="goals-scroll"):
+                yield Label(T("goals_hint"), id="goals-hint")
+                yield Label(T("goals_daily"))
+                yield Input(str(self.daily), id="goals-daily")
+                yield Label(T("goals_weekly"))
+                yield Input(str(self.weekly), id="goals-weekly")
+                yield Label(T("goals_pomo"))
+                yield Input(str(self.pomo_daily), id="goals-pomo")
             with Horizontal(id="goals-buttons", classes="btn-row"):
                 yield Button(T("form_save"), id="goals-save", variant="default")
                 yield Button(T("form_cancel"), id="goals-cancel", variant="default")
@@ -750,6 +758,15 @@ class SettingsScreen(ModalScreen[dict | None]):
     def on_mount(self) -> None:
         try:
             self.query_one("#set-theme", Select).focus()
+        except Exception:
+            pass
+        # Il focus trascina lo scroll del layout provvisorio (stessa lezione
+        # di Buongiorno): scroll_home differito dopo il relayout.
+        self.call_after_refresh(self._scroll_top)
+
+    def _scroll_top(self) -> None:
+        try:
+            self.query_one("#set-body").scroll_home(animate=False)
         except Exception:
             pass
 

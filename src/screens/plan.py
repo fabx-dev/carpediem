@@ -931,6 +931,16 @@ class ReviewScreen(CloseMixin, ModalScreen[None]):
                 self.query_one("#rev-confirm", Button).focus()
             except Exception:
                 self.focus()
+        # Il focus sulla lista trascina lo scroll verso il fondo (come
+        # Buongiorno prima del fix): si riapre in cima, differito perche'
+        # il layout finisce dopo l'idle.
+        self.call_after_refresh(self._scroll_top)
+
+    def _scroll_top(self) -> None:
+        try:
+            self.query_one("#rev-scroll").scroll_home(animate=False)
+        except Exception:
+            pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "rev-close":

@@ -30,6 +30,7 @@ from pathlib import Path
 import pytest
 from textual.screen import ModalScreen
 
+import src.storage as storage
 from tests.conftest import make_app, make_todo, run
 from tests.ui_framework import SIZES, Scenario, run_scenario
 
@@ -60,7 +61,10 @@ def _completed_todos(n=10):
 
 
 def _planned_todos(n=5):
-    return [make_todo(f"Pianificato {i}", todo_id=i, planned_for=_today()) for i in range(1, n + 1)]
+    return [
+        make_todo(f"Pianificato {i}", todo_id=i, planned_for=_today())
+        for i in range(1, n + 1)
+    ]
 
 
 # --- opener con import lazy (i moduli screen vengono ricaricati da conftest) ---
@@ -180,7 +184,9 @@ def _open_security(app, pilot):
 def _open_password(app, pilot):
     from src.screens.system import PasswordScreen
 
-    app.push_screen(PasswordScreen("sec_pw_title_enable", ["sec_pw_new", "sec_pw_repeat"]))
+    app.push_screen(
+        PasswordScreen("sec_pw_title_enable", ["sec_pw_new", "sec_pw_repeat"])
+    )
 
 
 def _open_tpl_create(app, pilot):
@@ -212,7 +218,9 @@ def _setup_templates(app):
 
 
 def _setup_archive(app):
-    app.store.replace_all(_completed_todos(10))
+    # L'archivio vero (file), non lo store: la screen legge load_archive().
+    # Prima passava per caso via tabella home in trasparenza nel render.
+    storage.save_archive([t.to_dict() for t in _completed_todos(10)])
 
 
 # --- interazioni minime (contratto UI di base, §6/§11 del brief) ---
@@ -439,7 +447,14 @@ UI_SCENARIOS = [
         name="settimana",
         open=lambda app, pilot: app.action_view_week(),
         screen="WeekScreen",
-        critical=("week-box", "week-nav", "prev-btn", "next-btn", "week-list", "week-close"),
+        critical=(
+            "week-box",
+            "week-nav",
+            "prev-btn",
+            "next-btn",
+            "week-list",
+            "week-close",
+        ),
         todos=_due_today_todos,
     ),
     Scenario(
@@ -463,7 +478,13 @@ UI_SCENARIOS = [
         name="dettaglio",
         open=_open_detail,
         screen="DetailScreen",
-        critical=("detail-box", "detail-title", "detail-scroll", "detail-edit", "detail-close"),
+        critical=(
+            "detail-box",
+            "detail-title",
+            "detail-scroll",
+            "detail-edit",
+            "detail-close",
+        ),
         todos=lambda: _basic_todos(1),
         expect_texts=("Task 1",),
     ),
@@ -501,7 +522,14 @@ UI_SCENARIOS = [
         name="obiettivi",
         open=lambda app, pilot: app.action_edit_goals(),
         screen="GoalsScreen",
-        critical=("goals-box", "goals-daily", "goals-weekly", "goals-pomo", "goals-save", "goals-cancel"),
+        critical=(
+            "goals-box",
+            "goals-daily",
+            "goals-weekly",
+            "goals-pomo",
+            "goals-save",
+            "goals-cancel",
+        ),
         interact=_interact_goals,
     ),
     Scenario(
@@ -547,7 +575,14 @@ UI_SCENARIOS = [
         name="impostazioni",
         open=lambda app, pilot: app.action_open_settings(),
         screen="SettingsScreen",
-        critical=("set-box", "set-body", "set-theme", "set-lang", "set-save", "set-cancel"),
+        critical=(
+            "set-box",
+            "set-body",
+            "set-theme",
+            "set-lang",
+            "set-save",
+            "set-cancel",
+        ),
         top_containers=("set-body",),
     ),
     Scenario(
@@ -616,7 +651,9 @@ def test_ui_scenario(scenario, tmp_files):
         problems_all += [f"{size[0]}x{size[1]}: {p}" for p in problems]
     if skipped:
         problems_all.append(f"taglie escluse motivate: {', '.join(skipped)}")
-    assert not problems_all, f"UI regression [{scenario.name}]\n" + "\n".join(problems_all)
+    assert not problems_all, f"UI regression [{scenario.name}]\n" + "\n".join(
+        problems_all
+    )
 
 
 def test_registry_nomi_unici():
@@ -638,4 +675,6 @@ def test_registry_copre_tutte_le_screen():
         and name != "CloseMixin"
     }
     coperte = {s.screen for s in UI_SCENARIOS if s.screen}
-    assert modali <= coperte, f"screen senza scenario UI regression: {sorted(modali - coperte)}"
+    assert modali <= coperte, (
+        f"screen senza scenario UI regression: {sorted(modali - coperte)}"
+    )

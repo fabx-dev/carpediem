@@ -91,19 +91,32 @@ def rendered_text(app) -> tuple[str, str]:
     per il containment check basta una delle due forme.
     """
     svg = app.export_screenshot()
-    parts = [html.unescape(m) for m in re.findall(r"<text[^>]*>(.*?)</text>", svg, re.S)]
+    parts = [
+        html.unescape(m) for m in re.findall(r"<text[^>]*>(.*?)</text>", svg, re.S)
+    ]
     with_spaces = " ".join(p.replace("\xa0", " ") for p in parts)
     return with_spaces, with_spaces.replace(" ", "")
 
 
 def screen_content_text(screen) -> str:
-    """Contenuto dichiarato di Static/Label (senza passare dal render)."""
+    """Contenuto dichiarato di Static/Label/Button (senza passare dal render).
+
+    Le label dei Button sono contenuto dichiarato (presenza del dato), come
+    Static/Label: la leggibilita' effettiva (troncamenti) resta verificata
+    sul render via critical_texts."""
+    from textual.widgets import Button
+
     out = []
     for w in list(screen.query("Static")) + list(screen.query("Label")):
         content = getattr(w, "content", None)
         if content is None:
             content = getattr(w, "renderable", "")
         out.append(str(content))
+    for w in screen.query(Button):
+        try:
+            out.append(str(w.label))
+        except Exception:
+            pass
     return " ".join(out)
 
 
@@ -191,7 +204,9 @@ def _check_texts(app, screen, scenario: Scenario) -> list[str]:
                 and norm not in rendered
                 and norm.replace(" ", "") not in rendered_compact
             ):
-                problems.append(f"dato di dominio non rappresentato nella UI: {wanted!r}")
+                problems.append(
+                    f"dato di dominio non rappresentato nella UI: {wanted!r}"
+                )
     return problems
 
 
@@ -251,9 +266,16 @@ async def run_scenario(app, scenario: Scenario, size: tuple[int, int]) -> list[s
                         )
 
         if not scenario.no_close:
-            await pilot.press("escape")
-            await pilot.pause()
-            await pilot.pause()
+            # Esc a stadi (es. menu: filtro -> sottomenu -> chiusura): fino a
+            # 3 pressioni, poi la schermata deve essere andata. Pressioni in
+            # eccesso a schermata chiusa sono no-op (Esc sulla home pulisce
+            # solo la ricerca attiva).
+            for _ in range(3):
+                if type(app.screen).__name__ != scenario.screen:
+                    break
+                await pilot.press("escape")
+                await pilot.pause()
+                await pilot.pause()
             if type(app.screen).__name__ == scenario.screen:
                 problems.append("escape non chiude la schermata")
     return problems

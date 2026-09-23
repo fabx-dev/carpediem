@@ -728,7 +728,12 @@ class PomodoroScreen(CloseMixin, ModalScreen[None]):
     #pomo-box {
         width: 46;
         max-width: 90%;
-        height: auto;
+        height: 90%;
+        max-height: 90%;
+    }
+    #pomo-scroll {
+        height: 1fr;
+        margin-bottom: 1;
     }
     #pomo-title {
         text-align: center;
@@ -799,14 +804,18 @@ class PomodoroScreen(CloseMixin, ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="pomo-box"):
-            yield Label("[b]🍅 Pomodoro[/b]", id="pomo-title")
-            yield Label("", id="pomo-task")
-            yield Label("", id="pomo-time")
-            yield Label(T("pomo_dur_focus"), id="pomo-dur-label")
-            with Horizontal(id="pomo-durations"):
-                yield Button("", id="pomo-dur-0", variant="default")
-                yield Button("", id="pomo-dur-1", variant="default")
-                yield Button("", id="pomo-dur-2", variant="default")
+            # Contenuto in scroll + bottoni fissi: a terminale piccolo
+            # (70x20) il box auto usciva dal viewport e Chiudi era
+            # irraggiungibile (pattern cornice fissa, come le altre screen).
+            with VerticalScroll(id="pomo-scroll"):
+                yield Label("[b]🍅 Pomodoro[/b]", id="pomo-title")
+                yield Label("", id="pomo-task")
+                yield Label("", id="pomo-time")
+                yield Label(T("pomo_dur_focus"), id="pomo-dur-label")
+                with Horizontal(id="pomo-durations"):
+                    yield Button("", id="pomo-dur-0", variant="default")
+                    yield Button("", id="pomo-dur-1", variant="default")
+                    yield Button("", id="pomo-dur-2", variant="default")
             with Vertical(id="pomo-buttons"):
                 yield Button(T("pomo_pause"), id="pause-btn", variant="default")
                 yield Button(T("pomo_done"), id="done-btn", variant="default")
