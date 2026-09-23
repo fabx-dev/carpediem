@@ -1454,6 +1454,7 @@ class TodoApp(App):
             merge=self._merge_outlook_config,
             connect=self._outlook_connect_start,
             poll=self._outlook_connect_poll,
+            cancel=self._outlook_connect_cancel,
             unlink=self._outlook_disconnect,
         )
 
@@ -1527,7 +1528,7 @@ class TodoApp(App):
             self._save_config()
 
     def _outlook_connect_start(self, cfg) -> dict:
-        """Avvia il device flow: ritorna {uri, code, flow} da mostrare."""
+        """Apre il browser sul login MS: ritorna {uri, browser_opened, handle}."""
         valid = _validate_outlook(cfg)
         if valid is None:
             return {"ok": False, "code": "bad_form"}
@@ -1536,29 +1537,40 @@ class TodoApp(App):
         except ImportError:
             return {"ok": False, "code": "msal_missing"}
         try:
-            started = client.device_flow_start()
+            started = client.authcode_start()
         except _outlook_auth.OutlookError as exc:
             return {"ok": False, "code": exc.code, "detail": exc.detail}
-        self._outlook_pending: object = client
+        self._outlook_pending: object = (client, started["handle"])
         return {
             "ok": True,
             "uri": started["uri"],
-            "code": started["code"],
-            "flow": started["flow"],
+            "browser_opened": started["browser_opened"],
+            "handle": started["handle"],
         }
 
-    def _outlook_connect_poll(self, flow) -> dict:
-        """Attende la conferma nel browser (thread): salva cache+config."""
-        client = getattr(self, "_outlook_pending", None)
+    def _outlook_connect_poll(self, handle) -> dict:
+        """Attende il callback dal browser (thread): salva cache+config."""
+        pending = getattr(self, "_outlook_pending", None)
+        client = pending[0] if pending else None
         if client is None:
             return {"ok": False, "code": "generic", "detail": "expired"}
         try:
-            _token, username = client.device_flow_poll(flow)
+            _token, username = client.authcode_finish(handle)
         except _outlook_auth.OutlookError as exc:
             return {"ok": False, "code": exc.code, "detail": exc.detail}
         finally:
             self._outlook_pending = None
         return {"ok": True, "username": username}
+
+    def _outlook_connect_cancel(self) -> None:
+        """Chiude il listener loopback (Esc in setup): niente orfani."""
+        pending = getattr(self, "_outlook_pending", None)
+        self._outlook_pending = None
+        if pending:
+            try:
+                pending[0].cancel_authcode(pending[1])
+            except Exception:
+                pass
 
     def _outlook_disconnect(self) -> None:
         """Disconnessione: cancella il token locale (revoca MS a parte)."""

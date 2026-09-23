@@ -3,6 +3,16 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.14.0] - 2026-09-23
+
+### Changed
+- Outlook login now uses auth-code + PKCE with a loopback callback
+  (the recommended flow for native apps, RFC 8252) instead of the
+  device code: the setup opens the system browser (or shows the URL
+  to copy by hand), waits for the login, and Esc closes the local
+  listener without leaving sockets behind. Silent fetch, token
+  storage, scopes and all security gates are unchanged.
+
 ## [0.13.1] - 2026-09-23
 
 ### Fixed

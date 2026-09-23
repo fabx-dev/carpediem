@@ -26,6 +26,7 @@ def _hooks(**kw):
         merge=None,
         connect=None,
         poll=None,
+        cancel=None,
         unlink=None,
     )
     base.update(kw)
@@ -166,11 +167,12 @@ def test_setup_connect_salva_e_ricarica(tmp_files):
             merge=lambda p: None,
             connect=lambda cfg: {
                 "ok": True,
-                "uri": "https://microsoft.com/x",
-                "code": "AB1",
-                "flow": {"f": 1},
+                "uri": "https://login.microsoftonline.com/t/authorize",
+                "browser_opened": True,
+                "handle": {"h": 1},
             },
-            poll=lambda flow: {"ok": True, "username": IT},
+            poll=lambda handle: {"ok": True, "username": IT},
+            cancel=lambda: None,
         )
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
@@ -196,6 +198,64 @@ def test_setup_connect_salva_e_ricarica(tmp_files):
                 lambda: "Riunione" in app.screen.query_one("#planp-events").text,
             )
             assert ok
+
+    run(t())
+
+
+def test_setup_esc_chiude_attesa_e_listener(tmp_files):
+    """Esc durante l'attesa browser: chiude il listener, niente scritture."""
+    import threading
+
+    from textual.widgets import Input, Static
+
+    cancelled: list = []
+    release = threading.Event()
+
+    def fake_poll(handle):
+        release.wait(timeout=20)
+        return {"ok": False, "code": "loopback_timeout"}
+
+    def fake_cancel():
+        cancelled.append(True)
+        release.set()
+
+    async def t():
+        app = make_app(_todos())
+        hooks = _hooks(
+            fetch=lambda: {"ok": False, "code": "setup_needed"},
+            state=lambda: {"config": None, "has_token": False},
+            save=lambda cfg: None,
+            merge=lambda p: None,
+            connect=lambda cfg: {
+                "ok": True,
+                "uri": "https://login.microsoftonline.com/t/authorize",
+                "browser_opened": True,
+                "handle": {"h": 1},
+            },
+            poll=fake_poll,
+            cancel=fake_cancel,
+        )
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_buongiorno(pilot, app, hooks)
+            await pilot.press("o")
+            ok = await wait_for(
+                pilot, lambda: type(app.screen).__name__ == "OutlookSetupScreen"
+            )
+            assert ok
+            scr = app.screen
+            scr.query_one("#outlook-client", Input).value = "cid"
+            scr.query_one("#outlook-tenant", Input).value = "tid"
+            await pilot.click("#outlook-connect")
+            urlw = scr.query_one("#outlook-url", Static)
+            ok = await wait_for(pilot, lambda: not urlw.has_class("hidden"))
+            assert ok  # in attesa del callback
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "PlanProposalScreen"
+            assert cancelled == [True]
+            assert app.config.get("outlook") is None
 
     run(t())
 

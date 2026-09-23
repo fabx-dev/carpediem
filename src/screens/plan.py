@@ -81,8 +81,9 @@ class OutlookHooks:
     state: object = None  # () -> {"config": dict|None, "has_token": bool}
     save: object = None  # (cfg) -> None (salva config validata)
     merge: object = None  # (patch) -> None (fonde chiavi, es. account)
-    connect: object = None  # (cfg) -> {"ok", "uri", "code", "flow"}
-    poll: object = None  # (flow) -> {"ok", "username"}
+    connect: object = None  # (cfg) -> {"ok", "uri", "browser_opened", "handle"}
+    poll: object = None  # (handle) -> {"ok", "username"}
+    cancel: object = None  # () -> None (chiude il listener loopback)
     unlink: object = None  # () -> None (disconnessione)
 
 

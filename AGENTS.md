@@ -801,6 +801,14 @@ Regole dure:
   aggiornarli entrambi; `ZoneInfo` su Windows richiede il pacchetto
   `tzdata` (niente zoneinfo di sistema: parser vuoto senza), e i check
   sui mode-bit (0600) sono POSIX-only (ACL Windows non mappano).
+- **Outlook via browser (2026-09-23, fatto, 0.14.0)**: login con auth-code
+  + PKCE e callback loopback (RFC 8252, al posto del device code):
+  `LoopbackListener` stdlib su `127.0.0.1` esplicito + porta effimera
+  (mai `0.0.0.0`, mai hostname `localhost` che puo' risolvere a ::1 —
+  guardrail test), `webbrowser.open` best-effort con URL copiabile a mano,
+  hook `cancel` dedicato (Esc in setup chiude il socket, niente orfani),
+  attesa con timeout 180s. Lezione: `self._server` va tipizzato `Any`
+  (mypy non vede gli attributi dinamici `auth_result`/`got_result`).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

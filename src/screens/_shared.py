@@ -73,6 +73,9 @@ _OUTLOOK_ERROR_KEYS = {
     "account_mismatch": "outlook_err_account",
     "bad_form": "outlook_bad_form",
     "msal_missing": "outlook_err_msal",
+    "authcode_denied": "outlook_err_denied",
+    "loopback_timeout": "outlook_err_timeout",
+    "loopback_bind_failed": "outlook_err_loopback",
 }
 
 

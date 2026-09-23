@@ -34,12 +34,17 @@ class FakeCache:
 
 
 class FakeClient:
-    def __init__(self, accounts=(), silent=None, flow=None, poll=None):
+    def __init__(self, accounts=(), silent=None, auth_flow=None, auth_token=None):
         self.accounts = list(accounts)
         self.silent = silent
-        self.flow = flow
-        self.poll = poll
+        self.auth_flow = auth_flow
+        if self.auth_flow is None:
+            self.auth_flow = {
+                "auth_uri": "https://login.microsoftonline.com/t/authorize"
+            }
+        self.auth_token = auth_token
         self.scopes_seen = None
+        self.redirect_seen = None
 
     def get_accounts(self):
         return list(self.accounts)
@@ -48,13 +53,29 @@ class FakeClient:
         self.scopes_seen = list(scopes)
         return self.silent
 
-    def initiate_device_flow(self, scopes):
+    def initiate_auth_code_flow(self, scopes, redirect_uri=None):
         self.scopes_seen = list(scopes)
-        return self.flow
+        self.redirect_seen = redirect_uri
+        return dict(self.auth_flow or {})
 
-    def acquire_token_by_device_flow(self, flow, timeout=None):
-        assert flow is self.flow
-        return self.poll
+    def acquire_token_by_authorization_code(self, code, scopes=None, redirect_uri=None):
+        assert code == "AUTHCODE"
+        return self.auth_token
+
+
+class FakeListener:
+    def __init__(self, code="AUTHCODE", closed=None):
+        self.redirect_uri = "http://127.0.0.1:9/callback"
+        self._code = code
+        self.closed = closed if closed is not None else []
+
+    def wait(self, timeout=None):
+        if isinstance(self._code, Exception):
+            raise self._code
+        return self._code
+
+    def close(self):
+        self.closed.append(True)
 
 
 def _acc(username):
@@ -96,34 +117,139 @@ def test_silent_account_sbagliato_mismatch(tmp_files):
     assert ei.value.code == "account_mismatch"
 
 
-def test_device_flow_uri_validata(tmp_files):
-    flow = {
-        "user_code": "AB12-CD34",
-        "verification_uri": "https://microsoft.com/devicelogin",
-    }
-    started = _client(flow=flow).device_flow_start()
-    assert started["uri"] == flow["verification_uri"] and started["code"] == "AB12-CD34"
-
-
-def test_device_flow_uri_sospetta_rifiutata(tmp_files):
-    flow = {"user_code": "X", "verification_uri": "http://evil.example/login"}
-    with pytest.raises(OutlookError) as ei:
-        _client(flow=flow).device_flow_start()
-    assert ei.value.code == "bad_verification_uri"
-
-
-def test_device_flow_poll_salva_cache_0600(tmp_files):
-    c = _client(
-        flow={"user_code": "X", "verification_uri": "https://aka.ms/devicelogin"},
-        poll=_token(),
+def test_authcode_start_apre_browser_e_redirect_loopback(tmp_files):
+    opened = []
+    c = OutlookClient(
+        dict(CFG),
+        client=FakeClient(
+            auth_flow={"auth_uri": "https://login.microsoftonline.com/x/authorize?a=1"}
+        ),
+        cache=FakeCache(),
+        listener_factory=lambda: FakeListener(),
+        opener=lambda url: opened.append(url) or True,
     )
-    token, user = c.device_flow_poll(c._client.flow)
+    started = c.authcode_start()
+    assert started["browser_opened"] is True
+    assert opened == ["https://login.microsoftonline.com/x/authorize?a=1"]
+    assert started["uri"].startswith("https://")
+    assert c._client.redirect_seen == "http://127.0.0.1:9/callback"
+
+
+def test_authcode_start_browser_ko_url_manuale(tmp_files):
+    c = OutlookClient(
+        dict(CFG),
+        client=FakeClient(
+            auth_flow={"auth_uri": "https://login.microsoftonline.com/x"}
+        ),
+        cache=FakeCache(),
+        listener_factory=lambda: FakeListener(),
+        opener=lambda url: False,
+    )
+    started = c.authcode_start()
+    assert started["browser_opened"] is False
+    assert started["uri"].startswith("https://")
+
+
+def test_authcode_start_uri_sospetta_rifiutata(tmp_files):
+    c = OutlookClient(
+        dict(CFG),
+        client=FakeClient(auth_flow={"auth_uri": "http://evil.example/login"}),
+        cache=FakeCache(),
+        listener_factory=lambda: FakeListener(),
+        opener=lambda url: True,
+    )
+    with pytest.raises(OutlookError) as ei:
+        c.authcode_start()
+    assert ei.value.code == "bad_auth_uri"
+
+
+def test_authcode_finish_salva_cache_0600(tmp_files):
+    c = OutlookClient(
+        dict(CFG),
+        client=FakeClient(auth_token=_token()),
+        cache=FakeCache(),
+        listener_factory=lambda: FakeListener(),
+        opener=lambda url: True,
+    )
+    handle = c.authcode_start()["handle"]
+    token, user = c.authcode_finish(handle)
     assert token == "AT" and user == "m.rossi@azienda.it"
     assert storage.load_outlook_token() == '{"AccessToken": {}}'
     # Mode-bit POSIX: su Windows gli ACL non li esprimono (best-effort).
     if os.name == "posix":
         mode = oct(os.stat(storage.OUTLOOK_TOKEN_FILE).st_mode & 0o777)
         assert mode == "0o600"
+
+
+def test_authcode_denied_e_mismatch(tmp_files):
+    from src.integrations.outlook_auth import OutlookError as OE
+
+    c = OutlookClient(
+        dict(CFG),
+        client=FakeClient(auth_token=_token()),
+        cache=FakeCache(),
+        listener_factory=lambda: FakeListener(
+            code=OE("authcode_denied", "access_denied")
+        ),
+        opener=lambda url: True,
+    )
+    handle = c.authcode_start()["handle"]
+    with pytest.raises(OutlookError) as ei:
+        c.authcode_finish(handle)
+    assert ei.value.code == "authcode_denied"
+    c2 = OutlookClient(
+        dict(CFG),
+        client=FakeClient(auth_token=_token("intruso@x.it")),
+        cache=FakeCache(),
+        listener_factory=lambda: FakeListener(),
+        opener=lambda url: True,
+    )
+    with pytest.raises(OutlookError) as ei2:
+        c2.authcode_finish(c2.authcode_start()["handle"])
+    assert ei2.value.code == "account_mismatch"
+
+
+def test_loopback_reale_solo_locale(tmp_files):
+    import urllib.request
+
+    from src.integrations.outlook_auth import LoopbackListener
+
+    lst = LoopbackListener()
+    assert lst.redirect_uri.startswith("http://127.0.0.1:")
+    url = lst.redirect_uri + "?code=AUTHCODE"
+    with urllib.request.urlopen(url, timeout=5) as resp:
+        assert resp.status == 200
+    assert lst.wait(timeout=5) == "AUTHCODE"
+
+
+def test_loopback_timeout_chiude(tmp_files):
+    from src.integrations.outlook_auth import LoopbackListener
+
+    lst = LoopbackListener()
+    with pytest.raises(OutlookError) as ei:
+        lst.wait(timeout=0.1)
+    assert ei.value.code == "loopback_timeout"
+
+
+def test_cancel_authcode_chiude_listener(tmp_files):
+    closed: list = []
+    c = _client()
+    handle = {"flow": {}, "listener": FakeListener(closed=closed)}
+    c.cancel_authcode(handle)
+    assert closed == [True]
+    c.cancel_authcode(None)
+    c.cancel_authcode({})
+
+
+def test_loopback_solo_127_0_0_1(tmp_files):
+    import re
+
+    from src.integrations import outlook_auth as auth_mod
+
+    assert auth_mod.LOOPBACK_HOST == "127.0.0.1"
+    src = pathlib.Path("src/integrations/outlook_auth.py").read_text(encoding="utf-8")
+    # Niente bind su wildcard (i commenti possono nominarlo, il codice no).
+    assert not re.search(r"""\(["']0\.0\.0\.0["']""", src)
 
 
 def test_fetch_day_parsa_eventi(tmp_files):

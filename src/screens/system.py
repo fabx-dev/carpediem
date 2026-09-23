@@ -1326,11 +1326,11 @@ class OutlookSetupScreen(ModalScreen[dict | None]):
         height: auto;
         margin-top: 1;
     }
-    #outlook-code {
+    #outlook-url {
         height: auto;
         margin-top: 1;
     }
-    #outlook-code.hidden {
+    #outlook-url.hidden {
         display: none;
     }
     #outlook-buttons {
@@ -1357,7 +1357,6 @@ class OutlookSetupScreen(ModalScreen[dict | None]):
         self.has_token = bool(has_token)
         self.hooks = hooks
         self._waiting = False
-        self._flow = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="outlook-box"):
@@ -1381,7 +1380,7 @@ class OutlookSetupScreen(ModalScreen[dict | None]):
                     str(self.current.get("tz", "") or "Europe/Rome"), id="outlook-tz"
                 )
                 yield Static("", id="outlook-status")
-                yield Static("", id="outlook-code", classes="hidden")
+                yield Static("", id="outlook-url", classes="hidden")
             with Horizontal(id="outlook-buttons", classes="btn-row"):
                 yield Button(
                     T("outlook_connect"), id="outlook-connect", variant="default"
@@ -1402,6 +1401,13 @@ class OutlookSetupScreen(ModalScreen[dict | None]):
 
     def action_cancel(self) -> None:
         self._waiting = False
+        cancel = getattr(self.hooks, "cancel", None) if self.hooks is not None else None
+        if callable(cancel):
+            # Chiude il listener loopback: niente socket/thread orfani.
+            try:
+                cancel()
+            except Exception:
+                pass
         self.dismiss(None)
 
     def action_submit(self) -> None:
@@ -1464,24 +1470,29 @@ class OutlookSetupScreen(ModalScreen[dict | None]):
         except Exception:
             pass
 
-    def _show_code(self, uri: str, code: str) -> None:
+    def _show_url(self, uri: str, opened: bool) -> None:
         try:
-            widget = self.query_one("#outlook-code", Static)
-            widget.update(T("outlook_code", uri=uri, code=code))
+            widget = self.query_one("#outlook-url", Static)
+            text = (
+                T("outlook_opened", uri=uri)
+                if opened
+                else T("outlook_copy_url", uri=uri)
+            )
+            widget.update(text)
             widget.remove_class("hidden")
         except Exception:
             pass
 
-    def _hide_code(self) -> None:
+    def _hide_url(self) -> None:
         try:
-            widget = self.query_one("#outlook-code", Static)
+            widget = self.query_one("#outlook-url", Static)
             widget.update("")
             widget.add_class("hidden")
         except Exception:
             pass
 
     async def _do_connect(self) -> None:
-        """Form -> device flow (thread) -> attesa conferma -> dismiss."""
+        """Form -> browser (thread) -> attesa callback -> dismiss."""
         hooks = self.hooks
         connect = getattr(hooks, "connect", None) if hooks is not None else None
         if not callable(connect):
@@ -1509,8 +1520,8 @@ class OutlookSetupScreen(ModalScreen[dict | None]):
             detail = started.get("detail", "") if isinstance(started, dict) else ""
             self._status(outlook_error_text(code, detail))
             return
-        self._flow = started.get("flow")
-        self._show_code(str(started.get("uri", "")), str(started.get("code", "")))
+        handle = started.get("handle")
+        self._show_url(str(started.get("uri", "")), bool(started.get("browser_opened")))
         self._status(T("outlook_wait"))
         self._waiting = True
         poll = getattr(hooks, "poll", None) if hooks is not None else None
@@ -1519,7 +1530,7 @@ class OutlookSetupScreen(ModalScreen[dict | None]):
             self._status(T("outlook_err_generic", e="—"))
             return
         try:
-            result = await asyncio.to_thread(poll, self._flow)
+            result = await asyncio.to_thread(poll, handle)
         except Exception as exc:
             result = {"ok": False, "code": "generic", "detail": str(exc)[:120]}
         self._waiting = False
@@ -1531,7 +1542,7 @@ class OutlookSetupScreen(ModalScreen[dict | None]):
             )
             detail = result.get("detail", "") if isinstance(result, dict) else ""
             self._status(outlook_error_text(code, detail))
-            self._hide_code()
+            self._hide_url()
             return
         username = str(result.get("username", "") or cfg.get("account", ""))
         cfg["account"] = username
