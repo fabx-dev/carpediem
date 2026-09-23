@@ -3,6 +3,29 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.13.0] - 2026-09-23
+
+### Added
+- Outlook calendar import in Buongiorno (`Carica da Outlook [o]`): when
+  configured it fetches today's events and appends them to the
+  commitments box (manual blocks preserved, no duplicates); when not
+  configured it opens a cancellable setup screen (own Entra
+  registration: client/tenant/account/zone, Device Code Flow with 2FA
+  in the browser, nothing is written until you confirm).
+- All-day events as an info row (`Tutto il giorno:`), never busy
+  blocks; persisted in `day_window` and shown in the day plan too.
+- The commitments label is now `Impegni pianificati` / `Scheduled
+  commitments` (calendar appointments and manually declared busy
+  blocks) with timeline tag `IMPEGNO:` / `COMMITMENT:`.
+
+### Security
+- Least privilege by design: delegated `Calendars.Read` only (frozen
+  scope constant + guardrail tests), tenant-pinned authority (no
+  `common`), account binding, validated device-flow URL.
+- Fetch requires encryption enabled (fail-closed); the MSAL token
+  cache lives in a dedicated 0600 file, encrypted when locked, always
+  excluded from backups/logs; explicit Disconnect deletes it.
+
 ## [0.12.2] - 2026-09-23
 
 ### Fixed

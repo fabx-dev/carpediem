@@ -775,6 +775,28 @@ Regole dure:
   store invece che nel file archive (passava per trasparenza della tabella
   home nel render!) e il content-check ignora le label dei Button (ora
   incluse: presenza del dato, troncamenti restano sul render).
+- **Outlook in Buongiorno (2026-09-23, fatto, 0.13.0)**: bottone `Carica da
+  Outlook [o]` (tasto `o` + click): configurato -> fetch e compila e basta
+  (append senza duplicati, manuale preservato); non configurato -> apre
+  `OutlookSetupScreen` annullabile (Esc = niente). Adapter in
+  `src/integrations/` (`outlook.py` parse puro calendarView -> FixedEvent +
+  allday + scartati, `outlook_auth.py` unico punto di rete: MSAL device flow
+  + urllib, dipendenze iniettabili); screen via `OutlookHooks` (dict, mai
+  eccezioni oltre il seam), rete mai nelle screen (guardrail test); token in
+  `.todo_outlook_token.json` 0600 + envelope se lock (mai nei backup);
+  gate fail-closed senza cifratura; scope `Calendars.Read` congelato,
+  tenant pinnato (niente common), account binding, verification_uri
+  validata; allday persistiti in `day_window` (validati come events) e riga
+  informativa in Buongiorno + piano giorno; tag timeline `IMPEGNO:`.
+  Test: `test_outlook_parse.py` (fixture anonime) + `test_outlook_auth.py`
+  (doppi, permessi, mapping HTTP) + `test_plan_outlook.py` (pilot con hook
+  finti) + scenario `outlook-setup` nel registry. Lezione: conftest
+  `tmp_files` deve redirigere OGNI nuovo path (qui `OUTLOOK_TOKEN_FILE`),
+  altrimenti i test scrivono in `~` reale; `_dump_state_text` serializza
+  da solo (niente `json.dumps` prima, doppia codifica); hook opzionali via
+  `getattr` + `callable`; mypy: `self._outlook_pending` va annotato
+  (`: object`) altrimenti la prima assegnazione fissa il tipo e `= None`
+  fallisce.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

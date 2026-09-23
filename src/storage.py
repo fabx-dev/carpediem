@@ -474,6 +474,7 @@ DEFAULT_CONFIG: dict = {
     "day_hours": 6,
     "smart_lists": [],
     "day_window": None,
+    "outlook": None,
 }
 
 
@@ -535,7 +536,60 @@ def _validate_day_window(value) -> dict | None:
         events.append({"start": es, "end": ee, "title": title[:120]})
         if len(events) >= MAX_DAY_EVENTS:
             break
-    return {"date": date_s.strip(), "start": start, "end": end, "events": events}
+    # Titoli tutto-il-giorno (riga informativa, mai busy): stessa tolleranza.
+    raw_allday = value.get("allday")
+    allday: list[str] = []
+    if isinstance(raw_allday, list):
+        for name in raw_allday:
+            clean = str(name or "").strip()
+            if clean:
+                allday.append(clean[:120])
+                if len(allday) >= MAX_DAY_EVENTS:
+                    break
+    return {
+        "date": date_s.strip(),
+        "start": start,
+        "end": end,
+        "events": events,
+        "allday": allday,
+    }
+
+
+def _validate_outlook(value) -> dict | None:
+    """Configurazione Outlook (registrazione Entra propria dell'utente).
+
+    Forma: {client_id, tenant, account, tz} — solo non-segreti (mai token:
+    quelli stanno nel file dedicato 0600, mai nei backup). Tollerante come
+    le altre validazioni: qualunque problema -> None, mai solleva.
+    - client_id/tenant obbligatori (tenant pinato: `common`/`consumers`/
+      `organizations` rifiutati, niente login multi-tenant);
+    - account facoltativo (se vuoto, al primo login si adotta quello
+      autenticato; dopo, il binding e' enforced dall'adapter);
+    - tz zona mailbox (invalida -> default Europe/Rome).
+    """
+    if not isinstance(value, dict):
+        return None
+    client_id = str(value.get("client_id", "") or "").strip()
+    tenant = str(value.get("tenant", "") or "").strip()
+    if not client_id or len(client_id) > 128:
+        return None
+    if (
+        not tenant
+        or len(tenant) > 128
+        or tenant.lower() in ("common", "consumers", "organizations")
+    ):
+        return None
+    account = str(value.get("account", "") or "").strip()[:254]
+    if account and "@" not in account:
+        return None
+    tz = str(value.get("tz", "") or "").strip() or "Europe/Rome"
+    try:
+        from zoneinfo import ZoneInfo
+
+        ZoneInfo(tz)
+    except Exception:
+        tz = "Europe/Rome"
+    return {"client_id": client_id, "tenant": tenant, "account": account, "tz": tz}
 
 
 def _validate_smart_lists(value) -> list[dict]:
@@ -611,6 +665,7 @@ def load_config() -> dict:
     cfg["day_hours"] = _clamp_int(data.get("day_hours", 6), 6, 1, 16)
     cfg["smart_lists"] = _validate_smart_lists(data.get("smart_lists", []))
     cfg["day_window"] = _validate_day_window(data.get("day_window"))
+    cfg["outlook"] = _validate_outlook(data.get("outlook"))
     return cfg
 
 
@@ -633,11 +688,55 @@ def save_config(cfg: dict) -> None:
         "day_hours": _clamp_int(cfg.get("day_hours", 6), 6, 1, 16),
         "smart_lists": _validate_smart_lists(cfg.get("smart_lists", [])),
         "day_window": _validate_day_window(cfg.get("day_window")),
+        "outlook": _validate_outlook(cfg.get("outlook")),
         "lang": str(cfg.get("lang", "auto")).lower()
         if str(cfg.get("lang", "auto")).lower() in ("auto", "it", "en")
         else "auto",
     }
     _write_atomic(CONFIG_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+OUTLOOK_TOKEN_FILE = _home() / ".todo_outlook_token.json"
+
+
+def save_outlook_token(cache_str: str) -> None:
+    """Cache token MSAL su file dedicato 0600, envelope cifrato se lock attivo.
+
+    Mai nei backup zip (file escluso da `_backup_sources` per disegno +
+    test guardrail), mai nei log. Scrittura atomica come gli altri file.
+    """
+    import os
+
+    _write_atomic(OUTLOOK_TOKEN_FILE, _dump_state_text({"cache": cache_str}))
+    try:
+        os.chmod(OUTLOOK_TOKEN_FILE, 0o600)
+    except OSError:
+        pass
+
+
+def load_outlook_token() -> str | None:
+    """Cache token serializzata, o None (assente, illeggibile, lock spento).
+
+    Envelope cifrato senza chiave -> None (fail-closed, mai plaintext
+    di ripiego): con lock spento il fetch e' bloccato dal gate in app.
+    """
+    if not OUTLOOK_TOKEN_FILE.exists():
+        return None
+    try:
+        obj = _read_state_file(OUTLOOK_TOKEN_FILE)
+    except (json.JSONDecodeError, OSError, ValueError):
+        return None
+    if not isinstance(obj, dict) or not isinstance(obj.get("cache"), str):
+        return None
+    return obj["cache"]
+
+
+def delete_outlook_token() -> None:
+    """Revoca locale: cancella il file token (disconnessione)."""
+    try:
+        OUTLOOK_TOKEN_FILE.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 ARCHIVE_FILE = _home() / ".todo_archive.json"

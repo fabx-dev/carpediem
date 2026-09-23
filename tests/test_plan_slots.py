@@ -200,7 +200,7 @@ def test_evento_in_timeline_e_slot_spostati(tmp_files):
             await _set_events(pilot, screen, "10:00-11:00 Riunione")
             txt = screen_texts(screen)
             assert "09:00–09:30 A-ritardo" in txt
-            assert "10:00–11:00 EVENTO: Riunione" in txt
+            assert "10:00–11:00 IMPEGNO: Riunione" in txt
             # B da 1h non entra piu' prima dell'evento (va dopo);
             # C da 30min entra in 09:30-10:00 (first-fit nell'ordine Planner).
             assert "11:00–12:00 B-oggi" in txt
@@ -223,7 +223,7 @@ def test_evento_pausa_pranzo_nessun_overlap(tmp_files):
             await _set_times(pilot, screen, start="09:00", end="18:00")
             await _set_events(pilot, screen, "13:00-14:00 Pausa pranzo")
             txt = screen_texts(screen)
-            assert "13:00–14:00 EVENTO: Pausa pranzo" in txt
+            assert "13:00–14:00 IMPEGNO: Pausa pranzo" in txt
             lo = datetime.fromisoformat(f"{_day(0)} 09:00")
             busy_s = datetime.fromisoformat(f"{_day(0)} 13:00")
             busy_e = datetime.fromisoformat(f"{_day(0)} 14:00")
@@ -265,7 +265,7 @@ def test_riga_evento_invalida_segnalata(tmp_files):
             await _set_times(pilot, screen, start="09:00", end="18:00")
             await _set_events(pilot, screen, "10:00-11:00 Ok\nxx")
             txt = screen_texts(screen)
-            assert "10:00–11:00 EVENTO: Ok" in txt  # valida applicata
+            assert "10:00–11:00 IMPEGNO: Ok" in txt  # valida applicata
             assert "xx" in txt  # invalida segnalata, senza crash
 
     asyncio.run(t())

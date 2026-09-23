@@ -1,6 +1,8 @@
 """Pianificazione giornata: piano giorno, review, proposta smart, briefing sera. Dipendono solo da models/storage/lang/nlparse/plan/domain (+ _shared). Mai app."""
 
+import asyncio
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from textual.app import ComposeResult
@@ -48,6 +50,7 @@ from src.screens._shared import (
     _pomo_on_day,
     _streak_days,
     _strip_rich_tags,
+    outlook_error_text,
 )
 
 
@@ -61,6 +64,47 @@ class PlanRow(ListItem):
 
 
 _EVENT_RE = re.compile(r"^\s*(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})(?:\s+(.*?))?\s*$")
+_HHMM_RE = re.compile(r"^\d{1,2}:\d{2}$")
+
+
+@dataclass
+class OutlookHooks:
+    """Seam Buongiorno <-> Outlook (implementato dall'app).
+
+    Ogni hook ritorna dict (mai eccezioni oltre il seam): {"ok": True, ...}
+    o {"ok": False, "code": ..., "detail": ...}. Tutti opzionali (None =
+    feature disattivata). Le screen non importano mai outlook_auth (rete):
+    lo usa solo l'app; qui solo callback + mapping errori condiviso.
+    """
+
+    fetch: object = None  # () -> risultato fetch del giorno
+    state: object = None  # () -> {"config": dict|None, "has_token": bool}
+    save: object = None  # (cfg) -> None (salva config validata)
+    merge: object = None  # (patch) -> None (fonde chiavi, es. account)
+    connect: object = None  # (cfg) -> {"ok", "uri", "code", "flow"}
+    poll: object = None  # (flow) -> {"ok", "username"}
+    unlink: object = None  # () -> None (disconnessione)
+
+
+def merge_outlook_lines(existing: str, events) -> str:
+    """Appende righe `HH:MM-HH:MM Titolo` non gia' presenti (match esatto).
+
+    Puro e testabile senza DOM: i titoli vengono sanificati a riga singola,
+    gli orari invalidi saltati. Dopo il fetch Outlook l'utente resta padrone
+    della TextArea (mai replace, mai duplicati).
+    """
+    have = {ln.strip() for ln in (existing or "").splitlines() if ln.strip()}
+    out = [(existing or "").rstrip()] if (existing or "").strip() else []
+    for start, end, title in events or ():
+        s, e = str(start or "").strip(), str(end or "").strip()
+        if not _HHMM_RE.match(s) or not _HHMM_RE.match(e):
+            continue
+        name = " ".join(str(title or "").split())
+        line = f"{s}-{e} {name}" if name else f"{s}-{e}"
+        if line not in have:
+            have.add(line)
+            out.append(line)
+    return "\n".join(out)
 
 
 def parse_event_lines(text: str, day_s: str):
@@ -93,10 +137,11 @@ def parse_event_lines(text: str, day_s: str):
 
 
 def day_window_parts(window: dict | None, day_s: str):
-    """Conversione esplicita config `day_window` -> (start, end, [FixedEvent]).
+    """Conversione esplicita config `day_window` -> (start, end, [FixedEvent], [allday]).
 
     Gli eventi sono gia' campi separati nel config (mai stringhe da
     riparsare): qui si costruiscono i datetime del giorno e i FixedEvent.
+    `allday` = titoli tutto-il-giorno (riga informativa, mai busy).
     None se finestra assente/invalida -> piano giorno solo task, nessun
     default di orari (la disponibilita' resta esplicita, Fase 4).
     """
@@ -127,7 +172,16 @@ def day_window_parts(window: dict | None, day_s: str):
             if ee <= es:
                 continue
             events.append(FixedEvent(str(ev.get("title", "") or ""), es, ee))
-    return start, end, events
+    allday: list[str] = []
+    raw_all = window.get("allday")
+    if isinstance(raw_all, list):
+        for name in raw_all:
+            clean = str(name or "").strip()
+            if clean:
+                allday.append(clean[:120])
+                if len(allday) >= 30:
+                    break
+    return start, end, events, allday
 
 
 def scheduled_for_today(
@@ -163,7 +217,7 @@ def scheduled_for_today(
     else:
         planned = [t for t in todos if t.planned_for == today and t.state == "attivo"]
     if not planned:
-        return None, [], []
+        return None, [], [], []
     plan = Planner(todos, today=today, hours=hours).propose()
     items_by_id = {it.todo_id: it for it in plan.items}
     attivi = [t for t in planned if t.state == "attivo"]
@@ -185,12 +239,12 @@ def scheduled_for_today(
     )
     parts = day_window_parts(window, today)
     if parts is None:
-        return ScheduledDayPlan(dayplan), [], planned
-    start, end, events = parts
+        return ScheduledDayPlan(dayplan), [], [], planned
+    start, end, events, allday = parts
     sched = Planner.schedule(
         dayplan, [TimeWindow(start, end)], busy=events_to_busy(events)
     )
-    return sched, events, planned
+    return sched, events, allday, planned
 
 
 def _timeline_lines(
@@ -199,12 +253,14 @@ def _timeline_lines(
     shown: set,
     by_id: dict,
     bad_names: tuple = (),
+    allday: tuple = (),
 ) -> list[str]:
     """Righe timeline: task schedulati + eventi fissi ordinati per inizio.
 
     Condivisa da Buongiorno e piano giorno (solo rendering, mai scheduling):
     task prima degli eventi a pari ora; eventi fuori availability esclusi;
     in coda gli unscheduled strutturali tra quelli richiesti (`shown`).
+    `allday` = riga informativa tutto-il-giorno (mai busy, mai schedulata).
     """
     entries = []  # (start, order, line): task prima degli eventi a pari ora
     for s in sched.scheduled:
@@ -235,6 +291,9 @@ def _timeline_lines(
     if bad_names:
         names = ", ".join(_escape_markup(b) for b in bad_names)
         lines.insert(0, T("planp_events_bad", t=names))
+    if allday:
+        names = ", ".join(_escape_markup(a) for a in allday)
+        lines.insert(1 if bad_names else 0, T("planp_allday", t=names))
     tail = []
     for it in sched.unscheduled:
         if it.todo_id not in shown:
@@ -411,13 +470,18 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         return "▶" if cur is not None and cur == tid else base
 
     def _planned_children(
-        self, sched: ScheduledDayPlan, events: list, planned: list[TodoItem]
+        self,
+        sched: ScheduledDayPlan,
+        events: list,
+        planned: list[TodoItem],
+        allday: tuple = (),
     ) -> list[ListItem]:
         """Righe operative della sezione pianificati, con timing in riga.
 
         Solo presentazione dei risultati gia' prodotti: Buongiorno decide
         cosa entra (planned_for), il Planner da' l'ordine di merito, lo
         Scheduler gli slot — qui nessuna seconda selezione/ordine.
+        - riga informativa tutto-il-giorno (disabled, mai operativa);
         - task schedulati: PlanRow operative con prefisso orario, nell'ordine
           degli slot (first-fit = cronologico = merito);
         - eventi fissi: righe disabled informative, intercalati per orario
@@ -439,6 +503,11 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             entries.append((e.start, 1, e, ""))
         entries.sort(key=lambda en: (en[0], en[1]))
         rows: list[ListItem] = []
+        if allday:
+            names = ", ".join(_escape_markup(a) for a in allday)
+            rows.append(
+                ListItem(Label(f"  {T('planp_allday', t=names)}"), disabled=True)
+            )
         for _st, _o, payload, prefix in entries:
             if isinstance(payload, FixedEvent):
                 name = f" {_escape_markup(payload.title)}" if payload.title else ""
@@ -497,7 +566,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             )
             # Contesto esecutivo di oggi: UNICA costruzione condivisa col
             # Briefing (confermati -> merito Planner -> slot Scheduler).
-            sched, events, planned = scheduled_for_today(
+            sched, events, allday, planned = scheduled_for_today(
                 self.all_todos, self.today, self.hours, self.window
             )
             due = self._due_today()
@@ -535,7 +604,11 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 (T("plan_sec_unplanned"), "unplanned", unplanned, "+"),
             ]
             custom = (
-                {"planned": self._planned_children(sched, events, planned)}
+                {
+                    "planned": self._planned_children(
+                        sched, events, planned, tuple(allday)
+                    )
+                }
                 if sched is not None and sched.availability
                 else {}
             )
@@ -1005,6 +1078,11 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         height: 5;
         margin-bottom: 1;
     }
+    #planp-outlook {
+        width: 100%;
+        height: 3;
+        margin-bottom: 1;
+    }
     #planp-avail-row {
         height: 3;
         margin-bottom: 1;
@@ -1032,6 +1110,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         Binding("escape", "close", "Chiudi"),
         Binding("ctrl+enter", "confirm", "Conferma", show=False),
         Binding("s", "confirm", "Conferma", show=False),
+        Binding("o", "load_outlook", "Outlook", show=False),
     ]
 
     def __init__(
@@ -1041,6 +1120,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         today: str | None = None,
         hours: float = 6.0,
         on_window=None,
+        outlook_hooks: OutlookHooks | None = None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
@@ -1048,6 +1128,11 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         # Contesto operativo (orari + eventi fissi): alla conferma va al piano
         # giorno via callback (le screen non salvano mai su disco).
         self.on_window = on_window
+        # Seam Outlook (None = bottone inerte con hint, i test senza app
+        # restano verificabili).
+        self.outlook_hooks = outlook_hooks
+        self.allday: list[str] = []
+        self._outlook_busy = False
         self.today = today or datetime.now().strftime("%Y-%m-%d")
         try:
             self.hours = max(1.0, float(hours))
@@ -1137,6 +1222,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                 }
                 for e in self.events
             ],
+            "allday": list(self.allday),
         }
 
     def _slot_lines(self) -> str:
@@ -1151,7 +1237,12 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             return T("planp_slots_none")
         shown = {it.todo_id for it in self.rows}
         lines = _timeline_lines(
-            self.sched, self.events, shown, self.by_id, tuple(self.events_bad)
+            self.sched,
+            self.events,
+            shown,
+            self.by_id,
+            tuple(self.events_bad),
+            tuple(self.allday),
         )
         return "\n".join(lines) if lines else T("planp_slots_none")
 
@@ -1305,6 +1396,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                     yield Input(placeholder=T("planp_end_ph"), id="planp-end")
                 yield Label(T("planp_events"), id="planp-events-label")
                 yield TextArea(id="planp-events")
+                yield Button(
+                    T("planp_outlook_load"), id="planp-outlook", variant="default"
+                )
                 yield Static(self._slot_lines(), id="planp-slots")
             yield Static(T("rev_legend"), id="planp-legend")
             with Horizontal(id="planp-buttons", classes="btn-row"):
@@ -1337,9 +1431,133 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.dismiss()
         elif event.button.id == "planp-confirm":
             self._confirm()
+        elif event.button.id == "planp-outlook":
+            self._trigger_outlook_load()
 
     def action_confirm(self) -> None:
         self._confirm()
+
+    def _trigger_outlook_load(self) -> None:
+        """Bottone/binding `o`: fetch Outlook in thread (mai rete nel loop)."""
+        try:
+            asyncio.create_task(self.action_load_outlook())
+        except RuntimeError:
+            pass
+
+    async def action_load_outlook(self) -> None:
+        """Carica da Outlook: fetch (se configurato) o setup annullabile.
+
+        Configurato -> compila la TextArea e basta; non configurato/token
+        morto -> apre OutlookSetupScreen (Annulla = niente). Esc durante
+        il fetch non scrive nulla (il merge avviene solo a fetch riuscito).
+        """
+        hooks = self.outlook_hooks
+        fetch = getattr(hooks, "fetch", None) if hooks is not None else None
+        if not callable(fetch):
+            self.notify(T("outlook_err_generic", e="—"), severity="warning")
+            return
+        self._outlook_busy = True
+        self._refresh_outlook_button()
+        try:
+            res = await asyncio.to_thread(fetch)
+        except Exception as exc:
+            res = {"ok": False, "code": "generic", "detail": str(exc)[:120]}
+        self._outlook_busy = False
+        if not self.is_mounted:
+            return
+        self._refresh_outlook_button()
+        if not isinstance(res, dict) or not res.get("ok"):
+            code = res.get("code", "generic") if isinstance(res, dict) else "generic"
+            detail = res.get("detail", "") if isinstance(res, dict) else ""
+            if code == "setup_needed":
+                self._open_outlook_setup()
+                return
+            self.notify(outlook_error_text(code, detail), severity="error")
+            return
+        merge = getattr(hooks, "merge", None) if hooks is not None else None
+        adopted = str(res.get("adopted") or "")
+        if adopted and callable(merge):
+            try:
+                merge({"account": adopted})
+            except Exception:
+                pass
+        events = res.get("events") or []
+        new_text = merge_outlook_lines(self.events_text, events)
+        for name in res.get("allday") or ():
+            clean = " ".join(str(name or "").split())
+            if clean and clean not in self.allday:
+                self.allday.append(clean[:120])
+        self.allday = self.allday[:30]
+        if new_text != self.events_text:
+            self.events_text = new_text
+            try:
+                self.query_one("#planp-events", TextArea).text = new_text
+            except Exception:
+                pass
+        self._update_slots()
+        n = len(events)
+        names = list(res.get("allday") or [])
+        s = len(res.get("skipped") or [])
+        if not events and not names:
+            self.notify(T("n_outlook_none"))
+        else:
+            self.notify(T("n_outlook_loaded", n=n, a=len(names), s=s))
+
+    def _refresh_outlook_button(self) -> None:
+        try:
+            self.query_one("#planp-outlook", Button).disabled = self._outlook_busy
+        except Exception:
+            pass
+
+    def _open_outlook_setup(self) -> None:
+        """Setup annullabile quando manca la configurazione (o il token)."""
+        hooks = self.outlook_hooks
+        state = getattr(hooks, "state", None) if hooks is not None else None
+        if not callable(state):
+            self.notify(T("outlook_err_generic", e="—"), severity="warning")
+            return
+        try:
+            current = state()
+        except Exception:
+            current = {"config": None, "has_token": False}
+        if not isinstance(current, dict):
+            current = {"config": None, "has_token": False}
+        # Import locale: evita dipendenze tra aree screen all'import.
+        from src.screens.system import OutlookSetupScreen
+
+        self.app.push_screen(
+            OutlookSetupScreen(
+                current.get("config"), bool(current.get("has_token")), hooks
+            ),
+            self._on_setup_result,
+        )
+
+    def _on_setup_result(self, result) -> None:
+        """Esito setup: Annulla/Esc (None) = niente; altrimenti salva+ricarica."""
+        if not isinstance(result, dict):
+            return
+        hooks = self.outlook_hooks
+        if result.get("disconnect"):
+            unlink = getattr(hooks, "unlink", None) if hooks is not None else None
+            if callable(unlink):
+                try:
+                    unlink()
+                except Exception:
+                    pass
+            self.notify(T("n_outlook_off"))
+            return
+        cfg = result.get("config")
+        if not isinstance(cfg, dict):
+            return
+        save = getattr(hooks, "save", None) if hooks is not None else None
+        if callable(save):
+            try:
+                save(cfg)
+            except Exception:
+                pass
+        self.notify(T("n_outlook_saved", a=cfg.get("account", "")))
+        # Collegato ora -> carica subito (fetch diretto, senza ripassare dal setup).
+        self._trigger_outlook_load()
 
     def _selected_ids(self) -> set:
         try:
@@ -1444,7 +1662,7 @@ class BriefingScreen(CloseMixin, ModalScreen[str | None]):
         (sessioni/actual/stato) sono gia' sui task, lo slot dallo
         Scheduler via scheduled_for_today (condivisa col piano giorno).
         Senza finestra: righe senza slot (slot None nel feedback)."""
-        sched, _events, planned = scheduled_for_today(
+        sched, _events, _allday, planned = scheduled_for_today(
             self.all_todos, self.today, self.hours, self.window, include_done=True
         )
         if sched is None:

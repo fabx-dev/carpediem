@@ -26,6 +26,7 @@ def _window(day: str, events=None) -> dict:
         "start": "09:00",
         "end": "18:00",
         "events": events or [],
+        "allday": [],
     }
 
 
@@ -55,6 +56,7 @@ def test_day_window_valida_e_canonica(tmp_files):
         "start": "09:00",
         "end": "18:00",
         "events": [{"start": "13:00", "end": "14:00", "title": "Pranzo"}],
+        "allday": [],
     }
 
 
@@ -323,7 +325,7 @@ def test_piano_timeline_eventi_fissi(tmp_files):
             await pilot.pause()
             await _open_plan(pilot, app)
             txt = screen_texts(app.screen)
-            assert "13:00–14:00 EVENTO: Pranzo" in txt
+            assert "13:00–14:00 IMPEGNO: Pranzo" in txt
             # Nessuno slot tocca l'evento (busy hard constraint).
             assert "13:00–13:30" not in txt and "13:30–14:00" not in txt
 
@@ -453,7 +455,7 @@ def test_piano_eventi_disabled_e_task_operativi(tmp_files):
 
             n_events = 0
             for c in lv.children:
-                if "EVENTO:" in row_text(c):
+                if "IMPEGNO:" in row_text(c):
                     n_events += 1
                     # Riga evento: ListItem (non PlanRow) disabled.
                     assert isinstance(c, ListItem) and not isinstance(c, PlanRow)

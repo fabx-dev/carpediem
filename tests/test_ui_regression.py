@@ -189,6 +189,12 @@ def _open_password(app, pilot):
     )
 
 
+def _open_outlook_setup(app, pilot):
+    from src.screens.system import OutlookSetupScreen
+
+    app.push_screen(OutlookSetupScreen(None, False, None))
+
+
 def _open_tpl_create(app, pilot):
     from src.screens.views import TemplateCreateScreen
 
@@ -617,6 +623,20 @@ UI_SCENARIOS = [
         open=_open_password,
         screen="PasswordScreen",
         critical=("pw-box", "pw-title", "pw-body", "pw-ok", "pw-cancel"),
+    ),
+    Scenario(
+        name="outlook-setup",
+        open=_open_outlook_setup,
+        screen="OutlookSetupScreen",
+        critical=(
+            "outlook-box",
+            "outlook-scroll",
+            "outlook-client",
+            "outlook-tenant",
+            "outlook-connect",
+            "outlook-cancel",
+        ),
+        notes="senza hook: Collega mostra hint senza rete, Esc annulla",
     ),
     Scenario(
         name="tasti",

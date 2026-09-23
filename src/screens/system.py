@@ -1,5 +1,6 @@
 """Sistema e analisi: goals, stats, tasti, impostazioni, archivio, restore, welcome, lock, password, security, salute. Dipendono solo da models/storage/lang/nlparse/plan/domain (+ _shared). Mai app."""
 
+import asyncio
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -36,6 +37,7 @@ from src.screens._shared import (
     _escape_markup,
     _pomodoros_by_date,
     _streak_days,
+    outlook_error_text,
 )
 from src.storage import _backup_sources, snapshot_info
 
@@ -1292,7 +1294,248 @@ class SecurityScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
-# Soglie salute progetti (modificabili in un punto solo).
+class OutlookSetupScreen(ModalScreen[dict | None]):
+    """Collega il calendario Outlook (registrazione Entra propria).
+
+    Dumb come le altre form-screen: la rete/auth resta nei callback `hooks`
+    (stesso seam di Buongiorno), qui solo stati form -> codice -> attesa.
+    Ritorna {"config": {...}} collegato, {"disconnect": True} scollegato,
+    None se annullato (Esc in qualunque momento, niente scritture).
+    """
+
+    CSS = """
+    #outlook-box {
+        width: 64;
+        max-width: 94%;
+        height: 90%;
+        max-height: 90%;
+    }
+    #outlook-scroll {
+        height: 1fr;
+        margin-bottom: 1;
+    }
+    #outlook-hint {
+        height: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+    #outlook-scroll Input {
+        margin-bottom: 1;
+    }
+    #outlook-status {
+        height: auto;
+        margin-top: 1;
+    }
+    #outlook-code {
+        height: auto;
+        margin-top: 1;
+    }
+    #outlook-code.hidden {
+        display: none;
+    }
+    #outlook-buttons {
+        width: 100%;
+        height: 3;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Annulla"),
+        Binding("ctrl+enter", "submit", "Collega", show=False),
+        Binding("s", "submit", "Collega", show=False),
+    ]
+
+    def __init__(
+        self,
+        current: dict | None,
+        has_token: bool = False,
+        hooks=None,
+    ) -> None:
+        super().__init__()
+        self.current = dict(current) if isinstance(current, dict) else {}
+        self.has_token = bool(has_token)
+        self.hooks = hooks
+        self._waiting = False
+        self._flow = None
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="outlook-box"):
+            yield Label(T("outlook_title"), id="outlook-title")
+            with VerticalScroll(id="outlook-scroll"):
+                yield Label(T("outlook_hint"), id="outlook-hint")
+                yield Label(T("outlook_client"))
+                yield Input(
+                    str(self.current.get("client_id", "") or ""), id="outlook-client"
+                )
+                yield Label(T("outlook_tenant"))
+                yield Input(
+                    str(self.current.get("tenant", "") or ""), id="outlook-tenant"
+                )
+                yield Label(T("outlook_account"))
+                yield Input(
+                    str(self.current.get("account", "") or ""), id="outlook-account"
+                )
+                yield Label(T("outlook_tz"))
+                yield Input(
+                    str(self.current.get("tz", "") or "Europe/Rome"), id="outlook-tz"
+                )
+                yield Static("", id="outlook-status")
+                yield Static("", id="outlook-code", classes="hidden")
+            with Horizontal(id="outlook-buttons", classes="btn-row"):
+                yield Button(
+                    T("outlook_connect"), id="outlook-connect", variant="default"
+                )
+                if self.has_token:
+                    yield Button(
+                        T("outlook_disconnect"),
+                        id="outlook-disconnect",
+                        variant="default",
+                    )
+                yield Button(T("form_cancel"), id="outlook-cancel", variant="default")
+
+    def on_mount(self) -> None:
+        try:
+            self.query_one("#outlook-client", Input).focus()
+        except Exception:
+            pass
+
+    def action_cancel(self) -> None:
+        self._waiting = False
+        self.dismiss(None)
+
+    def action_submit(self) -> None:
+        try:
+            asyncio.create_task(self._do_connect())
+        except RuntimeError:
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "outlook-cancel":
+            self.action_cancel()
+        elif bid == "outlook-connect":
+            self.action_submit()
+        elif bid == "outlook-disconnect":
+            unlink = (
+                getattr(self.hooks, "unlink", None) if self.hooks is not None else None
+            )
+            if callable(unlink):
+                try:
+                    unlink()
+                except Exception:
+                    pass
+            self._waiting = False
+            self.dismiss({"disconnect": True})
+
+    def _read_form(self) -> dict | None:
+        """Config validata o None (errore gia' mostrato nello status)."""
+        try:
+            client_id = self.query_one("#outlook-client", Input).value.strip()
+            tenant = self.query_one("#outlook-tenant", Input).value.strip()
+            account = self.query_one("#outlook-account", Input).value.strip()
+            tz = self.query_one("#outlook-tz", Input).value.strip() or "Europe/Rome"
+        except Exception:
+            return None
+        if (
+            not client_id
+            or not tenant
+            or tenant.lower() in ("common", "consumers", "organizations")
+            or (account and "@" not in account)
+        ):
+            self._status(T("outlook_bad_form"))
+            return None
+        try:
+            from zoneinfo import ZoneInfo
+
+            ZoneInfo(tz)
+        except Exception:
+            tz = "Europe/Rome"
+        return {
+            "client_id": client_id[:128],
+            "tenant": tenant[:128],
+            "account": account[:254],
+            "tz": tz,
+        }
+
+    def _status(self, text: str) -> None:
+        try:
+            self.query_one("#outlook-status", Static).update(text)
+        except Exception:
+            pass
+
+    def _show_code(self, uri: str, code: str) -> None:
+        try:
+            widget = self.query_one("#outlook-code", Static)
+            widget.update(T("outlook_code", uri=uri, code=code))
+            widget.remove_class("hidden")
+        except Exception:
+            pass
+
+    def _hide_code(self) -> None:
+        try:
+            widget = self.query_one("#outlook-code", Static)
+            widget.update("")
+            widget.add_class("hidden")
+        except Exception:
+            pass
+
+    async def _do_connect(self) -> None:
+        """Form -> device flow (thread) -> attesa conferma -> dismiss."""
+        hooks = self.hooks
+        connect = getattr(hooks, "connect", None) if hooks is not None else None
+        if not callable(connect):
+            self._status(T("outlook_err_generic", e="—"))
+            return
+        cfg = self._read_form()
+        if cfg is None:
+            return
+        try:
+            started = await asyncio.to_thread(connect, cfg)
+        except Exception as exc:
+            started = {"ok": False, "code": "generic", "detail": str(exc)[:120]}
+        if (
+            not self.is_mounted
+            or not isinstance(started, dict)
+            or not started.get("ok")
+        ):
+            if not self.is_mounted:
+                return
+            code = (
+                started.get("code", "generic")
+                if isinstance(started, dict)
+                else "generic"
+            )
+            detail = started.get("detail", "") if isinstance(started, dict) else ""
+            self._status(outlook_error_text(code, detail))
+            return
+        self._flow = started.get("flow")
+        self._show_code(str(started.get("uri", "")), str(started.get("code", "")))
+        self._status(T("outlook_wait"))
+        self._waiting = True
+        poll = getattr(hooks, "poll", None) if hooks is not None else None
+        if not callable(poll):
+            self._waiting = False
+            self._status(T("outlook_err_generic", e="—"))
+            return
+        try:
+            result = await asyncio.to_thread(poll, self._flow)
+        except Exception as exc:
+            result = {"ok": False, "code": "generic", "detail": str(exc)[:120]}
+        self._waiting = False
+        if not self.is_mounted:
+            return
+        if not isinstance(result, dict) or not result.get("ok"):
+            code = (
+                result.get("code", "generic") if isinstance(result, dict) else "generic"
+            )
+            detail = result.get("detail", "") if isinstance(result, dict) else ""
+            self._status(outlook_error_text(code, detail))
+            self._hide_code()
+            return
+        username = str(result.get("username", "") or cfg.get("account", ""))
+        cfg["account"] = username
+        self.dismiss({"config": cfg})
 
 
 class HealthScreen(CloseMixin, ModalScreen[None]):

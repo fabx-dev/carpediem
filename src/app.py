@@ -21,6 +21,7 @@ from src import crypto as _crypto
 from src import domain
 from src.commands import CarpeDiemMenuProvider, menu_categories
 from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
+from src.integrations import outlook_auth as _outlook_auth
 from src.lang import T, get_lang, prio_disp, rec_disp
 from src.models import (
     MAX_DEPTH,
@@ -51,6 +52,7 @@ from src.screens import (
     KeysScreen,
     LockScreen,
     MenuScreen,
+    OutlookHooks,
     PasswordScreen,
     PlanProposalScreen,
     PomodoroScreen,
@@ -76,11 +78,13 @@ from src.screens._shared import _escape_markup
 from src.storage import (
     FILTER_STATES,
     MAX_SMART_LISTS,
+    OUTLOOK_TOKEN_FILE,
     POMO_PHASE_PRESETS,
     POMO_PHASES,
     _backup_sources,
     _clamp_int,
     _home,
+    _validate_outlook,
     create_backup,
     list_snapshots,
     load_archive,
@@ -383,7 +387,7 @@ class TodoApp(App):
     #calendar-box, #plan-box, #goals-box, #stats-box, #keys-box, #set-box,
     #arc-box, #rst-box, #wel-box, #pw-box, #sec-box, #hea-box, #rev-box,
     #menu-box, #workflow-box, #brief-box, #planp-box, #pick-box, #calpick-box,
-    #smart-box, #actual-box {
+    #smart-box, #actual-box, #outlook-box {
         border: thick $primary;
         background: $surface;
         padding: 1 2;
@@ -392,7 +396,7 @@ class TodoApp(App):
     #keys-title, #set-title, #arc-title, #rst-title, #wel-title,
     #pw-title, #sec-title, #rev-title, #menu-title, #workflow-title,
     #brief-title, #planp-title, #state-msg, #pick-title, #calpick-title,
-    #smart-title, #actual-title {
+    #smart-title, #actual-title, #outlook-title {
         text-align: center;
         text-style: bold;
         color: $primary;
@@ -1424,6 +1428,7 @@ class TodoApp(App):
                 self._on_plan_changed,
                 hours=hours,
                 on_window=self._save_day_window,
+                outlook_hooks=self._outlook_hooks(),
             )
         )
 
@@ -1436,6 +1441,129 @@ class TodoApp(App):
         else:
             self.config["day_window"] = payload
         self._save_config()
+
+    # -- Outlook (calendario 365): seam per Buongiorno/setup -----------------
+    # La rete vive solo qui (mai nelle screen): Buongiorno chiama questi hook
+    # via callback, il fetch gira in thread (asyncio.to_thread dal chiamante).
+
+    def _outlook_hooks(self) -> OutlookHooks:
+        return OutlookHooks(
+            fetch=self._outlook_fetch_sync,
+            state=self._outlook_state,
+            save=self._save_outlook_config,
+            merge=self._merge_outlook_config,
+            connect=self._outlook_connect_start,
+            poll=self._outlook_connect_poll,
+            unlink=self._outlook_disconnect,
+        )
+
+    def _outlook_state(self) -> dict:
+        """Config validata + presenza token (per il bottone Buongiorno)."""
+        return {
+            "config": _validate_outlook(self.config.get("outlook")),
+            "has_token": OUTLOOK_TOKEN_FILE.exists(),
+        }
+
+    def _outlook_fetch_sync(self) -> dict:
+        """Fetch del giorno: gate lock -> silent -> calendarView -> parse.
+
+        Ritorna dict (mai eccezioni oltre il seam). Gli eventi escono gia'
+        come stringhe HH:MM (boundary UI); adottato = account scoperto.
+        """
+        if not _crypto.is_unlocked():
+            return {"ok": False, "code": "need_lock"}
+        cfg = _validate_outlook(self.config.get("outlook"))
+        if cfg is None:
+            return {"ok": False, "code": "setup_needed"}
+        try:
+            client = _outlook_auth.OutlookClient(cfg)
+        except ImportError:
+            return {"ok": False, "code": "msal_missing"}
+        try:
+            token, adopted = client.token_silent()
+        except _outlook_auth.OutlookError as exc:
+            return {"ok": False, "code": exc.code, "detail": exc.detail}
+        if not token:
+            return {"ok": False, "code": "setup_needed"}
+        try:
+            client.save_cache()
+        except _outlook_auth.OutlookError:
+            pass
+        today = datetime.now().strftime("%Y-%m-%d")
+        try:
+            events, allday, skipped = client.fetch_day(token, today)
+        except _outlook_auth.OutlookError as exc:
+            return {"ok": False, "code": exc.code, "detail": exc.detail}
+        return {
+            "ok": True,
+            "events": [
+                (e.start.strftime("%H:%M"), e.end.strftime("%H:%M"), e.title)
+                for e in events
+            ],
+            "allday": list(allday),
+            "skipped": list(skipped),
+            "adopted": adopted,
+        }
+
+    def _save_outlook_config(self, cfg) -> None:
+        """Salva la config Outlook validata (dal setup, thread UI)."""
+        valid = _validate_outlook(cfg)
+        if valid is None:
+            return
+        self.config["outlook"] = valid
+        self._save_config()
+
+    def _merge_outlook_config(self, patch) -> None:
+        """Fonde chiavi (es. account adottato al primo login)."""
+        if not isinstance(patch, dict):
+            return
+        base = _validate_outlook(self.config.get("outlook"))
+        if base is None:
+            return
+        account = str(patch.get("account", "") or "").strip()
+        if account and "@" in account:
+            base["account"] = account[:254]
+            self.config["outlook"] = base
+            self._save_config()
+
+    def _outlook_connect_start(self, cfg) -> dict:
+        """Avvia il device flow: ritorna {uri, code, flow} da mostrare."""
+        valid = _validate_outlook(cfg)
+        if valid is None:
+            return {"ok": False, "code": "bad_form"}
+        try:
+            client = _outlook_auth.OutlookClient(valid)
+        except ImportError:
+            return {"ok": False, "code": "msal_missing"}
+        try:
+            started = client.device_flow_start()
+        except _outlook_auth.OutlookError as exc:
+            return {"ok": False, "code": exc.code, "detail": exc.detail}
+        self._outlook_pending: object = client
+        return {
+            "ok": True,
+            "uri": started["uri"],
+            "code": started["code"],
+            "flow": started["flow"],
+        }
+
+    def _outlook_connect_poll(self, flow) -> dict:
+        """Attende la conferma nel browser (thread): salva cache+config."""
+        client = getattr(self, "_outlook_pending", None)
+        if client is None:
+            return {"ok": False, "code": "generic", "detail": "expired"}
+        try:
+            _token, username = client.device_flow_poll(flow)
+        except _outlook_auth.OutlookError as exc:
+            return {"ok": False, "code": exc.code, "detail": exc.detail}
+        finally:
+            self._outlook_pending = None
+        return {"ok": True, "username": username}
+
+    def _outlook_disconnect(self) -> None:
+        """Disconnessione: cancella il token locale (revoca MS a parte)."""
+        self._outlook_pending = None
+        _outlook_auth.disconnect()
 
     def _briefing_evening(self) -> None:
         try:

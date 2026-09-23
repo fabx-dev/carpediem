@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from textual.screen import ModalScreen
 
+from src.lang import T
 from src.models import (
     TodoItem,
     _due_date_part,
@@ -62,6 +63,31 @@ def _strip_rich_tags(line: str) -> str:
 def _escape_markup(text: str) -> str:
     """Rende letterali le parentesi quadre (i widget le leggono come Rich)."""
     return text.replace("[", "\\[")
+
+
+_OUTLOOK_ERROR_KEYS = {
+    "need_lock": "n_outlook_need_lock",
+    "network": "outlook_err_network",
+    "unauthorized": "outlook_err_unauthorized",
+    "admin_consent": "outlook_err_admin",
+    "account_mismatch": "outlook_err_account",
+    "bad_form": "outlook_bad_form",
+    "msal_missing": "outlook_err_msal",
+}
+
+
+def outlook_error_text(code: str, detail: str = "") -> str:
+    """Messaggio UI per un codice OutlookError (condiviso dalle screen).
+
+    Le screen non importano mai outlook_auth (rete): i callback di app
+    ritornano dict con `code`, qui solo mapping a stringhe i18n.
+    """
+    key = _OUTLOOK_ERROR_KEYS.get(code or "")
+    if key is None:
+        return T("outlook_err_generic", e=detail or code or "—")
+    if key == "n_outlook_need_lock":
+        return T(key)
+    return T(key)
 
 
 def _hero_row(label: str, value: str) -> str:
