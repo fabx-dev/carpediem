@@ -796,7 +796,11 @@ Regole dure:
   da solo (niente `json.dumps` prima, doppia codifica); hook opzionali via
   `getattr` + `callable`; mypy: `self._outlook_pending` va annotato
   (`: object`) altrimenti la prima assegnazione fissa il tipo e `= None`
-  fallisce.
+  fallisce. Lezione CI (0.13.1): le dipendenze vivono in DUE file
+  (`pyproject.toml` + `requirements.txt`, la CI installa dal secondo) —
+  aggiornarli entrambi; `ZoneInfo` su Windows richiede il pacchetto
+  `tzdata` (niente zoneinfo di sistema: parser vuoto senza), e i check
+  sui mode-bit (0600) sono POSIX-only (ACL Windows non mappano).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

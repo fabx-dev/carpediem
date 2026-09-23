@@ -3,3 +3,4 @@ cryptography>=42
 textual-plotext>=1.0.1,<2
 plotext>=5.2.8,<6
 msal>=1.30,<2
+tzdata>=2024.1

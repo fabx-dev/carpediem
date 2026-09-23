@@ -3,6 +3,14 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [0.13.1] - 2026-09-23
+
+### Fixed
+- Windows compatibility of the Outlook integration: `ZoneInfo` needs
+  the `tzdata` package on Windows (no system zone database — the date
+  parser returned empty there), and the 0600 permission check is
+  POSIX-only (Windows ACLs don't map to mode bits).
+
 ## [0.13.0] - 2026-09-23
 
 ### Added

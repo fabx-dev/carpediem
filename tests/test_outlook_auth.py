@@ -120,8 +120,10 @@ def test_device_flow_poll_salva_cache_0600(tmp_files):
     token, user = c.device_flow_poll(c._client.flow)
     assert token == "AT" and user == "m.rossi@azienda.it"
     assert storage.load_outlook_token() == '{"AccessToken": {}}'
-    mode = oct(os.stat(storage.OUTLOOK_TOKEN_FILE).st_mode & 0o777)
-    assert mode == "0o600"
+    # Mode-bit POSIX: su Windows gli ACL non li esprimono (best-effort).
+    if os.name == "posix":
+        mode = oct(os.stat(storage.OUTLOOK_TOKEN_FILE).st_mode & 0o777)
+        assert mode == "0o600"
 
 
 def test_fetch_day_parsa_eventi(tmp_files):
