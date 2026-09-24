@@ -7,7 +7,7 @@ from pathlib import Path
 
 from src import crypto as _crypto
 from src.lang import T
-from src.models import Priority, TodoItem
+from src.models import Priority, TaskExecution, TodoItem
 
 
 def _read_state_file(path: Path):
@@ -998,3 +998,43 @@ def save_pomodoro(state: dict) -> None:
         else None,
     }
     _write_atomic(POMODORO_FILE, _dump_state_text(payload))
+
+
+EXECUTIONS_FILE = _home() / ".todo_executions.json"
+
+# Cap anti-crescita infinita: oltre si scartano i piu' vecchi in scrittura.
+MAX_EXECUTIONS = 5000
+
+
+def load_executions() -> list[TaskExecution]:
+    """History delle esecuzioni (M2). File assente/vuoto/corrotto -> [].
+
+    Nessuna migrazione richiesta: un'installazione senza history si comporta
+    come prima (nessuna calibrazione disponibile).
+    """
+    return [TaskExecution.from_dict(d) for d in _read_dict_list(EXECUTIONS_FILE)]
+
+
+def append_execution(exec: TaskExecution | dict) -> TaskExecution:
+    """Aggiunge un record alla history sotto un solo lock (append-only).
+
+    Idempotente su (task_id, ended_at): un record con stessa coppia non viene
+    duplicato (ritorna quello esistente). Oltre MAX_EXECUTIONS si scartano i
+    piu' vecchi. Ritorna il record registrato.
+    """
+    item = (
+        exec
+        if isinstance(exec, TaskExecution)
+        else TaskExecution.from_dict(exec if isinstance(exec, dict) else {})
+    )
+    with _locked(EXECUTIONS_FILE):
+        items = [TaskExecution.from_dict(d) for d in _read_dict_list(EXECUTIONS_FILE)]
+        if item.task_id is not None and item.ended_at:
+            for known in items:
+                if known.task_id == item.task_id and known.ended_at == item.ended_at:
+                    return known
+        items.append(item)
+        if len(items) > MAX_EXECUTIONS:
+            items = items[-MAX_EXECUTIONS:]
+        _write_locked(EXECUTIONS_FILE, _dump_state_text([e.to_dict() for e in items]))
+    return item

@@ -55,12 +55,16 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  capacity.estimate delega a domain.calibrated_estimate
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
-                 app/screen applicano e persistono via store.commit()
+                 app/screen applicano e persistono via store.commit();
+                 M2: make_execution/variance/stats/confidence/predicted + POMO_MINUTES=30
+                 (lock-step con planner.capacity.POMO_HOURS, import inverso = ciclo)
 src/models.py    TodoItem, Priority, Recurrence, validazioni date, MAX_DEPTH=6;
-                 campi extra: stima_pomo, planned_for, plan_skip (scarto piano smart, data)
+                 campi extra: stima_pomo, planned_for, plan_skip (scarto piano smart, data);
+                 M2: TaskExecution frozen-less (minuti canonici + snapshot estimate_pomo)
 src/store.py     TodoStore: lookup id, mutazioni, next_id, commit() = UNICO punto di scrittura todos
 src/storage.py   paths, load/save (todos/template/config/archive/pomodoro), lock, merge, backup;
-                 config include day_hours (default 6, clamp 1-16)
+                 config include day_hours (default 6, clamp 1-16);
+                 M2: EXECUTIONS_FILE + load/append (append-only, dedup atomica, cap 5000)
 src/crypto.py    Fernet + PBKDF2 (600k iter), chiave solo in RAM, envelope {"v","salt","data"}
 src/cli.py       add/list/done/show (add/done via TodoStore: lock+merge gratis); add senza flag = NL
 src/commands.py  MENU_STRUCTURE (4 categorie: giornata/viste/dati/sistema, chiavi i18n +
@@ -812,6 +816,28 @@ Regole dure:
   L'account di setup passa come `login_hint` (browser con email
   precompilata: password+2FA solo lì, mai ROPC — con MFA fallirebbe
   comunque con AADSTS50076).
+- **M1 Planning Foundation (2026-09-24, fatto)**: contratti del Planner
+  congelati prima di ogni estensione — `test_planner_contract.py` (pipeline,
+  firme, invarianti DayPlan/ScheduledDayPlan), `test_planner_fixtures.py`
+  (10 scenari con output `to_legacy`/slot esplicito), `test_planner_perf.py`
+  (baseline 50/100/500/1000 task: ~0.3/0.6/2.9/5.4ms, soglie CI larghe
+  anti-flaky), guardrail `test_arch.py` esteso (UI mai stats/calibration).
+  Zero produzione toccata.
+- **M2 Task Reality (2026-09-24, fatto)**: un `TaskExecution` per task
+  completato (mai per pomodoro), minuti wall-time canonici + snapshot
+  `estimate_pomo`, actual 0 = senza actual; storage separato append-only
+  `.todo_executions.json` (lock singolo, dedup atomica su
+  (task_id, ended_at), cap 5000, cifrato come gli altri); statistiche
+  robuste + confidence LOW<10/MED<30/HIGH + `calibration_summary`
+  derivato on-demand (mai persistito); hook nei 3 ingressi di chiusura
+  (home via `_record_completion_execution`, piano via `on_completed`
+  opaco, CLI done con fallback stima); slot ricostruito via
+  `scheduled_for_today(include_done=True)` perche' `apply_state` azzera
+  `planned_for` prima dell'actual. Lezioni: `capacity` importa `domain`
+  -> la conversione pomo/minuti vive in `domain.POMO_MINUTES` (niente
+  import inverso, sarebbe ciclo); i test nuovi usano import di modulo
+  (le classi from-importate restano stale per `isinstance` dopo il reload
+  di conftest). Niente bump versione (invisibile).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

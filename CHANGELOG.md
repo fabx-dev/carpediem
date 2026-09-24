@@ -3,6 +3,19 @@
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Entries in English from now on.
 
+## [Unreleased]
+
+### Added
+- Planning Foundation (M1): planner contract tests, frozen deterministic
+  fixtures (10 scenarios), performance baseline (50/100/500/1000 tasks),
+  and an architecture guardrail keeping stats/calibration out of the UI.
+- Task Reality Model (M2): one `TaskExecution` record per completed task
+  (minutes as canonical unit, pomodoro estimate snapshot, no actual ever
+  invented) in a separate append-only `.todo_executions.json` file;
+  robust history statistics, informative confidence (LOW/MEDIUM/HIGH),
+  and personal calibration with safe fallback to the user estimate.
+  No migration needed; behavior without history is unchanged.
+
 ## [0.14.0] - 2026-09-23
 
 ### Changed

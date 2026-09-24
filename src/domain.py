@@ -10,7 +10,7 @@ Contratto:
 
 from datetime import datetime, timedelta
 
-from src.models import Recurrence, TodoItem, _due_date_part
+from src.models import Recurrence, TaskExecution, TodoItem, _due_date_part
 
 STATES = ("attivo", "in_sospeso", "completato")
 
@@ -327,3 +327,181 @@ def calibrated_estimate(todo: TodoItem, factor: float | None) -> tuple[int, bool
     except (ValueError, TypeError):
         return base, False
     return max(1, round(base * f)), True
+
+
+# M2 Task Reality Model: minuti wall-time come unita' canonica della history.
+# 1 pomodoro = 30 minuti, in lock-step con planner.capacity.POMO_HOURS (0.5):
+# l'import diretto e' vietato qui (capacity importa domain, sarebbe un ciclo).
+# Se POMO_HOURS cambia, aggiornare anche POMO_MINUTES.
+POMO_MINUTES = 30
+
+# Soglie confidence (informativa in M2, mai decisionale): LOW < 10,
+# MEDIUM 10-29, HIGH >= 30 osservazioni.
+CONFIDENCE_LEVELS = ("LOW", "MEDIUM", "HIGH")
+
+
+def make_execution(
+    task_id,
+    started_at="",
+    ended_at=None,
+    planned_minutes=0,
+    actual_minutes=0,
+    estimate_pomo=0,
+    completed=False,
+) -> TaskExecution:
+    """Costruttore puro di TaskExecution (mai I/O; la persistenza e' del chiamante)."""
+    return TaskExecution(
+        task_id,
+        started_at,
+        ended_at,
+        planned_minutes,
+        actual_minutes,
+        estimate_pomo,
+        completed,
+    )
+
+
+def execution_variance(exec: TaskExecution) -> int | None:
+    """actual - planned in minuti; None senza actual (non inventare durate)."""
+    if exec.actual_minutes <= 0:
+        return None
+    return exec.actual_minutes - exec.planned_minutes
+
+
+def resolve_actual_minutes(todo: TodoItem) -> int:
+    """Priorita' actual alla chiusura: actual_minutes esplicito, poi
+    actual_pomo x POMO_MINUTES, altrimenti 0 = senza actual."""
+    try:
+        explicit = int(todo.actual_minutes or 0)
+    except (ValueError, TypeError):
+        explicit = 0
+    if explicit > 0:
+        return explicit
+    try:
+        pomo = int(todo.actual_pomo or 0)
+    except (ValueError, TypeError):
+        pomo = 0
+    return max(0, pomo) * POMO_MINUTES if pomo > 0 else 0
+
+
+def resolve_planned_minutes(slot_minutes, estimate_pomo) -> int:
+    """Priorita' planned: durata dello slot schedulato, altrimenti
+    estimate_pomo x POMO_MINUTES (fallback or-1 come il planner)."""
+    try:
+        slot = int(slot_minutes or 0)
+    except (ValueError, TypeError):
+        slot = 0
+    if slot > 0:
+        return slot
+    try:
+        est = int(estimate_pomo or 0) or 1
+    except (ValueError, TypeError):
+        est = 1
+    return max(1, est) * POMO_MINUTES
+
+
+def _valid_observations(executions) -> list[TaskExecution]:
+    """Completate con actual e stima snapshot > 0: le uniche che insegnano."""
+    try:
+        items = list(executions)
+    except TypeError:
+        return []
+    return [
+        e
+        for e in items
+        if isinstance(e, TaskExecution)
+        and e.completed
+        and e.actual_minutes > 0
+        and e.estimate_pomo > 0
+    ]
+
+
+def _median(sorted_vals: list) -> float | None:
+    if not sorted_vals:
+        return None
+    mid = len(sorted_vals) // 2
+    if len(sorted_vals) % 2:
+        return float(sorted_vals[mid])
+    return (sorted_vals[mid - 1] + sorted_vals[mid]) / 2
+
+
+def execution_stats(executions) -> dict:
+    """Statistiche robuste sugli actual (minuti) delle osservazioni valide.
+
+    count=0 -> statistiche None (mai divisione per zero, mai eccezioni).
+    Mediana + p90 (nearest-rank) resistono agli outlier meglio della media."""
+    actuals = sorted(e.actual_minutes for e in _valid_observations(executions))
+    n = len(actuals)
+    if n == 0:
+        return {
+            "count": 0,
+            "median": None,
+            "min": None,
+            "max": None,
+            "p90": None,
+            "variance": None,
+        }
+    mean = sum(actuals) / n
+    rank = min(n, max(1, -(-90 * n // 100)))
+    return {
+        "count": n,
+        "median": _median(actuals),
+        "min": actuals[0],
+        "max": actuals[-1],
+        "p90": actuals[rank - 1],
+        "variance": sum((a - mean) ** 2 for a in actuals) / n,
+    }
+
+
+def execution_confidence(count) -> str:
+    """LOW < 10, MEDIUM 10-29, HIGH >= 30. Informativa, mai decisionale."""
+    try:
+        n = int(count)
+    except (ValueError, TypeError):
+        n = 0
+    if n >= 30:
+        return "HIGH"
+    if n >= 10:
+        return "MEDIUM"
+    return "LOW"
+
+
+def last_observation_at(executions) -> str:
+    """Max ended_at tra le osservazioni valide, '' senza storia."""
+    ends = [e.ended_at for e in _valid_observations(executions) if e.ended_at]
+    try:
+        return max(ends) if ends else ""
+    except TypeError:
+        return ""
+
+
+def execution_calibration_factor(executions) -> float | None:
+    """Fattore mediano actual/stima dalla history (stessa policy anti-rumore
+    di calibration_factor: minimo campioni, clamp). Le due fonti coincidono
+    quando l'actual deriva dai pomodori (actual_pomo x 30 / stima x 30)."""
+    ratios = []
+    for e in _valid_observations(executions):
+        estimated = e.estimate_pomo * POMO_MINUTES
+        if estimated > 0:
+            ratios.append(e.actual_minutes / estimated)
+    if len(ratios) < CAL_MIN_SAMPLES:
+        return None
+    ratios.sort()
+    return max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, _median(ratios) or 0))
+
+
+def predicted_minutes(estimate_minutes, factor) -> int:
+    """predicted = estimate x factor; senza factor (o stima nulla) = estimate."""
+    try:
+        est = int(estimate_minutes or 0)
+    except (ValueError, TypeError):
+        est = 0
+    if est <= 0:
+        return 0
+    if factor is None:
+        return est
+    try:
+        f = max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, float(factor)))
+    except (ValueError, TypeError):
+        return est
+    return max(1, round(est * f))

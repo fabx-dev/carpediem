@@ -316,6 +316,74 @@ class TodoItem:
         )
 
 
+def _as_nonneg_int(value) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (ValueError, TypeError):
+        return 0
+
+
+class TaskExecution:
+    """Risultato storico di un'esecuzione (M2 Task Reality Model).
+
+    Un record per task completato (mai uno per pomodoro: le sessioni
+    restano evidence su TodoItem). Unita' canonica: minuti wall-time;
+    estimate_pomo e' lo snapshot della stima utente al completamento
+    (POMO_HOURS potrebbe cambiare in futuro). actual_minutes = 0 significa
+    "senza actual": non inventare durate reali. ended_at None + completed
+    False = execution interrotta. Mai sollevare in costruzione/deserializzazione.
+    """
+
+    def __init__(
+        self,
+        task_id: int | None,
+        started_at: str = "",
+        ended_at: str | None = None,
+        planned_minutes: int = 0,
+        actual_minutes: int = 0,
+        estimate_pomo: int = 0,
+        completed: bool = False,
+    ):
+        try:
+            self.task_id = int(task_id) if task_id is not None else None
+        except (ValueError, TypeError):
+            self.task_id = None
+        self.started_at = str(started_at or "")
+        self.ended_at = str(ended_at) if ended_at else None
+        self.planned_minutes = _as_nonneg_int(planned_minutes)
+        self.actual_minutes = _as_nonneg_int(actual_minutes)
+        self.estimate_pomo = _as_nonneg_int(estimate_pomo)
+        self.completed = bool(completed)
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, TaskExecution) and self.to_dict() == other.to_dict()
+
+    def to_dict(self) -> dict:
+        return {
+            "task_id": self.task_id,
+            "started_at": self.started_at,
+            "ended_at": self.ended_at,
+            "planned_minutes": self.planned_minutes,
+            "actual_minutes": self.actual_minutes,
+            "estimate_pomo": self.estimate_pomo,
+            "completed": self.completed,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TaskExecution":
+        if not isinstance(data, dict):
+            return cls(None)
+        return cls(
+            task_id=data.get("task_id"),
+            started_at=data.get("started_at", ""),
+            ended_at=data.get("ended_at"),
+            planned_minutes=data.get("planned_minutes", 0),
+            actual_minutes=data.get("actual_minutes", 0),
+            estimate_pomo=data.get("estimate_pomo", 0),
+            completed=data.get("completed", False),
+        )
+
+
 def _status(t: TodoItem) -> str:
     if t.done:
         return "[green]X[/green]"

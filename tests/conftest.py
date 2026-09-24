@@ -81,6 +81,7 @@ def tmp_files(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "CONFIG_FILE", tmp_path / "config.json")
     monkeypatch.setattr(storage, "ARCHIVE_FILE", tmp_path / "archive.json")
     monkeypatch.setattr(storage, "OUTLOOK_TOKEN_FILE", tmp_path / "outlook-token.json")
+    monkeypatch.setattr(storage, "EXECUTIONS_FILE", tmp_path / "executions.json")
     monkeypatch.setattr(storage, "BACKUP_DIR", tmp_path / "backups")
     # Mirror su main (re-export di compatibilita' usati in qualche test).
     monkeypatch.setattr(main, "DATA_FILE", tmp_path / "todo.json")
@@ -88,6 +89,7 @@ def tmp_files(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "POMODORO_FILE", tmp_path / "pomo.json")
     monkeypatch.setattr(main, "CONFIG_FILE", tmp_path / "config.json")
     monkeypatch.setattr(main, "ARCHIVE_FILE", tmp_path / "archive.json")
+    monkeypatch.setattr(main, "EXECUTIONS_FILE", tmp_path / "executions.json")
     monkeypatch.setattr(main, "BACKUP_DIR", tmp_path / "backups")
     return tmp_path
 

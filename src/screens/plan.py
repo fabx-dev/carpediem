@@ -370,6 +370,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         hours: float = 6.0,
         window: dict | None = None,
         current_pomo=None,
+        on_completed=None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
@@ -382,6 +383,8 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         self.on_pomodoro_pause = on_pomodoro_pause
         # Getter del task corrente del timer (task_id | None): solo marker.
         self.current_pomo = current_pomo
+        # Hook M2 (callback opaca, mai I/O qui: la screen non scrive su disco).
+        self.on_completed = on_completed
         self.today = today or datetime.now().strftime("%Y-%m-%d")
         try:
             self.hours = max(1.0, float(hours))
@@ -817,25 +820,41 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         self._refresh_keep(tid, section)
         self.notify(T("n_state", t=_escape_markup(todo.title), s=labels[choice]))
         if choice == "completato":
-            self._ask_actual(tid, section)
+            if not self._ask_actual(tid, section):
+                self._emit_completed(todo)
 
-    def _ask_actual(self, tid, section: str | None) -> None:
-        """Chiede i pomodori reali dopo un completamento stimato (salta se no)."""
+    def _emit_completed(self, todo) -> None:
+        """M2: notifica il completamento al recorder (callback opaca).
+
+        Mai I/O in screen: on_completed e' wirato dall'app. Mai solleva."""
+        if todo is None or self.on_completed is None:
+            return
+        try:
+            self.on_completed(todo)
+        except Exception:
+            pass
+
+    def _ask_actual(self, tid, section: str | None) -> bool:
+        """Chiede i pomodori reali dopo un completamento stimato.
+
+        Ritorna True se la popup e' mostrata (l'execution si registra alla
+        risposta), False se skippata (il chiamante registra subito)."""
         todo = self._todo_by_id(tid)
         if todo is None:
-            return
+            return False
         try:
             stima = int(todo.stima_pomo or 0)
             actual = int(todo.actual_pomo or 0)
             counted = int(todo.pomodoros or 0)
         except (ValueError, TypeError):
-            return
+            return False
         if stima <= 0 or actual > 0:
-            return
+            return False
         from src.screens.form import ActualScreen
 
         def on_actual(result: int | None) -> None:
             if result is None:
+                self._emit_completed(self._todo_by_id(tid))
                 return
             target = self._todo_by_id(tid)
             if target is None:
@@ -845,8 +864,10 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             d = result - stima
             sign = f"+{d}" if d > 0 else str(d)
             self.notify(T("n_actual_saved", a=result, s=stima, d=sign))
+            self._emit_completed(target)
 
         self.app.push_screen(ActualScreen(todo.title, stima, counted), on_actual)
+        return True
 
     def action_start_pomodoro(self) -> None:
         """o: avvia (o riapre) il pomodoro sul task evidenziato, come in home."""

@@ -4,10 +4,11 @@ import argparse
 import sys
 from datetime import datetime
 
+from src import domain as _domain
 from src.lang import T, get_lang
 from src.models import Priority, TodoItem, _is_valid_date, _normalize_date
 from src.nlparse import parse
-from src.storage import load_todos
+from src.storage import append_execution, load_todos
 from src.store import TodoStore
 
 
@@ -166,6 +167,27 @@ def _cli_main(argv: list[str]) -> int:
         target.planned_for = ""
         target.completed_at = datetime.now().strftime("%Y-%m-%d %H:%M")
         store.commit()
+        try:
+            # M2: un TaskExecution per completamento; senza finestra nel
+            # processo CLI si usa il fallback stima (mai slot inventati).
+            log = target.pomodoro_log or []
+            try:
+                est = int(target.stima_pomo or 0)
+            except (ValueError, TypeError):
+                est = 0
+            append_execution(
+                _domain.make_execution(
+                    target.id,
+                    str(log[0]) if log else "",
+                    target.completed_at or None,
+                    _domain.resolve_planned_minutes(None, target.stima_pomo),
+                    _domain.resolve_actual_minutes(target),
+                    est,
+                    True,
+                )
+            )
+        except Exception:
+            pass
         print(target.id)
         return 0
     todos = load_todos()

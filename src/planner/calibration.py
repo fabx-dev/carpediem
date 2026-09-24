@@ -8,7 +8,13 @@ Loop: feedback → observations → factor → future estimate. Solo future:
 piani/actual/slot passati non vengono mai modificati.
 """
 
-from src.domain import calibration_factor
+from src.domain import (
+    calibration_factor,
+    execution_calibration_factor,
+    execution_confidence,
+    execution_stats,
+    last_observation_at,
+)
 from src.planner.models import ExecutionFeedback
 
 
@@ -45,3 +51,16 @@ def observe_all(feedbacks) -> list:
 def factor_for(todos: list) -> float | None:
     """Fattore di calibrazione sui todos (delega a domain, unica fonte)."""
     return calibration_factor(todos)
+
+
+def calibration_summary(executions) -> dict:
+    """Quadro derivato on-demand dalla history (M2): factor, sample_count,
+    confidence, last_observation_at. Mai persistito (single source of truth
+    = .todo_executions.json); la UI consuma questo, non ricalcola."""
+    count = execution_stats(executions)["count"]
+    return {
+        "factor": execution_calibration_factor(executions),
+        "sample_count": count,
+        "confidence": execution_confidence(count),
+        "last_observation_at": last_observation_at(executions),
+    }

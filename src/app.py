@@ -85,6 +85,7 @@ from src.storage import (
     _clamp_int,
     _home,
     _validate_outlook,
+    append_execution,
     create_backup,
     list_snapshots,
     load_archive,
@@ -1209,20 +1210,80 @@ class TodoApp(App):
             self.notify(T("n_recur", t=_escape_markup(new_todo.title), d=new_todo.due))
         self._commit_refresh("n_state", t=_escape_markup(todo.title), s=labels[choice])
         if choice == "completato":
-            self._ask_actual(todo)
+            if not self._ask_actual(todo):
+                self._record_completion_execution(todo)
 
-    def _ask_actual(self, todo: TodoItem) -> None:
-        """Chiede i pomodori reali dopo un completamento stimato (salta se no)."""
+    def _record_completion_execution(self, todo: TodoItem) -> None:
+        """M2: un TaskExecution per task completato (mai uno per pomodoro).
+
+        Ricostruisce lo slot via scheduled_for_today(include_done=True):
+        apply_state ha gia' azzerato planned_for, ma completed_at == oggi
+        ritrova il confermato. Non persiste i todos (file separato).
+        Mai solleva: la history non deve rompere il flusso di chiusura.
+        """
+        try:
+            from src.screens.plan import scheduled_for_today
+
+            today = datetime.now().strftime("%Y-%m-%d")
+            try:
+                hours = float(self.config.get("day_hours", 6) or 6)
+            except (ValueError, TypeError):
+                hours = 6.0
+            cfg_window = self.config.get("day_window")
+            window = (
+                cfg_window
+                if isinstance(cfg_window, dict) and cfg_window.get("date") == today
+                else None
+            )
+            sched, _ev, _al, _pl = scheduled_for_today(
+                self.todos, today, hours, window, include_done=True
+            )
+            slot = None
+            if sched is not None:
+                slot = next(
+                    (s for s in sched.scheduled if s.item.todo_id == todo.id), None
+                )
+            slot_min = None
+            slot_start = ""
+            if slot is not None:
+                slot_min = int((slot.end - slot.start).total_seconds() // 60)
+                slot_start = slot.start.strftime("%Y-%m-%d %H:%M")
+            log = todo.pomodoro_log or []
+            started = str(log[0]) if log else slot_start
+            try:
+                est = int(todo.stima_pomo or 0)
+            except (ValueError, TypeError):
+                est = 0
+            append_execution(
+                domain.make_execution(
+                    todo.id,
+                    started,
+                    todo.completed_at or None,
+                    domain.resolve_planned_minutes(slot_min, todo.stima_pomo),
+                    domain.resolve_actual_minutes(todo),
+                    est,
+                    True,
+                )
+            )
+        except Exception:
+            pass
+
+    def _ask_actual(self, todo: TodoItem) -> bool:
+        """Chiede i pomodori reali dopo un completamento stimato.
+
+        Ritorna True se la popup e' mostrata (l'execution si registra alla
+        risposta), False se skippata (il chiamante registra subito)."""
         try:
             stima = int(todo.stima_pomo or 0)
             actual = int(todo.actual_pomo or 0)
         except (ValueError, TypeError):
-            return
+            return False
         if stima <= 0 or actual > 0:
-            return
+            return False
 
         def on_actual(result: int | None) -> None:
             if result is None:
+                self._record_completion_execution(todo)
                 return
             target = next(
                 (t for t in self.todos if t.id == todo.id),
@@ -1237,12 +1298,14 @@ class TodoApp(App):
                 s=stima,
                 d=sign,
             )
+            self._record_completion_execution(target)
 
         try:
             counted = int(todo.pomodoros or 0)
         except (ValueError, TypeError):
             counted = 0
         self.push_screen(ActualScreen(todo.title, stima, counted), on_actual)
+        return True
 
     def action_add_subtask(self) -> None:
         todo = self._get_selected_todo()
@@ -1405,6 +1468,7 @@ class TodoApp(App):
                 hours=hours,
                 window=window,
                 current_pomo=lambda: self.focus_task_id,
+                on_completed=self._record_completion_execution,
             )
         )
 
