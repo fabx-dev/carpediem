@@ -55,6 +55,9 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  capacity.estimate delega a domain.calibrated_estimate
                  M3: decisions.py puro (PlanningDecision/decide/
                  refine_with_schedule/primary_reason; UI via Detail Why)
+                 M4: replan.py puro (ReplanProposal/ReplanMove kept/moved/
+                 dropped/added; availability clippata a [now, fine];
+                 commit via domain.apply_replan + carpediem replan CLI)
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit();
@@ -68,7 +71,7 @@ src/storage.py   paths, load/save (todos/template/config/archive/pomodoro), lock
                  config include day_hours (default 6, clamp 1-16);
                  M2: EXECUTIONS_FILE + load/append (append-only, dedup atomica, cap 5000)
 src/crypto.py    Fernet + PBKDF2 (600k iter), chiave solo in RAM, envelope {"v","salt","data"}
-src/cli.py       add/list/done/show (add/done via TodoStore: lock+merge gratis); add senza flag = NL
+src/cli.py       add/list/done/show/replan (add/done via TodoStore: lock+merge gratis); add senza flag = NL
 src/commands.py  MENU_STRUCTURE (4 categorie: giornata/viste/dati/sistema, chiavi i18n +
                  action + shortcut) + CarpeDiemMenuProvider (palette `ctrl+p`, titoli
                  "Categoria › Voce"); MENU_IT piatta tenuta per compatibilita'
@@ -859,6 +862,20 @@ Regole dure:
   importava domain/planner (ordine isort `from src import` prima di
   `from src.lang`); stub `_why_lines` aveva inghiottito il `def compose`
   (verificare sempre con read dopo edit di firme).
+- **M4 Replanning (2026-09-24, fatto, 0.16.0)**: `src/planner/replan.py`
+  puro (`replan()` riusa propose+schedule senza toccarli: completati fuori
+  da soli, pianificati privilegiati in allocate, slot passati esclusi via
+  availability clippata a [now, fine]; `ReplanProposal` con kept/moved/
+  dropped/added + motivi da decide/primary_reason); commit separato
+  `domain.apply_replan` (added→planned, dropped→plan_skip oggi,
+  kept/moved intatti); CLI `carpediem replan [--now HH:MM] [--apply]`
+  (preview read-only verificata via hash, --apply esplicito, --now
+  invalido exit 2 senza scritture). Scoperta: DROPPED quasi irraggiungibile
+  per capacita' (allocate non taglia mai i pianificati) — caso reale solo
+  planned+skipped. Lezioni: `import x.y as z` dopo from-import omonimo lega
+  la funzione (shadowing package) → `sys.modules[...]`; `events_to_busy`
+  ritorna tuple (mypy); CLI importa `screens.plan` lazy (solo parsing
+  day_window, debito documentato).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

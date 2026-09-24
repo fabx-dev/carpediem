@@ -45,6 +45,92 @@ def _cli_state_filter(value: str | None) -> str | None:
     return mapping.get(v)
 
 
+def _cli_replan(args, err) -> int:
+    """M4: preview read-only di default, commit solo con --apply esplicito.
+
+    Senza --apply non scrive nulla (niente commit, niente execution): un
+    replan non applicato non modifica dati. Con --apply scrive solo i
+    planned_for via store.commit()."""
+    from src.planner.models import TimeWindow
+    from src.planner.replan import ADDED, DROPPED, KEPT, MOVED, replan
+    from src.storage import load_config
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    if args.now:
+        try:
+            now = datetime.strptime(f"{today} {args.now.strip()}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            err(T("cli_replan_bad"))
+            return 2
+    else:
+        now = datetime.now()
+    store = TodoStore.load()
+    todos = store.all()
+    try:
+        hours = float(load_config().get("day_hours", 6) or 6)
+    except (ValueError, TypeError):
+        hours = 6.0
+    avail: list = []
+    busy: tuple = ()
+    sched = None
+    try:
+        from src.planner.scheduler import events_to_busy
+        from src.screens.plan import day_window_parts, scheduled_for_today
+
+        window = load_config().get("day_window")
+        if not isinstance(window, dict) or window.get("date") != today:
+            window = None
+        parts = day_window_parts(window, today)
+        if parts is not None:
+            start, end, events, _allday = parts
+            avail = [TimeWindow(start, end)]
+            busy = events_to_busy(events)
+        sched, _ev, _al, _pl = scheduled_for_today(todos, today, hours, window)
+    except Exception:
+        pass
+    proposal = replan(todos, today, hours, avail, busy, now, current=sched)
+    by_id = {t.id: t for t in todos}
+    print(T("cli_replan_title", date=today, now=now.strftime("%H:%M")))
+    for kind, key in (
+        (KEPT, "cli_replan_kept"),
+        (MOVED, "cli_replan_moved"),
+        (DROPPED, "cli_replan_dropped"),
+        (ADDED, "cli_replan_added"),
+    ):
+        rows = [m for m in proposal.moves if m.kind == kind]
+        if not rows:
+            continue
+        print(T(key))
+        for m in rows:
+            todo = by_id.get(m.todo_id)
+            title = todo.title if todo is not None else f"#{m.todo_id}"
+            if m.new_start is not None and kind != DROPPED:
+                print(
+                    "  "
+                    + T(
+                        "cli_replan_row_slot",
+                        s=m.new_start,
+                        e=m.new_end or "?",
+                        t=title,
+                    )
+                )
+            elif m.primary is not None:
+                key_p, params = m.primary
+                print("  " + T("cli_replan_row", t=title, m=T(key_p, **params)))
+            else:
+                print(f"  {title}")
+    print(T("cli_replan_residual", r=f"{proposal.residual_pomo:g}"))
+    if not proposal.moves:
+        print(T("cli_replan_no_changes"))
+    if args.apply:
+        added, dropped = _domain.apply_replan(todos, proposal, today)
+        store.commit()
+        print(T("cli_replan_applied", a=added, d=dropped))
+    else:
+        print(T("cli_replan_hint"))
+    return 0
+
+
 def _cli_main(argv: list[str]) -> int:
     """CLI non interattiva: carpediem add|list|done|show. Ritorna exit code."""
 
@@ -66,6 +152,9 @@ def _cli_main(argv: list[str]) -> int:
     )
     p_done = sub.add_parser("done", help=T("cli_done_h"))
     p_done.add_argument("id", type=int, help=T("cli_id_h"))
+    p_replan = sub.add_parser("replan", help=T("cli_replan_h"))
+    p_replan.add_argument("--now", default=None, help=T("cli_replan_now_h"))
+    p_replan.add_argument("--apply", action="store_true", help=T("cli_replan_apply_h"))
     p_show = sub.add_parser("show", help=T("cli_show_h"))
     p_show.add_argument("id", type=int, help=T("cli_id_h"))
     try:
@@ -190,6 +279,8 @@ def _cli_main(argv: list[str]) -> int:
             pass
         print(target.id)
         return 0
+    if args.cmd == "replan":
+        return _cli_replan(args, err)
     todos = load_todos()
     target = next((t for t in todos if t.id == args.id), None)
     if target is None:

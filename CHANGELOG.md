@@ -6,6 +6,14 @@ Entries in English from now on.
 ## [Unreleased]
 
 ### Added
+- Replanning engine (M4): `carpediem replan [--now HH:MM] [--apply]`
+  recomputes the day from the current plan, the remaining tasks, the
+  calendar and the residual capacity, showing kept/moved/deferred/added
+  tasks with real reasons. Preview is read-only by default; only an
+  explicit `--apply` rewrites `planned_for` (added + deferred with
+  today's skip, kept/moved untouched). Past slots are unavailable by
+  clipping availability to [now, end]; already-planned tasks keep their
+  privilege and are never dropped by capacity.
 - Explainable planner (M3): every evaluated task now has an explicit
   `PlanningDecision` (SCHEDULED / NOT_SCHEDULED / DEFERRED, plus
   CONSTRAINED for mandatory tasks with no valid slot) with real-data

@@ -202,6 +202,41 @@ def plan_remove(todo: TodoItem) -> None:
     todo.planned_for = ""
 
 
+def apply_replan(todos: list[TodoItem], proposal, today: str) -> tuple[int, int]:
+    """Applica una ReplanProposal confermata (puro sui todos passati).
+
+    ADDED -> planned_for=today (plan_skip azzerato, come la conferma smart);
+    DROPPED -> planned_for azzerato + plan_skip=today (scarto esplicito di
+    oggi, non riproposto); KEPT/MOVED invariati (gli slot non si persistono).
+    Solo attivi. Ritorna (aggiunti, rimandati). Il commit resta al chiamante.
+    """
+    try:
+        moves = list(getattr(proposal, "moves", None) or ())
+    except TypeError:
+        return (0, 0)
+    by_id = {}
+    try:
+        for t in todos or ():
+            by_id[getattr(t, "id", None)] = t
+    except TypeError:
+        return (0, 0)
+    added = dropped = 0
+    for m in moves:
+        todo = by_id.get(getattr(m, "todo_id", None))
+        if todo is None or todo.state != "attivo":
+            continue
+        kind = getattr(m, "kind", "")
+        if kind == "added":
+            todo.planned_for = today
+            todo.plan_skip = ""
+            added += 1
+        elif kind == "dropped":
+            todo.planned_for = ""
+            todo.plan_skip = today
+            dropped += 1
+    return (added, dropped)
+
+
 def plan_suspend(todo: TodoItem) -> None:
     """Sospende un item pianificato (piano giorno)."""
     todo.paused = True

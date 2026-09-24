@@ -21,19 +21,34 @@ from src.planner.models import (
     ScheduledItem,
     TimeWindow,
 )
+from src.planner.replan import (
+    ADDED,
+    DROPPED,
+    KEPT,
+    MOVED,
+    ReplanMove,
+    ReplanProposal,
+    replan,
+)
 from src.planner.scheduler import events_to_busy, schedule
 from src.planner.service import Planner
 
 __all__ = [
+    "ADDED",
     "CONSTRAINED",
     "DEFERRED",
+    "DROPPED",
     "DayPlan",
     "ExecutionFeedback",
     "FixedEvent",
+    "KEPT",
+    "MOVED",
     "NOT_SCHEDULED",
     "PlanItem",
     "Planner",
     "PlanningDecision",
+    "ReplanMove",
+    "ReplanProposal",
     "SCHEDULED",
     "ScheduledDayPlan",
     "ScheduledItem",
@@ -46,5 +61,6 @@ __all__ = [
     "observe_all",
     "primary_reason",
     "refine_with_schedule",
+    "replan",
     "schedule",
 ]

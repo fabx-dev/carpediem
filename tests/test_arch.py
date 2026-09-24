@@ -28,7 +28,13 @@ WEIGHT_CONSTANTS = (
 )
 
 # Reimplementazione del boundary: definizioni locali di propose/schedule/Planner.
-REIMPLEMENTATION = ("def propose(", "def schedule(", "class Planner", "def plan_day(")
+REIMPLEMENTATION = (
+    "def propose(",
+    "def schedule(",
+    "class Planner",
+    "def plan_day(",
+    "def replan(",
+)
 
 # M2 TaskExecution: la UI consuma dati pronti, mai li costruisce o ricalcola.
 # Le screen ricevono callback opache (es. on_completed); solo app.py puo'
