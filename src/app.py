@@ -57,6 +57,7 @@ from src.screens import (
     PlanProposalScreen,
     PomodoroScreen,
     RadarPickScreen,
+    ReplanPreviewScreen,
     RestoreScreen,
     ReviewScreen,
     SearchScreen,
@@ -70,6 +71,7 @@ from src.screens import (
     TemplateScreen,
     ThemeListScreen,
     TodoFormScreen,
+    WeekReviewScreen,
     WeekScreen,
     WelcomeScreen,
     WorkflowScreen,
@@ -90,6 +92,7 @@ from src.storage import (
     list_snapshots,
     load_archive,
     load_config,
+    load_executions,
     load_pomodoro,
     load_templates,
     restore_snapshot,
@@ -388,7 +391,7 @@ class TodoApp(App):
     #calendar-box, #plan-box, #goals-box, #stats-box, #keys-box, #set-box,
     #arc-box, #rst-box, #wel-box, #pw-box, #sec-box, #hea-box, #rev-box,
     #menu-box, #workflow-box, #brief-box, #planp-box, #pick-box, #calpick-box,
-    #smart-box, #actual-box, #outlook-box {
+    #smart-box, #actual-box, #outlook-box, #rp-box, #wr-box {
         border: thick $primary;
         background: $surface;
         padding: 1 2;
@@ -397,7 +400,7 @@ class TodoApp(App):
     #keys-title, #set-title, #arc-title, #rst-title, #wel-title,
     #pw-title, #sec-title, #rev-title, #menu-title, #workflow-title,
     #brief-title, #planp-title, #state-msg, #pick-title, #calpick-title,
-    #smart-title, #actual-title, #outlook-title {
+    #smart-title, #actual-title, #outlook-title, #rp-title, #wr-title {
         text-align: center;
         text-style: bold;
         color: $primary;
@@ -412,7 +415,7 @@ class TodoApp(App):
         margin-top: 1;
     }
     #agenda-close, #week-close, #tplp-close, #keys-close, #rst-close, #hea-close,
-    #workflow-close, #brief-close, #calpick-close {
+    #workflow-close, #brief-close, #calpick-close, #wr-close {
         width: 100%;
         min-width: 16;
         height: 3;
@@ -458,6 +461,8 @@ class TodoApp(App):
         Binding("ctrl+e", "export_data", "Export", show=False),
         Binding("r", "refresh", "Ricarica", show=False),
         Binding("R", "open_review", "Chiusura", show=False),
+        Binding("G", "view_replan", "Replan", show=False),
+        Binding("W", "view_week_review", "Review sett.", show=False),
         Binding(
             "ctrl+p",
             "command_palette",
@@ -1486,6 +1491,32 @@ class TodoApp(App):
             )
         )
 
+    def action_view_replan(self) -> None:
+        """G: preview read-only del replan (s conferma, Esc niente)."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        cfg_window = self.config.get("day_window")
+        window = (
+            cfg_window
+            if isinstance(cfg_window, dict) and cfg_window.get("date") == today
+            else None
+        )
+        try:
+            hours = float(self.config.get("day_hours", 6) or 6)
+        except (ValueError, TypeError):
+            hours = 6.0
+        self.push_screen(
+            ReplanPreviewScreen(
+                self.todos,
+                self._on_replan_applied,
+                today=today,
+                hours=hours,
+                window=window,
+            )
+        )
+
+    def _on_replan_applied(self, added: int, dropped: int) -> None:
+        self._commit_refresh("cli_replan_applied", a=added, d=dropped)
+
     def action_open_review(self) -> None:
         try:
             goal = int(self.config.get("daily_goal", 0) or 0)
@@ -1883,6 +1914,16 @@ class TodoApp(App):
         today = datetime.now().date()
         monday = today - timedelta(days=today.weekday())
         self.push_screen(WeekScreen(self.todos, monday))
+
+    def action_view_week_review(self) -> None:
+        """W: review settimanale execution-based (sola lettura)."""
+        today = datetime.now().date()
+        monday = today - timedelta(days=today.weekday())
+        try:
+            executions = load_executions()
+        except Exception:
+            executions = []
+        self.push_screen(WeekReviewScreen(self.todos, executions, monday))
 
     def _open_pomodoro_popup(self) -> None:
         self.push_screen(

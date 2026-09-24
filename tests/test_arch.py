@@ -36,26 +36,22 @@ REIMPLEMENTATION = (
     "def replan(",
 )
 
-# M2 TaskExecution: la UI consuma dati pronti, mai li costruisce o ricalcola.
-# Le screen ricevono callback opache (es. on_completed); solo app.py puo'
-# orchestrare il recorder sottile (make/resolve/append), mai le statistiche.
+# M2/M3/M4: le screen non fanno I/O execution ne' costruiscono/persistono
+# record (solo l'app orchestra via recorder). Gli helper di LETTURA del
+# dominio sono presentazione dati e quindi ammessi nella UI (precedente
+# StatsScreen con calibration_factor): siano primitivi (predicted_minutes,
+# resolve_actual_minutes) o aggregati di sola lettura (execution_summary,
+# execution_stats, calibration_summary), purche' senza I/O ne' mutazioni.
 SCREEN_FORBIDDEN = (
     "make_execution",
     "append_execution",
     "load_executions",
-    "execution_stats",
-    "execution_confidence",
-    "predicted_minutes",
-    "calibration_summary",
-    "resolve_actual_minutes",
-    "resolve_planned_minutes",
 )
-
-# app.py puo' chiamare il recorder, ma non ricalcolare stats/calibration.
+# app.py orchestra I/O e recorder, ma non ricalcola analytics aggregate.
 APP_FORBIDDEN = (
     "execution_stats",
     "execution_confidence",
-    "predicted_minutes",
+    "execution_summary",
     "calibration_summary",
 )
 

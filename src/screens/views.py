@@ -303,6 +303,133 @@ class WeekScreen(CloseMixin, ModalScreen[None]):
             self.refresh(recompose=True)
 
 
+class WeekReviewScreen(CloseMixin, ModalScreen[None]):
+    """Review settimanale basata sulle esecuzioni reali (#51, sola lettura).
+
+    Non e' la WeekScreen (scadenze): qui insight prima dei dettagli, da
+    completed_at + .todo_executions.json, sintetizzati dal dominio
+    (execution_summary). Nessuna scrittura, nessuna rete.
+    """
+
+    CSS = """
+    #wr-box {
+        width: 90;
+        max-width: 95%;
+        height: 90%;
+        max-height: 90%;
+    }
+    #wr-scroll {
+        height: 1fr;
+        margin-bottom: 1;
+    }
+    #wr-legend {
+        height: auto;
+    }
+    """
+
+    BINDINGS = [Binding("escape", "close", "Chiudi")]
+
+    def __init__(
+        self,
+        all_todos: list[TodoItem],
+        executions: list,
+        monday: date,
+    ) -> None:
+        super().__init__()
+        self.all_todos = all_todos
+        self.executions = executions
+        self.monday = monday
+
+    def _week_days(self) -> list[str]:
+        return [
+            (self.monday + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)
+        ]
+
+    def _insights(self) -> list[str]:
+        from src.screens._shared import _completed_by_date, _pomodoros_by_date
+
+        days = set(self._week_days())
+        completed = {
+            d: n for d, n in _completed_by_date(self.all_todos).items() if d in days
+        }
+        pomos = {
+            d: n for d, n in _pomodoros_by_date(self.all_todos).items() if d in days
+        }
+        n_done = sum(completed.values())
+        n_pomo = sum(pomos.values())
+        in_week = [
+            e
+            for e in self.executions
+            if getattr(e, "ended_at", None) and str(e.ended_at)[:10] in days
+        ]
+        summary = _domain.execution_summary(in_week)
+        deferred = sum(
+            1 for t in self.all_todos if str(getattr(t, "plan_skip", "") or "") in days
+        )
+        lines = [
+            T("wr_sec_done"),
+            "  " + T("wr_done", n=n_done, p=n_pomo),
+            T("wr_sec_perf"),
+        ]
+        if summary["count"] == 0:
+            lines.append("  " + T("wr_perf_empty"))
+        else:
+            acc = summary["accuracy_pct"]
+            lines.append(
+                "  "
+                + T(
+                    "wr_perf_row",
+                    est=summary["est_total"],
+                    act=summary["act_total"],
+                    acc="—" if acc is None else acc,
+                    n=summary["count"],
+                    c=summary["confidence"],
+                )
+            )
+        lines.append(T("wr_sec_replan"))
+        lines.append(
+            "  " + (T("wr_replan", n=deferred) if deferred > 0 else T("wr_replan_none"))
+        )
+        lines.append(T("wr_sec_days"))
+        for ds in self._week_days():
+            lines.append(
+                "  "
+                + T(
+                    "wr_day_row",
+                    d=_format_date_it(ds),
+                    n=completed.get(ds, 0),
+                    p=pomos.get(ds, 0),
+                )
+            )
+        return lines
+
+    def compose(self) -> ComposeResult:
+        end = self.monday + timedelta(days=6)
+        with Vertical(id="wr-box"):
+            yield Label(
+                T(
+                    "wr_title",
+                    a=self.monday.strftime("%d/%m"),
+                    b=end.strftime("%d/%m/%Y"),
+                ),
+                id="wr-title",
+            )
+            with VerticalScroll(id="wr-scroll"):
+                yield Static("\n".join(self._insights()), id="wr-body")
+            yield Static(T("wr_legend"), id="wr-legend")
+            yield Button(T("ui_close_esc"), id="wr-close", variant="default")
+
+    def on_mount(self) -> None:
+        try:
+            self.query_one("#wr-close", Button).focus()
+        except Exception:
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "wr-close":
+            self.dismiss()
+
+
 class TemplateScreen(ModalScreen[tuple | None]):
     """Scelta template: Usa per creare i task, N nuovo, P da progetto."""
 
@@ -1222,6 +1349,26 @@ class DetailScreen(ModalScreen[str | None]):
                     if actual > 0:
                         pomo_txt += f" ({T('detail_actual', n=actual)})"
                     yield Label(pomo_txt)
+                    try:
+                        stima = int(self.todo.stima_pomo or 0)
+                    except (ValueError, TypeError):
+                        stima = 0
+                    if stima > 0:
+                        # #47: Tu = stima originale (mai riscritta), CarpeDiem =
+                        # previsione calibrata, Reale = actual o — (contratto M2).
+                        # Conversione pomo->minuti canonica da domain (mai 30).
+                        tu_min = stima * _domain.POMO_MINUTES
+                        factor = _domain.calibration_factor(self.all_todos)
+                        cd = _domain.predicted_minutes(tu_min, factor)
+                        real = _domain.resolve_actual_minutes(self.todo)
+                        yield Label(
+                            T(
+                                "cockpit_ear_row",
+                                tu=f"{tu_min}m",
+                                cd=f"{cd}m",
+                                re=f"{real}m" if real > 0 else "—",
+                            )
+                        )
                 if self.todo.tags:
                     yield Label(
                         f"{T('form_tags')} "

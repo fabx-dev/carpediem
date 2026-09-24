@@ -510,6 +510,36 @@ def last_observation_at(executions) -> str:
         return ""
 
 
+def execution_summary(executions) -> dict:
+    """Sintesi execution-based (insight settimanali & co.), matematica qui.
+
+    count/stime/reali su osservazioni valide; accuracy_pct = 100*min/max
+    (None senza dati); confidence M2. La UI rende, non ricalcola.
+    """
+    obs = _valid_observations(executions)
+    n = len(obs)
+    if n == 0:
+        return {
+            "count": 0,
+            "est_total": 0,
+            "act_total": 0,
+            "median_act": None,
+            "accuracy_pct": None,
+            "confidence": "LOW",
+        }
+    est = sum(e.estimate_pomo * POMO_MINUTES for e in obs)
+    act = sum(e.actual_minutes for e in obs)
+    peak = max(est, act)
+    return {
+        "count": n,
+        "est_total": est,
+        "act_total": act,
+        "median_act": _median(sorted(e.actual_minutes for e in obs)),
+        "accuracy_pct": round(100 * min(est, act) / peak) if peak > 0 else None,
+        "confidence": execution_confidence(n),
+    }
+
+
 def execution_calibration_factor(executions) -> float | None:
     """Fattore mediano actual/stima dalla history (stessa policy anti-rumore
     di calibration_factor: minimo campioni, clamp). Le due fonti coincidono

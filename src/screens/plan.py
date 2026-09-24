@@ -26,6 +26,7 @@ from src.lang import (
 )
 from src.models import (
     PRIORITY_ORDER,
+    Priority,
     TodoItem,
     _due_date_part,
     _format_date_it,
@@ -41,6 +42,7 @@ from src.planner.models import (
     ScheduledDayPlan,
     TimeWindow,
 )
+from src.planner.replan import ADDED, DROPPED, KEPT, MOVED, replan
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
@@ -457,10 +459,16 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         ]
 
     @staticmethod
-    def _row(t: TodoItem, marker: str, extra: str = "", prefix: str = "") -> str:
+    def _row(
+        t: TodoItem, marker: str, extra: str = "", prefix: str = "", duration: str = ""
+    ) -> str:
+        """Riga cockpit (#46): stato + ! solo se priorita' alta + slot/durata
+        + titolo + scadenza + #id + pomodori. Mai analytics in riga."""
         plbl = _pomo_label(t)
         pomo = f" [red]{plbl}[/]" if plbl else ""
-        return f"  [cyan]{marker}[/] {_status(t)} {prefix}{_escape_markup(t.title)}{extra}  [dim]#{t.id}[/]{pomo}"
+        prio = "[red]![/] " if t.priority == Priority.HIGH else ""
+        dur = f" [green]({duration})[/]" if duration else ""
+        return f"  [cyan]{marker}[/] {_status(t)} {prio}{prefix}{_escape_markup(t.title)}{extra}  [dim]#{t.id}[/]{pomo}{dur}"
 
     def _marker(self, tid, base: str) -> str:
         """Marker di riga: ▶ sul task corrente del Pomodoro, altrimenti base.
@@ -494,17 +502,21 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         """
         scheduled_ids = {s.item.todo_id for s in sched.scheduled}
         by_id = {t.id: t for t in self.all_todos if t.id is not None}
-        entries = []  # (start, task-prima-dell'evento, payload, prefix)
+        entries = []  # (start, task-prima-dell'evento, payload, prefix, minutes)
         for s in sched.scheduled:
             todo = by_id.get(s.item.todo_id)
             if todo is None:
                 continue
             prefix = f"{s.start.strftime('%H:%M')}–{s.end.strftime('%H:%M')} "
-            entries.append((s.start, 0, todo, prefix))
+            try:
+                minutes = int((s.end - s.start).total_seconds() // 60)
+            except Exception:
+                minutes = 0
+            entries.append((s.start, 0, todo, prefix, minutes))
         for e in events:
             if not any(a.start < e.end and e.start < a.end for a in sched.availability):
                 continue
-            entries.append((e.start, 1, e, ""))
+            entries.append((e.start, 1, e, "", 0))
         entries.sort(key=lambda en: (en[0], en[1]))
         rows: list[ListItem] = []
         if allday:
@@ -512,7 +524,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             rows.append(
                 ListItem(Label(f"  {T('planp_allday', t=names)}"), disabled=True)
             )
-        for _st, _o, payload, prefix in entries:
+        for _st, _o, payload, prefix, minutes in entries:
             if isinstance(payload, FixedEvent):
                 name = f" {_escape_markup(payload.title)}" if payload.title else ""
                 label = (
@@ -521,11 +533,18 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 )
                 rows.append(ListItem(Label(f"  {label}"), disabled=True))
             else:
+                due = _due_date_part(payload.due)
+                extra = T("plan_overdue_row", due=payload.due) if due else ""
+                duration = f"{minutes}m" if minutes > 0 else ""
                 rows.append(
                     PlanRow(
                         Label(
                             self._row(
-                                payload, self._marker(payload.id, "x"), "", prefix
+                                payload,
+                                self._marker(payload.id, "x"),
+                                extra,
+                                prefix,
+                                duration,
                             )
                         ),
                         task_id=payload.id,
@@ -540,9 +559,11 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         for tid in tail_ids:
             todo = by_id.get(tid)
             if todo is not None:
+                due = _due_date_part(todo.due)
+                extra = T("plan_overdue_row", due=todo.due) if due else ""
                 tail_rows.append(
                     PlanRow(
-                        Label(self._row(todo, self._marker(todo.id, "x"))),
+                        Label(self._row(todo, self._marker(todo.id, "x"), extra)),
                         task_id=todo.id,
                         section="planned",
                     )
@@ -550,9 +571,11 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         # Difensivo: confermati mai coperti (es. id None) restano visibili.
         for t in planned:
             if t.id not in scheduled_ids and t.id not in tail_ids:
+                due = _due_date_part(t.due)
+                extra = T("plan_overdue_row", due=t.due) if due else ""
                 tail_rows.append(
                     PlanRow(
-                        Label(self._row(t, self._marker(t.id, "x"))),
+                        Label(self._row(t, self._marker(t.id, "x"), extra)),
                         task_id=t.id,
                         section="planned",
                     )
@@ -632,7 +655,8 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                         for t in todos:
                             extra = (
                                 T("plan_overdue_row", due=t.due)
-                                if kind in ("overdue", "upcoming")
+                                if kind in ("planned", "due", "overdue", "upcoming")
+                                and _due_date_part(t.due)
                                 else ""
                             )
                             row = PlanRow(
@@ -1057,6 +1081,175 @@ class ReviewScreen(CloseMixin, ModalScreen[None]):
         n, k = domain.review_plan(self.all_todos, selected, self.tomorrow)
         self.on_change()
         self.notify(T("n_rev_saved", n=n, k=k))
+        self.dismiss()
+
+
+class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
+    """Preview read-only del replan (#50, motore M4): s conferma, Esc niente."""
+
+    CSS = """
+    #rp-box {
+        width: 100;
+        max-width: 95%;
+        height: 90%;
+        max-height: 90%;
+    }
+    #rp-scroll {
+        height: 1fr;
+        margin-bottom: 1;
+    }
+    #rp-legend {
+        height: auto;
+    }
+    #rp-buttons {
+        width: 100%;
+        height: 3;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Chiudi"),
+        Binding("ctrl+enter", "confirm", "Conferma", show=False),
+        Binding("s", "confirm", "Conferma", show=False),
+    ]
+
+    def __init__(
+        self,
+        all_todos: list[TodoItem],
+        on_apply,
+        today: str | None = None,
+        hours: float = 6.0,
+        window: dict | None = None,
+        now=None,
+    ) -> None:
+        super().__init__()
+        self.all_todos = all_todos
+        # Commit fuori dalla screen (come on_change): qui solo preview.
+        self.on_apply = on_apply
+        self.today = today or datetime.now().strftime("%Y-%m-%d")
+        try:
+            self.hours = max(1.0, float(hours))
+        except (ValueError, TypeError):
+            self.hours = 6.0
+        self.window = window if isinstance(window, dict) else None
+        self.now = now if isinstance(now, datetime) else datetime.now()
+
+    def _proposal(self):
+        """Proposta M4 su finestra odierna (lettura, mai scritture)."""
+        parts = day_window_parts(self.window, self.today)
+        avail: list = []
+        busy: list = []
+        if parts is not None:
+            start, end, events, _allday = parts
+            avail = [TimeWindow(start, end)]
+            busy = events_to_busy(events)
+        sched, _ev, _al, _pl = scheduled_for_today(
+            self.all_todos, self.today, self.hours, self.window
+        )
+        return replan(
+            self.all_todos,
+            self.today,
+            self.hours,
+            avail,
+            busy,
+            self.now,
+            current=sched,
+        )
+
+    def _section_lines(self, proposal) -> list[str]:
+        by_id = {t.id: t for t in self.all_todos if t.id is not None}
+        lines = []
+        for kind, key in (
+            (KEPT, "cli_replan_kept"),
+            (MOVED, "cli_replan_moved"),
+            (DROPPED, "cli_replan_dropped"),
+            (ADDED, "cli_replan_added"),
+        ):
+            rows = [m for m in proposal.moves if m.kind == kind]
+            if not rows:
+                continue
+            lines.append(f"[b]{T(key)}[/b]")
+            for m in rows:
+                todo = by_id.get(m.todo_id)
+                title = (
+                    _escape_markup(todo.title) if todo is not None else f"#{m.todo_id}"
+                )
+                if (
+                    kind == MOVED
+                    and m.old_start is not None
+                    and m.new_start is not None
+                    and (m.old_start, m.old_end) != (m.new_start, m.new_end)
+                ):
+                    lines.append(
+                        f"  {m.old_start}–{m.old_end or '?'} → "
+                        f"{m.new_start}–{m.new_end or '?'} {title}"
+                    )
+                elif m.new_start is not None and kind != DROPPED:
+                    lines.append(
+                        T(
+                            "cli_replan_row_slot",
+                            s=m.new_start,
+                            e=m.new_end or "?",
+                            t=title,
+                        )
+                    )
+                elif m.primary is not None:
+                    key_p, params = m.primary
+                    lines.append(T("cli_replan_row", t=title, m=T(key_p, **params)))
+                else:
+                    lines.append(f"  {title}")
+        return lines
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="rp-box"):
+            yield Label(
+                T(
+                    "rp_title",
+                    date=_format_date_it(self.today),
+                    now=self.now.strftime("%H:%M"),
+                ),
+                id="rp-title",
+            )
+            with VerticalScroll(id="rp-scroll"):
+                proposal = self._proposal()
+                lines = self._section_lines(proposal)
+                if lines:
+                    yield Static("\n".join(lines), id="rp-list")
+                else:
+                    yield Static(T("cli_replan_no_changes"), id="rp-list")
+                yield Static(
+                    T("cli_replan_residual", r=f"{proposal.residual_pomo:g}"),
+                    id="rp-residual",
+                )
+            yield Static(T("rp_legend"), id="rp-legend")
+            with Horizontal(id="rp-buttons", classes="btn-row"):
+                yield Button(T("form_save"), id="rp-confirm", variant="default")
+                yield Button(T("form_cancel"), id="rp-close", variant="default")
+
+    def on_mount(self) -> None:
+        self.call_after_refresh(self._scroll_top)
+
+    def _scroll_top(self) -> None:
+        try:
+            self.query_one("#rp-scroll").scroll_home(animate=False)
+        except Exception:
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "rp-close":
+            self.dismiss()
+        elif event.button.id == "rp-confirm":
+            self._confirm()
+
+    def action_confirm(self) -> None:
+        self._confirm()
+
+    def _confirm(self) -> None:
+        proposal = self._proposal()
+        added, dropped = domain.apply_replan(self.all_todos, proposal, self.today)
+        self.on_apply(added, dropped)
+        self.notify(T("cli_replan_applied", a=added, d=dropped))
         self.dismiss()
 
 

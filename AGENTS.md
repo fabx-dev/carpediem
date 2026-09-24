@@ -22,7 +22,8 @@ salute progetti, archivio, backup/snapshot zip, import/export CSV + export Markd
 export iCal, cifratura Fernet opzionale, onboarding demo, **chiusura giornata**
 (review serale, tasto `R`), inserimento in linguaggio naturale (form `ctrl+l`, CLI add),
 buongiorno unificato (tasto `P`: contesto di oggi + proposta con motivi da confermare),
-resoconto sera (solo palette, zero rete).
+resoconto sera (solo palette, zero rete), cockpit UX (riga giorno `!`/durata/scadenza,
+Detail `Tu/CarpeDiem/Reale`, replan preview `G`, review settimana `W`).
 
 ## 2. Mappa del codice
 
@@ -75,6 +76,7 @@ src/cli.py       add/list/done/show/replan (add/done via TodoStore: lock+merge g
 src/commands.py  MENU_STRUCTURE (4 categorie: giornata/viste/dati/sistema, chiavi i18n +
                  action + shortcut) + CarpeDiemMenuProvider (palette `ctrl+p`, titoli
                  "Categoria › Voce"); MENU_IT piatta tenuta per compatibilita'
+                 M-UI: ReplanPreviewScreen/WeekReviewScreen (cockpit #50/#51)
 src/lang.py      catalogo STRINGS it/en + key_sections (help) — vedi §4
 tests/           ~146 test; conftest.py con fixture di isolamento (vedi §5)
 ```
@@ -118,7 +120,9 @@ Regole dure:
 - **Tasti globali**: superficie già ampia (~30 binding). Nuovi tasti solo su richiesta esplicita;
   preferire palette/menu. `m` = menu per funzioni (categorie -> voci),
   `ctrl+p` = palette di ricerca. Convenzione maiuscole = variante (`b/B`, `o/O`, `r` ricarica / `R` review;
-  eccezione approvata: `P` = piano smart, coppia di `p` = piano giorno).
+  eccezione approvata: `P` = piano smart, coppia di `p` = piano giorno;
+  cockpit: `G` = replan preview, `W` = review settimana, coppie di `g` filtro
+  progetto / `w` settimana).
 - **Nuove screen con lista scrollabile**: box ad altezza definita (`height: 90%`) + figlio
   flessibile (`height: 1fr`) — MAI box auto + `max-height` con figli auto (lezione stats:
   il contenuto sborda o avanza cornice vuota). `plan-box`/`rev-box`/`arc-box`
@@ -876,6 +880,27 @@ Regole dure:
   la funzione (shadowing package) → `sys.modules[...]`; `events_to_busy`
   ritorna tuple (mypy); CLI importa `screens.plan` lazy (solo parsing
   day_window, debito documentato).
+- **UX Planning Cockpit (2026-09-24, fatto, 0.17.0)**: issue #46/#47/#50/#51
+  + audit #52/#53. Daily Cockpit: `DailyPlanScreen._row` con `!` (solo
+  priorita' alta) + durata (slot `30m` se schedulato, altrimenti stima
+  `~N🍅`) + scadenza anche su planned/due (unica `_row` condivisa da tutte
+  le sezioni). Detail: riga `cockpit_ear_row` Tu/CarpeDiem/Reale da
+  `stima×30` / `predicted_minutes(stima, calibration_factor)` / actual
+  (`resolve_actual_minutes`, `—` se assente), mai riscritta la stima.
+  `ReplanPreviewScreen` (tasto `G` + menu/palette): preview read-only del
+  motore M4 (kept/moved/deferred/added + residua), commit solo con `s`
+  (`apply_replan` + `_on_replan_applied`), Esc zero scritture (hash test).
+  `WeekReviewScreen` (tasto `W`): insight execution-based da
+  `load_executions` (lette in app, passate alla screen) + `domain.execution_summary`
+  + `_completed_by_date`/`_pomodoros_by_date`; sola lettura, offline.
+  Guardrail `test_arch.py` riallineato: le screen non fanno I/O execution
+  ne' costruiscono record (`make/append/load_executions` vietati), ma
+  possono consumare helper di LETTURA del dominio (precedente StatsScreen).
+  Lezioni: `_row` modifica copre tutte le sezioni (un solo punto); il
+  picker/`render_lines` serve per il no-wrap a 70 col; `s`/Esc coerenti
+  nelle due nuove screen; i test #51 scrivono via `save_todos_synced` +
+  `append_execution` (la screen legge dallo storage, non da una lista
+  locale).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

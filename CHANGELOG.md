@@ -6,6 +6,16 @@ Entries in English from now on.
 ## [Unreleased]
 
 ### Added
+- Planning Cockpit UX (#46, #47, #50, #51): the day plan row now shows a
+  compact `!` for high priority, the planned duration (slot) or the
+  estimate (`~N🍅`), and the due date even on planned/due tasks; the task
+  Detail shows `Tu / CarpeDiem / Reale` (user estimate, calibrated
+  prediction, actual) without ever overwriting the estimate; `G` opens a
+  read-only Replan Preview (kept/moved/deferred/added + residual
+  capacity, `s` applies, Esc writes nothing); `W` opens a read-only
+  Weekly Review built on real executions (done, estimates vs actual,
+  accuracy, deferrals, per-day). A progressive-disclosure audit and a
+  shortcut inventory test keep the four information levels coherent.
 - Replanning engine (M4): `carpediem replan [--now HH:MM] [--apply]`
   recomputes the day from the current plan, the remaining tasks, the
   calendar and the residual capacity, showing kept/moved/deferred/added
