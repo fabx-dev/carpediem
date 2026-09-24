@@ -748,7 +748,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         from src.screens.views import DetailScreen
 
         self.app.push_screen(
-            DetailScreen(todo, self.all_todos),
+            DetailScreen(todo, self.all_todos, today=self.today, hours=self.hours),
             lambda result: self._on_detail_result(tid, section, result),
         )
 
@@ -1384,12 +1384,15 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                 if ctx:
                     yield Static("\n".join(ctx), id="planp-context")
                 n_in = sum(1 for it in self.rows if self._preselected(it.reasons))
+                n_cut = sum(1 for it in self.rows if self._is_cut(it.reasons))
+                n_skip = sum(1 for it in self.rows if self._is_skipped(it.reasons))
                 yield Static(
                     T(
                         "planp_summary",
                         n=n_in,
                         m=self.n_planned,
-                        c=len(self.rows) - n_in,
+                        t=n_cut,
+                        r=n_skip,
                         h=int(self.hours),
                     ),
                     id="planp-summary",

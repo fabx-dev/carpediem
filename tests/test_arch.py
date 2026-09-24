@@ -103,3 +103,23 @@ def test_no_execution_stats_in_app():
     src = pathlib.Path("src/app.py").read_text(encoding="utf-8")
     for name in APP_FORBIDDEN:
         assert name not in src, f"src/app.py: '{name}' nell'app. {FAIL_EXEC_MSG}"
+
+
+# M3 Why nel Detail: views.py consuma solo il boundary (Planner + decide),
+# mai gli stadi interni (scoring/constraints/capacity/explain) ne' le regole.
+# Buongiorno (plan.py) resta l'unica screen che legge i motivi reason.
+_M3_VIEWS_BANNED = (
+    "planner.scoring",
+    "planner.constraints",
+    "planner.capacity",
+    "planner.explain",
+)
+
+
+def test_no_stadi_planner_in_views():
+    src = pathlib.Path("src/screens/views.py").read_text(encoding="utf-8")
+    for name in _M3_VIEWS_BANNED:
+        assert name not in src, (
+            f"src/screens/views.py: '{name}' nel Detail. "
+            "Il Why consuma PlanningDecision dal boundary, non gli stadi."
+        )

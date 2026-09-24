@@ -18,6 +18,7 @@ from textual.widgets import (
     TextArea,
 )
 
+from src import domain as _domain
 from src.lang import (
     T,
     days_long,
@@ -38,6 +39,7 @@ from src.models import (
     _pomo_label,
     _status,
 )
+from src.planner import Planner, decide, primary_reason
 from src.screens._shared import (
     CloseMixin,
     _agenda_due,
@@ -1070,10 +1072,25 @@ class DetailScreen(ModalScreen[str | None]):
         Binding("e", "edit", "Modifica"),
     ]
 
-    def __init__(self, todo: TodoItem, all_todos: list[TodoItem]) -> None:
+    def __init__(
+        self,
+        todo: TodoItem,
+        all_todos: list[TodoItem],
+        today: str | None = None,
+        hours: float = 6.0,
+    ) -> None:
         super().__init__()
         self.todo = todo
         self.all_todos = all_todos
+        # Contesto del planner per la sezione Why (M3): default = legacy
+        # (oggi reale, 6h); i caller passano SEMPRE la capacita' reale
+        # (config day_hours in app, self.hours nel piano) cosi' la decisione
+        # coincide con quella di Buongiorno/piano giorno.
+        self.today = today
+        try:
+            self.hours = max(1.0, float(hours))
+        except (ValueError, TypeError):
+            self.hours = 6.0
 
     def _get_subtasks(self, parent_id: int | None) -> list[TodoItem]:
         return [t for t in self.all_todos if t.parent_id == parent_id]
@@ -1096,6 +1113,92 @@ class DetailScreen(ModalScreen[str | None]):
             new_prefix = prefix + ("    " if is_last else "│   ") if depth > 0 else ""
             result.extend(self._build_tree(sub, depth + 1, new_prefix, is_last_sub))
         return result
+
+    def _why_lines(self) -> list[str]:
+        """Righe Why da PlanningDecision (M3): decisione, evidence, motivo.
+
+        Legge Planner.propose()+decide() on-demand sullo stesso contesto
+        (todos, today, hours) del flusso principale: mai scoring duplicato,
+        mai motivi inventati, mai eccezioni verso il compose.
+        """
+        try:
+            plan = Planner(self.all_todos, today=self.today, hours=self.hours).propose()
+        except Exception:
+            return []
+        try:
+            sample_count = _domain.calibration_samples(self.all_todos)
+        except Exception:
+            sample_count = None
+        try:
+            decisions = decide(plan, self.all_todos, sample_count=sample_count)
+        except Exception:
+            return []
+        decision = next((d for d in decisions if d.todo_id == self.todo.id), None)
+        if decision is None:
+            if self.todo.state == "completato":
+                return [T("why_no_decision_done")]
+            if self.todo.state == "in_sospeso":
+                return [T("why_no_decision_paused")]
+            if self.todo.id is None:
+                return [T("why_no_decision_other")]
+            return [T("why_no_decision")]
+        label = {
+            "scheduled": T("why_scheduled"),
+            "not_scheduled": T("why_not_scheduled"),
+            "deferred": T("why_deferred"),
+            "constrained": T("why_constrained"),
+        }.get(decision.decision, T("why_no_decision"))
+        lines = [T("why_title"), label]
+        ev = decision.evidence or {}
+        if ev.get("due"):
+            lines.append(T("why_ev_due", d=ev["due"]))
+        if ev.get("priority"):
+            lines.append(T("why_ev_prio", p=ev["priority"]))
+        lines.append(
+            T(
+                "why_ev_score",
+                s=ev.get("score", 0),
+                r=ev.get("rank", 0),
+                n=ev.get("rank_of", 0),
+            )
+        )
+        lines.append(
+            T(
+                "why_ev_est",
+                e=ev.get("estimate_pomo", 0),
+                m=ev.get("estimate_minutes", 0),
+            )
+        )
+        lines.append(
+            T(
+                "why_ev_cap",
+                c=f"{ev.get('capacity_pomo', 0):g}",
+                p=ev.get("planned_pomo", 0),
+            )
+        )
+        if ev.get("overdue"):
+            lines.append(T("why_ev_overdue"))
+        if ev.get("mandatory"):
+            lines.append(T("why_ev_mandatory"))
+        primary = primary_reason(decision)
+        if primary is not None:
+            key, params = primary
+            lines.append(T("why_primary", m=T(key, **params)))
+        if decision.confidence is not None:
+            lines.append(T("why_confidence", c=decision.confidence))
+        if decision.decision == "not_scheduled":
+            lines.append(
+                T(
+                    "why_alt_cut",
+                    e=ev.get("estimate_pomo", 0),
+                    c=f"{ev.get('capacity_pomo', 0):g}",
+                    r=ev.get("rank", 0),
+                    n=ev.get("rank_of", 0),
+                )
+            )
+        elif decision.decision == "deferred":
+            lines.append(T("why_alt_deferred"))
+        return lines
 
     def compose(self) -> ComposeResult:
         with Vertical(id="detail-box"):
@@ -1143,6 +1246,8 @@ class DetailScreen(ModalScreen[str | None]):
                     "completato": f"[green]{T('state_completato').capitalize()}[/green]",
                 }[self.todo.state]
                 yield Label(f"{T('detail_state')} {stato_label}")
+                for line in self._why_lines():
+                    yield Label(line)
                 if self.todo.notes:
                     yield Label(T("detail_notes"))
                     pretty_notes = (

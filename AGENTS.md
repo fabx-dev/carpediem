@@ -53,6 +53,8 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  Fase 6: boundary di calibrazione (calibration.py sottile:
                  observe/observe_all/factor_for, matematica in domain);
                  capacity.estimate delega a domain.calibrated_estimate
+                 M3: decisions.py puro (PlanningDecision/decide/
+                 refine_with_schedule/primary_reason; UI via Detail Why)
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit();
@@ -838,6 +840,25 @@ Regole dure:
   import inverso, sarebbe ciclo); i test nuovi usano import di modulo
   (le classi from-importate restano stale per `isinstance` dopo il reload
   di conftest). Niente bump versione (invisibile).
+- **M3 Explainable Planner (2026-09-24, fatto, 0.15.0)**:
+  `src/planner/decisions.py` puro (`PlanningDecision` frozen +
+  `decide()` lettura del DayPlan: planned→SCHEDULED, cut→NOT_SCHEDULED,
+  skipped→DEFERRED; `refine_with_schedule()` restituisce NUOVE decisioni
+  con slot, solo mandatory-senza-slot→CONSTRAINED; `primary_reason()`
+  flag CUT/SKIPPED poi primo motivo, mai testo inventato); evidence solo
+  dati (due/priority/overdue/score/rank/rank_of/estimate_pomo/minutes/
+  mandatory/capacity/planned_pomo); confidence solo con `plan_calibrated`
+  (livelli M2 su sample_count esterno, mai calcolato in decisions.py).
+  Why nel `DetailScreen` (`_why_lines`, sezione dopo lo stato; non
+  valutato→messaggio esplicito per stato); `DetailScreen(todo, all_todos,
+  today, hours)` con capacita' reale dai 3 call-site (helper
+  `app._detail_context`, piano `self.today/self.hours`) + test di
+  coerenza Planner/Detail a parita' di input; summary Buongiorno splittato
+  tagliati/rimandati (`planp_summary` it/en); chiavi `why_*` it/en;
+  guardrail anti stadi-planner in `views.py`. Lezioni: `views.py` non
+  importava domain/planner (ordine isort `from src import` prima di
+  `from src.lang`); stub `_why_lines` aveva inghiottito il `def compose`
+  (verificare sempre con read dopo edit di firme).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

@@ -6,6 +6,14 @@ Entries in English from now on.
 ## [Unreleased]
 
 ### Added
+- Explainable planner (M3): every evaluated task now has an explicit
+  `PlanningDecision` (SCHEDULED / NOT_SCHEDULED / DEFERRED, plus
+  CONSTRAINED for mandatory tasks with no valid slot) with real-data
+  evidence and optional M2 confidence when a calibrated estimate is used.
+  The task Detail shows a Why section (decision, evidence, primary reason,
+  honest alternative for cuts/deferrals, explicit message for
+  non-evaluated tasks). Buongiorno summary now counts over-capacity cuts
+  and deferrals separately.
 - Planning Foundation (M1): planner contract tests, frozen deterministic
   fixtures (10 scenarios), performance baseline (50/100/500/1000 tasks),
   and an architecture guardrail keeping stats/calibration out of the UI.

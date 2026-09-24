@@ -1138,14 +1138,25 @@ class TodoApp(App):
             return
         self._open_edit_form(todo)
 
+    def _detail_context(self) -> tuple:
+        """(today, hours) reali per il Detail (M3 Why coerente con Buongiorno)."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        try:
+            hours = float(self.config.get("day_hours", 6) or 6)
+        except (ValueError, TypeError):
+            hours = 6.0
+        return today, hours
+
     def _open_edit_form(self, todo: TodoItem, reopen_detail: bool = False) -> None:
         def on_submit(result: dict | None) -> None:
             if result:
                 domain.apply_form(todo, result)
                 self._commit_refresh("n_updated", t=_escape_markup(todo.title))
                 if reopen_detail:
+                    today, hours = self._detail_context()
                     self.push_screen(
-                        DetailScreen(todo, self.todos), self._on_detail_closed
+                        DetailScreen(todo, self.todos, today=today, hours=hours),
+                        self._on_detail_closed,
                     )
 
         self.push_screen(TodoFormScreen(todo=todo, title=T("form_edit")), on_submit)
@@ -1350,7 +1361,10 @@ class TodoApp(App):
                 fresh = self.store.by_id(todo.id) or todo
                 self._open_edit_form(fresh, reopen_detail=True)
 
-        self.push_screen(DetailScreen(todo, self.todos), on_detail)
+        today, hours = self._detail_context()
+        self.push_screen(
+            DetailScreen(todo, self.todos, today=today, hours=hours), on_detail
+        )
 
     def action_view_detail(self) -> None:
         todo = self._get_selected_todo()
