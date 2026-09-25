@@ -63,7 +63,7 @@ MENU_STRUCTURE: tuple = (
         (
             ("menu_settings_t", "menu_settings_h", "action_open_settings", None),
             ("menu_security_t", "menu_security_h", "action_open_security", None),
-            ("menu_clearf_t", "menu_clearf_h", "action_clear_filters", None),
+            ("menu_clearf_t", "menu_clearf_h", "action_clear_filters", "C"),
             ("menu_theme_t", "menu_theme_h", "action_choose_theme", "v"),
             ("menu_keys_t", "menu_keys_h", "action_show_keys", None),
             ("menu_snap_t", "menu_snap_h", "action_save_screenshot", "ctrl+s"),

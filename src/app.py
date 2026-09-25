@@ -431,15 +431,16 @@ class TodoApp(App):
 
     BINDINGS = [
         Binding("n", "new_todo", T("b_new")),
-        Binding("s", "add_subtask", T("b_subtask")),
-        Binding("space", "toggle_done", T("b_status")),
-        Binding("e", "edit_todo", T("b_edit")),
-        Binding("d", "delete_todo", T("b_delete")),
+        Binding("s", "add_subtask", T("b_subtask"), show=False),
+        Binding("space", "toggle_done", T("b_status"), show=False),
+        Binding("e", "edit_todo", T("b_edit"), show=False),
+        Binding("d", "delete_todo", T("b_delete"), show=False),
         Binding("h", "toggle_help", T("b_help")),
         Binding("enter", "view_detail", "Dettagli", show=False),
         Binding("f", "filter_todos", "Filtro stato", show=False),
         Binding("t", "filter_by_tag", "Filtro tag", show=False),
         Binding("g", "filter_by_project", "Filtro progetto", show=False),
+        Binding("C", "clear_filters", T("b_clearf"), show=False),
         Binding("slash", "search_todos", T("b_search"), show=True),
         Binding("escape", "clear_search", "Pulisci ricerca", show=False),
         Binding("q", "quit", T("b_quit")),
@@ -447,10 +448,10 @@ class TodoApp(App):
         Binding("w", "view_week", "Settimana", show=False),
         Binding("b", "toggle_kanban", "Kanban", show=False),
         Binding("B", "view_kanban", "Kanban full", show=False),
-        Binding("p", "view_daily_plan", "Piano", show=False),
-        Binding("P", "plan_day", "Pianifica", show=False),
+        Binding("p", "view_daily_plan", "Piano", show=True),
+        Binding("P", "plan_day", "Pianifica", show=True),
         Binding("k", "view_stats", "Statistiche", show=False),
-        Binding("o", "start_pomodoro", "Pomodoro", show=False),
+        Binding("o", "start_pomodoro", "Pomodoro", show=True),
         Binding("O", "pomodoro_pause", "Pausa/Riprendi", show=False),
         Binding("X", "pomodoro_finish", "Completa pomo", show=False),
         Binding("u", "undo_delete", "Annulla", show=False),
@@ -460,7 +461,7 @@ class TodoApp(App):
         Binding("ctrl+s", "save_screenshot", "Screenshot", show=False),
         Binding("ctrl+e", "export_data", "Export", show=False),
         Binding("r", "refresh", "Ricarica", show=False),
-        Binding("R", "open_review", "Chiusura", show=False),
+        Binding("R", "open_review", "Chiusura", show=True),
         Binding("G", "view_replan", "Replan", show=False),
         Binding("W", "view_week_review", "Review sett.", show=False),
         Binding(
@@ -1739,6 +1740,16 @@ class TodoApp(App):
             )
         )
 
+    def _detach_smart(self) -> None:
+        """Sgancio smart su tocco manuale f/t/g//ricerca (resta salvata).
+
+        Lotto 1: non piu' silenzioso — un toast dice quale smart si e'
+        sganciata (la barra Smart:n sparisce da sola al refresh)."""
+        name = getattr(self, "active_smart", None)
+        self.active_smart = None
+        if name:
+            self.notify(T("n_smart_detached", n=_escape_markup(str(name))))
+
     def action_filter_todos(self) -> None:
         order = ["attivo", "in_sospeso", "completati", None]
         labels = {
@@ -1750,13 +1761,13 @@ class TodoApp(App):
         idx = order.index(self.filter_state)
         self.filter_state = order[(idx + 1) % len(order)]
         self.config["filter_state"] = self.filter_state
-        self.active_smart = None  # tocco manuale: la smart resta salvata
+        self._detach_smart()
         self._save_config()
         self.notify(T("n_filter", v=labels[self.filter_state]))
         self._populate_table()
 
     def action_clear_filters(self) -> None:
-        """Pulisce stato, tag, progetto e ricerca in un colpo (solo dal menu)."""
+        """Pulisce stato, tag, progetto e ricerca in un colpo (tasto C, menu, palette)."""
         self.filter_state = None
         self.filter_tag = None
         self.filter_project = None
@@ -1779,7 +1790,7 @@ class TodoApp(App):
         except ValueError:
             idx = 0
         self.filter_tag = order[(idx + 1) % len(order)]
-        self.active_smart = None  # tocco manuale: la smart resta salvata
+        self._detach_smart()
         if self.filter_tag is None:
             self.notify(T("n_ftag_all"))
         else:
@@ -1797,7 +1808,7 @@ class TodoApp(App):
         except ValueError:
             idx = 0
         self.filter_project = order[(idx + 1) % len(order)]
-        self.active_smart = None  # tocco manuale: la smart resta salvata
+        self._detach_smart()
         self.notify(
             T("n_fproj_all")
             if self.filter_project is None
@@ -1810,7 +1821,7 @@ class TodoApp(App):
             if result is None:
                 return
             self.filter_search = result
-            self.active_smart = None  # tocco manuale: la smart resta salvata
+            self._detach_smart()
             self.notify(
                 T("n_search_clear")
                 if not result
@@ -1828,7 +1839,7 @@ class TodoApp(App):
         if not (getattr(self, "filter_search", "") or "").strip():
             return
         self.filter_search = ""
-        self.active_smart = None  # tocco manuale: la smart resta salvata
+        self._detach_smart()
         self.notify(T("n_search_clear"))
         self._populate_table()
 
