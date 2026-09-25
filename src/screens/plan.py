@@ -350,6 +350,9 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         margin-top: 1;
         height: auto;
     }
+    #plan-rehint {
+        height: auto;
+    }
     """
 
     BINDINGS = [
@@ -700,6 +703,8 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             else:
                 yield Static(T("plan_empty"))
             yield Static(T("plan_legend"), id="plan-legend")
+            if sched is not None and sched.availability:
+                yield Static(T("plan_replan_hint"), id="plan-rehint")
             yield Button(T("ui_close_esc"), id="plan-close", variant="default")
 
     def on_mount(self) -> None:
@@ -1629,6 +1634,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             yield Static(T("rev_legend"), id="planp-legend")
             with Horizontal(id="planp-buttons", classes="btn-row"):
                 yield Button(T("form_save"), id="planp-confirm", variant="default")
+                yield Button(T("planp_goto_day"), id="planp-day", variant="default")
                 yield Button(T("form_cancel"), id="planp-close", variant="default")
 
     def on_mount(self) -> None:
@@ -1657,6 +1663,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.dismiss()
         elif event.button.id == "planp-confirm":
             self._confirm()
+        elif event.button.id == "planp-day":
+            # Conferma e apri il piano giorno (l'app apre DailyPlan su "dayplan").
+            self._confirm("dayplan")
         elif event.button.id == "planp-outlook":
             self._trigger_outlook_load()
 
@@ -1791,7 +1800,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         except Exception:
             return set()
 
-    def _confirm(self) -> None:
+    def _confirm(self, result=None) -> None:
         # Solo additivo: aggiunge i selezionati, non toglie mai i pianificati.
         selected = self._selected_ids()
         n, r = domain.proposal_plan(self.all_todos, selected, self.today)
@@ -1802,7 +1811,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.on_window(self._window_payload())
         self.on_change()
         self.notify(T("n_planp_saved", n=n, k=self.n_planned, r=r))
-        self.dismiss()
+        self.dismiss(result)
 
 
 class BriefingScreen(CloseMixin, ModalScreen[str | None]):

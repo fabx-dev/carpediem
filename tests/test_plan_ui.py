@@ -387,3 +387,64 @@ def test_proposta_sopra_il_fold(tmp_files):
             assert sl.region.y < vp.y + vp.height
 
     asyncio.run(t())
+
+
+def test_bottone_piano_giorno_conferma_e_apre(tmp_files):
+    """Cross-link P->p: 'Piano giorno »' conferma e apre DailyPlanScreen."""
+
+    async def t():
+        from src.lang import T as _T
+
+        app = make_app(_todos())
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.action_plan_day()
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "PlanProposalScreen"
+            from textual.widgets import Button
+
+            # screen_texts ignora i bottoni: il cross-link vive sul widget.
+            assert (
+                str(app.screen.query_one("#planp-day", Button).label)
+                == _T("planp_goto_day")
+            )
+            await pilot.click("#planp-day")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DailyPlanScreen"
+            by_id = {t.id: t for t in app.todos}
+            assert by_id[1].planned_for == _day(0)
+
+    asyncio.run(t())
+
+
+def test_piano_giorno_hint_replan_solo_con_finestra(tmp_files):
+    """Hint P/G nel piano giorno solo con finestra attiva (mai default)."""
+
+    async def t():
+        from src.lang import T as _T
+
+        todos = [make_todo("A-piano", todo_id=1, planned_for=_day(0))]
+        app = make_app(todos)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.action_view_daily_plan()
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DailyPlanScreen"
+            assert _T("plan_replan_hint") not in screen_texts(app.screen)
+            await pilot.press("escape")
+            await pilot.pause()
+            app.config["day_window"] = {
+                "date": _day(0),
+                "start": "09:00",
+                "end": "18:00",
+                "events": [],
+            }
+            app.action_view_daily_plan()
+            await pilot.pause()
+            await pilot.pause()
+            assert _T("plan_replan_hint") in screen_texts(app.screen)
+
+    asyncio.run(t())

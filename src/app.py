@@ -1532,6 +1532,12 @@ class TodoApp(App):
             hours = float(self.config.get("day_hours", 6) or 6)
         except (ValueError, TypeError):
             hours = 6.0
+
+        def _on_buongiorno_done(result: str | None) -> None:
+            # "Piano giorno »": conferma avvenuta, apri la scheda operativa.
+            if result == "dayplan":
+                self.action_view_daily_plan()
+
         self.push_screen(
             PlanProposalScreen(
                 self.todos,
@@ -1539,7 +1545,8 @@ class TodoApp(App):
                 hours=hours,
                 on_window=self._save_day_window,
                 outlook_hooks=self._outlook_hooks(),
-            )
+            ),
+            _on_buongiorno_done,
         )
 
     def _save_day_window(self, payload: dict | None) -> None:
