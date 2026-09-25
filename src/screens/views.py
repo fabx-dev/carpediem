@@ -40,6 +40,7 @@ from src.models import (
     _status,
 )
 from src.planner import Planner, decide, primary_reason
+from src.planner.narrative import explain_decision
 from src.screens._shared import (
     CloseMixin,
     _agenda_due,
@@ -1276,6 +1277,13 @@ class DetailScreen(ModalScreen[str | None]):
             "constrained": T("why_constrained"),
         }.get(decision.decision, T("why_no_decision"))
         lines = [T("why_title"), label]
+        try:
+            story = explain_decision(decision)
+        except Exception:
+            story = None
+        if story is not None:
+            key, params = story
+            lines.append(T(key, **params))
         ev = decision.evidence or {}
         if ev.get("due"):
             lines.append(T("why_ev_due", d=ev["due"]))

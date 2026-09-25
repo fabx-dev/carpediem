@@ -898,9 +898,20 @@ Regole dure:
   possono consumare helper di LETTURA del dominio (precedente StatsScreen).
   Lezioni: `_row` modifica copre tutte le sezioni (un solo punto); il
   picker/`render_lines` serve per il no-wrap a 70 col; `s`/Esc coerenti
-  nelle due nuove screen; i test #51 scrivono via `save_todos_synced` +
+  nelle due nuove screen;   i test #51 scrivono via `save_todos_synced` +
   `append_execution` (la screen legge dallo storage, non da una lista
   locale).
+- **Why naturale (2026-09-25, fatto, 0.18.0)**: `src/planner/narrative.py`
+  puro (`explain_decision(decision)` → `(chiave_i18n, params) | None`,
+  7 template `why_story_*` it/en; solo lettura di decisione+reasons+
+  evidence, niente scoring, niente `T()` nel planner per il guardrail
+  purezza); `DetailScreen._why_lines` inserisce la frase sotto la label
+  Decisione e prima delle evidence (invariate, come `why_primary`/
+  `why_confidence`/`why_alt_*`); `story_keys()` + re-export nel boundary;
+  `tests/test_narrative.py` (14 puri) + 2 pilot in `test_detail_why.py`
+  (ordine decisione>story>evidence). Nome `narrative` fuori dalla
+  banned-list di `test_no_stadi_planner_in_views` (nessun ritocco
+  guardrail).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

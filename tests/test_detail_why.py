@@ -192,3 +192,69 @@ def test_why_oggi_reale_senza_today_esplicito(tmp_files):
     app = make_app([make_todo("A", todo_id=1, due=today)])
     plan = Planner(app.todos, today=today, hours=6.0).propose()
     assert decide(plan, app.todos)[0].decision == dec.SCHEDULED
+
+
+def test_why_story_sotto_decisione_prima_evidence(tmp_files):
+    # Decisione separata dalla spiegazione: story naturale subito sotto la
+    # label, prima delle evidence; motivo principale e confidenza invariati.
+    def t():
+        async def inner():
+            todos = []
+            for i in range(1, 11):
+                f = make_todo(f"F{i}", todo_id=100 + i, stima_pomo=2)
+                f.done = True
+                f.completed_at = "2026-09-12 10:00"
+                f.actual_pomo = 4
+                todos.append(f)
+            todos.append(make_todo("A", todo_id=1, stima_pomo=2, due=TODAY))
+            app = make_app(todos)
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[-1])
+                txt = screen_texts(app.screen)
+                story = T("why_story_sched_due_today")
+                assert story in txt
+                assert txt.index(T("why_scheduled")) < txt.index(story)
+                assert txt.index(story) < txt.index(
+                    T("why_ev_score", s=0, r=0, n=0)[:9]
+                )
+                assert T("plan_due_today") in txt  # motivo principale invariato
+                assert T("why_confidence", c="MEDIUM") in txt  # confidenza invariata
+
+        return inner()
+
+    run(t())
+
+
+def test_why_story_cut_e_deferred_in_detail(tmp_files):
+    def t():
+        async def inner():
+            app = make_app([make_todo(f"T{i}", todo_id=i) for i in range(1, 8)])
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[4], hours=1.0)
+                txt = screen_texts(app.screen)
+                assert T("why_story_cut") in txt
+                assert txt.index(T("why_not_scheduled")) < txt.index(T("why_story_cut"))
+                await pilot.press("escape")
+                await pilot.pause()
+
+        return inner()
+
+    run(t())
+
+    def t2():
+        async def inner():
+            app = make_app(
+                [make_todo("S", todo_id=1, plan_skip=TODAY), make_todo("A", todo_id=2)]
+            )
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[0])
+                txt = screen_texts(app.screen)
+                assert T("why_story_deferred") in txt
+                assert txt.index(T("why_deferred")) < txt.index(T("why_story_deferred"))
+
+        return inner()
+
+    run(t2())

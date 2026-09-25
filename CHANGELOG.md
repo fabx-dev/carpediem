@@ -6,6 +6,13 @@ Entries in English from now on.
 ## [Unreleased]
 
 ### Added
+- Natural-language Why explanations (M3 UX): the task Detail now shows a
+  short deterministic sentence under the decision (e.g. overdue, due
+  today, high priority, over capacity, deferred, constrained) produced by
+  a new pure `src/planner/narrative.py` layer (`explain_decision()`)
+  from the existing `PlanningDecision` reasons + evidence — no LLM, no
+  network, no scoring changes. Structured evidence, primary reason and
+  estimate confidence are unchanged below the sentence (it/en).
 - Planning Cockpit UX (#46, #47, #50, #51): the day plan row now shows a
   compact `!` for high priority, the planned duration (slot) or the
   estimate (`~N🍅`), and the due date even on planned/due tasks; the task
