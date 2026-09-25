@@ -69,6 +69,9 @@ class AgendaScreen(CloseMixin, ModalScreen[None]):
         height: 1fr;
         margin-bottom: 1;
     }
+    #agenda-hint {
+        height: auto;
+    }
     """
 
     BINDINGS = [Binding("escape", "close", "Chiudi")]
@@ -113,6 +116,7 @@ class AgendaScreen(CloseMixin, ModalScreen[None]):
                         if not _due_date_part(t.due) and t.priority == Priority.HIGH
                     ],
                 )
+            yield Static(T("due_hint"), id="agenda-hint")
             yield Button(T("ui_close_esc"), id="agenda-close", variant="default")
 
     def _section(self, title: str, todos: list[TodoItem]):
@@ -232,6 +236,9 @@ class WeekScreen(CloseMixin, ModalScreen[None]):
         height: 1fr;
         margin-bottom: 1;
     }
+    #week-hint {
+        height: auto;
+    }
     """
 
     BINDINGS = [Binding("escape", "close", "Chiudi")]
@@ -285,6 +292,7 @@ class WeekScreen(CloseMixin, ModalScreen[None]):
                             )
                     else:
                         yield Static("  [dim]-[/]")
+            yield Static(T("due_hint"), id="week-hint")
             yield Button(T("ui_close_esc"), id="week-close", variant="default")
 
     def on_mount(self) -> None:
@@ -1467,6 +1475,9 @@ class DayScreen(CloseMixin, ModalScreen[None]):
         color: $text-muted;
         margin-bottom: 1;
     }
+    #day-hint {
+        height: auto;
+    }
     """
 
     BINDINGS = [Binding("escape", "close", "Chiudi")]
@@ -1488,6 +1499,7 @@ class DayScreen(CloseMixin, ModalScreen[None]):
                         )
             else:
                 yield Static(T("day_empty"), id="day-empty")
+            yield Static(T("due_hint"), id="day-hint")
             yield Button(T("ui_close_esc"), id="day-close", variant="default")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -1591,7 +1603,9 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
         width: auto;
     }
     #calendar-legend {
-        margin-top: 1;
+        height: auto;
+    }
+    #cal-hint {
         height: auto;
     }
     """
@@ -1628,7 +1642,8 @@ class CalendarScreen(CloseMixin, ModalScreen[None]):
                     yield CalendarGrid(
                         self._render_grid(), self.year, self.month, id="calendar-grid"
                     )
-                yield Static(T("cal_legend"), id="calendar-legend")
+            yield Static(T("cal_legend"), id="calendar-legend")
+            yield Static(T("due_hint"), id="cal-hint")
             yield Button(T("ui_close_esc"), id="calendar-close", variant="default")
 
     def _render_grid(self) -> str:

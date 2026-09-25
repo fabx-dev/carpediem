@@ -941,6 +941,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "agenda_next": "Prossimi 7 giorni",
         "agenda_important": "Senza data importanti",
         "agenda_empty": "-",
+        "due_hint": "[dim]Vista scadenze (due) — il piano di oggi è [b]p[/][/]",
     },
     "en": {
         # Footer / visible keys
@@ -1691,6 +1692,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "agenda_next": "Next 7 days",
         "agenda_important": "Important without date",
         "agenda_empty": "-",
+        "due_hint": "[dim]Deadline view (due) — today's plan is [b]p[/][/]",
     },
 }
 
