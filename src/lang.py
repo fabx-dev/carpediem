@@ -588,7 +588,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "planp_events_bad": "[yellow]Righe evento ignorate: {t}[/]",
         "planp_event_tag": "IMPEGNO:",
         "planp_allday": "Tutto il giorno: {t}",
-        "planp_outlook_load": "Carica da Outlook [o]",
+        "planp_outlook_load": "Carica da Outlook",
         "planp_goto_day": "Piano giorno »",
         "n_outlook_need_lock": "Attiva prima la cifratura (Menu → Sistema → Sicurezza): senza lucchetto niente Outlook.",
         "n_outlook_loaded": "Outlook: {n} impegni, {a} tutto-il-giorno ({s} ignorati).",
@@ -1342,7 +1342,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "planp_events_bad": "[yellow]Ignored event lines: {t}[/]",
         "planp_event_tag": "COMMITMENT:",
         "planp_allday": "All day: {t}",
-        "planp_outlook_load": "Load from Outlook [o]",
+        "planp_outlook_load": "Load from Outlook",
         "planp_goto_day": "Day plan »",
         "n_outlook_need_lock": "Enable encryption first (Menu → System → Security): no Outlook without it.",
         "n_outlook_loaded": "Outlook: {n} events, {a} all-day ({s} skipped).",
@@ -1730,9 +1730,9 @@ KEY_SECTIONS: dict[str, tuple] = {
         (
             "POMODORO",
             (
-                ("o", "Avvia timer / apri popup (ovunque)"),
-                ("O", "Pausa / riprendi (ovunque)"),
-                ("X", "Completa subito (ovunque)"),
+                ("o", "Avvia timer (home e piano giorno)"),
+                ("O", "Pausa / riprendi (home e piano giorno)"),
+                ("X", "Completa subito (solo home)"),
                 ("p, x, 1/2/3", "Nel popup: pausa, completa, durata 15/25/50"),
             ),
         ),
@@ -1803,9 +1803,9 @@ KEY_SECTIONS: dict[str, tuple] = {
         (
             "POMODORO",
             (
-                ("o", "Start timer / open popup (anywhere)"),
-                ("O", "Pause / resume (anywhere)"),
-                ("X", "Complete now (anywhere)"),
+                ("o", "Start timer (home and day plan)"),
+                ("O", "Pause / resume (home and day plan)"),
+                ("X", "Complete now (home only)"),
                 ("p, x, 1/2/3", "In popup: pause, complete, 15/25/50 duration"),
             ),
         ),

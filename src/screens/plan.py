@@ -1338,7 +1338,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         Binding("escape", "close", "Chiudi"),
         Binding("ctrl+enter", "confirm", "Conferma", show=False),
         Binding("s", "confirm", "Conferma", show=False),
-        Binding("o", "load_outlook", "Outlook", show=False),
+        # Niente binding `o` qui: o = pomodoro (home/piano giorno), qui solo bottone.
     ]
 
     def __init__(
@@ -1673,7 +1673,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self._confirm()
 
     def _trigger_outlook_load(self) -> None:
-        """Bottone/binding `o`: fetch Outlook in thread (mai rete nel loop)."""
+        """Bottone Outlook (solo bottone, mai tasto): fetch in thread."""
         try:
             asyncio.create_task(self.action_load_outlook())
         except RuntimeError:

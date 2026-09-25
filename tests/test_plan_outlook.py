@@ -54,6 +54,15 @@ async def _open_buongiorno(pilot, app, hooks=None):
         app.screen.outlook_hooks = hooks
 
 
+async def _click_outlook(pilot, app):
+    """Bottone Outlook (sotto il fold): focus — scrolla in vista — + Enter."""
+    from textual.widgets import Button
+
+    app.screen.query_one("#planp-outlook", Button).focus()
+    await pilot.pause()
+    await pilot.press("enter")
+
+
 def test_merge_outlook_lines_puro():
     m = plan_mod.merge_outlook_lines
     assert m("", EVENTS) == "10:00-11:00 Riunione\n13:00-14:00 Pranzo"
@@ -71,7 +80,7 @@ def test_bottone_senza_hook_avviso(tmp_files):
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await _open_buongiorno(pilot, app)
-            await pilot.press("o")
+            await _click_outlook(pilot, app)
             await pilot.pause()
             assert type(app.screen).__name__ == "PlanProposalScreen"
 
@@ -93,7 +102,7 @@ def test_fetch_compila_e_conferma_persiste(tmp_files):
             scr.query_one("#planp-start", Input).value = "09:00"
             scr.query_one("#planp-end", Input).value = "18:00"
             await pilot.pause()
-            await pilot.press("o")
+            await _click_outlook(pilot, app)
             ok = await wait_for(
                 pilot, lambda: "Riunione" in scr.query_one("#planp-events").text
             )
@@ -125,7 +134,7 @@ def test_setup_needed_apre_config_e_annulla_non_scrive(tmp_files):
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await _open_buongiorno(pilot, app, hooks)
-            await pilot.press("o")
+            await _click_outlook(pilot, app)
             ok = await wait_for(
                 pilot, lambda: type(app.screen).__name__ == "OutlookSetupScreen"
             )
@@ -177,7 +186,7 @@ def test_setup_connect_salva_e_ricarica(tmp_files):
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await _open_buongiorno(pilot, app, hooks)
-            await pilot.press("o")
+            await _click_outlook(pilot, app)
             ok = await wait_for(
                 pilot, lambda: type(app.screen).__name__ == "OutlookSetupScreen"
             )
@@ -238,7 +247,7 @@ def test_setup_esc_chiude_attesa_e_listener(tmp_files):
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await _open_buongiorno(pilot, app, hooks)
-            await pilot.press("o")
+            await _click_outlook(pilot, app)
             ok = await wait_for(
                 pilot, lambda: type(app.screen).__name__ == "OutlookSetupScreen"
             )
