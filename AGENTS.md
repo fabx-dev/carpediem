@@ -912,6 +912,22 @@ Regole dure:
   (ordine decisione>story>evidence). Nome `narrative` fuori dalla
   banned-list di `test_no_stadi_planner_in_views` (nessun ritocco
   guardrail).
+- **Lotto 1 igiene UX (2026-09-25, fatto, 0.18.1)**: audit 41 screen +
+  proposta in due lotti; implementato il Lotto 1 in 5 commit. Footer con
+  `P/p/R/o` (CRUD `s/space/e/d` restano in Tasti/help, footer a 120 col
+  pieno ma senza clip); `C` = Pulisci filtri (eccezione mirata approvata
+  al divieto nuovi tasti, shortcut anche nel menu); `_detach_smart()`
+  con toast (revisione del "sgancio silenzioso" S2); hint `due_hint`
+  fisso in Agenda/Week/Day/Calendar (+ `cal_legend` fuori scroll);
+  bottone `planp_goto_day` (confirm + dismiss `"dayplan"`, l'app apre
+  DailyPlan via callback); `plan_replan_hint` solo con finestra attiva;
+  `o` tolto da Buongiorno (solo bottone Outlook, test via focus+Enter:
+  il bottone sta sotto il fold); `planp_legend` propria;
+  `#brief-close` FUORI dal gruppo close (l'id batte `.btn-row`, lezione
+  ri-imparata: il test Briefing l'ha beccato); `#pick-close` nel gruppo
+  B; `max-height` su plan/planp/stats; `#smart-name` fuori scroll
+  (+ snapshot senza margine per stare a 70x20). Split dei commit misti
+  col WIP presente nel tree: patch filtrata per contenuto + stash round-trip.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

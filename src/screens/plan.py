@@ -1802,7 +1802,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         except Exception:
             return set()
 
-    def _confirm(self, result=None) -> None:
+    def _confirm(self, result: str | None = None) -> None:
         # Solo additivo: aggiunge i selezionati, non toglie mai i pianificati.
         selected = self._selected_ids()
         n, r = domain.proposal_plan(self.all_todos, selected, self.today)

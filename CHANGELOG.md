@@ -5,6 +5,22 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Changed
+- UX hygiene pass (Lotto 1 of the screen audit): footer now shows the
+  day keys (`P` plan, `p` day plan, `R` closing, `o` pomodoro) instead of
+  only new/search/menu; new `C` shortcut clears all filters (menu,
+  palette and Tasti screen updated); manual filter touches toast the
+  smart-list detach instead of dropping it silently; Agenda/Week/Day/
+  Calendar carry a fixed "deadlines here, today's plan is p" hint
+  (Calendar legend moved out of the scroll); Buongiorno confirms and
+  jumps straight to the day plan via a new "Piano giorno »" button, and
+  the day plan hints at `P`/`G` replan when the day window is active;
+  Outlook loads from its button only (`o` stays pomodoro everywhere);
+  Briefing/Template/Archive share the standard button row, Buongiorno
+  has its own legend key, plan/day/morning boxes and stats honor
+  `max-height`, and the SmartList name field lives outside the scroll
+  so it never drops below the fold.
+
 ### Fixed
 - Day plan Enter gate: `Enter` on a plan row now opens the task Detail
   only for rows actually planned today (`planned` section,
