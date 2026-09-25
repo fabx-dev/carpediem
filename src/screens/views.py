@@ -490,12 +490,6 @@ class TemplateScreen(ModalScreen[tuple | None]):
         width: 100%;
         height: auto;
     }
-    #tpl-actions Button {
-        width: 1fr;
-        min-width: 12;
-        height: 3;
-        margin: 0 1;
-    }
     """
 
     BINDINGS = [
@@ -534,7 +528,7 @@ class TemplateScreen(ModalScreen[tuple | None]):
                             variant="error",
                             classes="tpl-del-btn",
                         )
-            with Horizontal(id="tpl-actions"):
+            with Horizontal(id="tpl-actions", classes="btn-row"):
                 yield Button(T("tpl_new"), id="tpl-new", variant="default")
                 yield Button(
                     T("tpl_fromproj"), id="tpl-from-project", variant="default"
@@ -1768,7 +1762,7 @@ class SmartListScreen(CloseMixin, ModalScreen[None]):
     }
     #smart-snapshot {
         height: auto;
-        margin-bottom: 1;
+        margin-bottom: 0;
     }
     #smart-name {
         margin-bottom: 1;
@@ -1858,8 +1852,10 @@ class SmartListScreen(CloseMixin, ModalScreen[None]):
                         yield Static(T("smart_empty"), id="smart-empty")
                 if len(self._lists) >= 10:
                     yield Static(T("smart_full"))
-                yield Static(self._snapshot, id="smart-snapshot")
-                yield Input(placeholder=T("smart_name_ph"), id="smart-name")
+            # Snapshot + nome FUORI dallo scroll (come #impcsv-path in
+            # ImportCsvScreen): con 10 liste l'input resterebbe sotto il fold.
+            yield Static(self._snapshot, id="smart-snapshot")
+            yield Input(placeholder=T("smart_name_ph"), id="smart-name")
             yield Static(T("smart_legend"), id="smart-legend")
             with Horizontal(id="smart-buttons", classes="btn-row"):
                 yield Button(T("smart_save"), id="smart-save", variant="default")

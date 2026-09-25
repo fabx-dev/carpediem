@@ -415,11 +415,13 @@ class TodoApp(App):
         margin-top: 1;
     }
     #agenda-close, #week-close, #tplp-close, #keys-close, #rst-close, #hea-close,
-    #workflow-close, #brief-close, #calpick-close, #wr-close {
+    #workflow-close, #calpick-close, #wr-close, #pick-close {
         width: 100%;
         min-width: 16;
         height: 3;
     }
+    /* #brief-close fuori dal gruppo: vive in una btn-row a 3 (l'id
+       batterebbe .btn-row e lo allargherebbe a tutta riga, vedi §4). */
     /* Righe bottone condivise (le screen con misure specifiche sovrascrivono). */
     .btn-row Button {
         width: 1fr;

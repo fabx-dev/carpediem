@@ -143,6 +143,7 @@ class StatsScreen(CloseMixin, ModalScreen[None]):
         width: 58;
         max-width: 92%;
         height: 90%;
+        max-height: 90%;
     }
     #stats-scroll {
         height: 1fr;
@@ -858,12 +859,6 @@ class ArchiveScreen(ModalScreen[tuple | None]):
         width: 100%;
         height: 3;
     }
-    #arc-actions Button {
-        width: 1fr;
-        min-width: 12;
-        height: 3;
-        margin: 0 1;
-    }
     """
 
     BINDINGS = [Binding("escape", "close", "Chiudi")]
@@ -886,7 +881,7 @@ class ArchiveScreen(ModalScreen[tuple | None]):
                         id=f"arc-{i}",
                         variant="default",
                     )
-            with Horizontal(id="arc-actions"):
+            with Horizontal(id="arc-actions", classes="btn-row"):
                 yield Button(T("arc_all"), id="arc-all", variant="default")
                 yield Button(T("ui_close_esc"), id="arc-close", variant="default")
 

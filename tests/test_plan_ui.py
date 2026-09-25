@@ -219,7 +219,7 @@ def test_buongiorno_mostra_contesto_e_motivi(tmp_files):
                 for o in app.screen.query_one("#planp-list", SelectionList)._options
             )
             assert _T("plan_overdue") in labels
-            assert _T("rev_legend") in txt  # legend: s salva, non conferma
+            assert _T("planp_legend") in txt  # legend: s salva, non conferma
             # cornice condivisa: bottoni dentro il box
             box = app.screen.query_one("#planp-box").region
             for bid in ("#planp-confirm", "#planp-close"):
@@ -405,9 +405,8 @@ def test_bottone_piano_giorno_conferma_e_apre(tmp_files):
             from textual.widgets import Button
 
             # screen_texts ignora i bottoni: il cross-link vive sul widget.
-            assert (
-                str(app.screen.query_one("#planp-day", Button).label)
-                == _T("planp_goto_day")
+            assert str(app.screen.query_one("#planp-day", Button).label) == _T(
+                "planp_goto_day"
             )
             await pilot.click("#planp-day")
             await pilot.pause()

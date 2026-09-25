@@ -335,6 +335,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         width: 80;
         max-width: 95%;
         height: 90%;
+        max-height: 90%;
     }
     #plan-title {
         text-align: center;
@@ -1274,6 +1275,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         width: 100;
         max-width: 95%;
         height: 90%;
+        max-height: 90%;
     }
     #planp-context {
         height: auto;
@@ -1631,7 +1633,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                     T("planp_outlook_load"), id="planp-outlook", variant="default"
                 )
                 yield Static(self._slot_lines(), id="planp-slots")
-            yield Static(T("rev_legend"), id="planp-legend")
+            yield Static(T("planp_legend"), id="planp-legend")
             with Horizontal(id="planp-buttons", classes="btn-row"):
                 yield Button(T("form_save"), id="planp-confirm", variant="default")
                 yield Button(T("planp_goto_day"), id="planp-day", variant="default")
@@ -1831,10 +1833,6 @@ class BriefingScreen(CloseMixin, ModalScreen[str | None]):
         height: 3;
         margin-top: 1;
     }
-    #brief-buttons Button {
-        width: 1fr;
-        height: 3;
-    }
     #brief-hint {
         height: auto;
         margin-top: 1;
@@ -1998,7 +1996,7 @@ class BriefingScreen(CloseMixin, ModalScreen[str | None]):
                     )
                     first = False
             yield Static(T("brief_e_hint"), id="brief-hint")
-            with Horizontal(id="brief-buttons"):
+            with Horizontal(id="brief-buttons", classes="btn-row"):
                 yield Button(T("brief_print"), id="brief-print", variant="default")
                 yield Button(T("brief_goto"), id="brief-goto", variant="default")
                 yield Button(T("ui_close_esc"), id="brief-close", variant="default")
