@@ -5,6 +5,15 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Fixed
+- Day plan Enter gate: `Enter` on a plan row now opens the task Detail
+  only for rows actually planned today (`planned` section,
+  `planned_for == today` and active). Rows from the due/overdue/upcoming/
+  unplanned sections (including skipped/deferred tasks) no longer open a
+  Detail with a misleading "scheduled today" Why context; they show the
+  standard not-applicable notice instead. Click behavior unchanged
+  (moves highlight only). Other screens opening the Detail are unchanged.
+
 ### Added
 - Natural-language Why explanations (M3 UX): the task Detail now shows a
   short deterministic sentence under the decision (e.g. overdue, due

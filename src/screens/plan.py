@@ -309,11 +309,12 @@ def _timeline_lines(
 
 
 class PlanListView(ListView):
-    """Lista del piano: Enter apre il dettaglio, il click sposta solo l'highlight.
+    """Lista del piano: Enter apre il dettaglio (solo righe pianificate).
 
     ListView binda Enter a select_cursor (ombra i binding della screen) ed emette
     Selected anche al click: per questo Enter e' ribindato qui a un dispatch verso
-    la screen, mentre il click resta invariato (nessun handler Selected).
+    la screen, mentre il click resta invariato (sposta solo l'highlight, nessun
+    handler Selected). La screen apre il Detail solo per la sezione "planned".
     """
 
     BINDINGS = [
@@ -759,13 +760,20 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         self.notify(T("n_plan_rm_none"), severity="warning")
 
     def action_view_detail(self) -> None:
-        """Enter: dettaglio del task con possibilita' di modifica (come home)."""
+        """Enter: dettaglio solo se effettivamente pianificato oggi.
+
+        Le sezioni due/overdue/upcoming/unplanned non sono in piano: aprirne
+        il Detail mostrerebbe un contesto Why ricalcolato ("Pianificato
+        oggi") incoerente con lo stato reale. Il gate riusa la sezione della
+        riga + lo stesso predicato di _planned_todos (lettura di stato, mai
+        logica di planning): niente scoring/scheduler duplicati.
+        """
         tid, section = self._current()
-        if tid is None:
+        if tid is None or section != "planned":
             self.notify(T("n_plan_noop"), severity="warning")
             return
         todo = self._todo_by_id(tid)
-        if todo is None:
+        if todo is None or todo.planned_for != self.today or todo.state != "attivo":
             self.notify(T("n_plan_noop"), severity="warning")
             return
         # Import locale: evita dipendenze tra aree screen all'import.
