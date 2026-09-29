@@ -5,6 +5,14 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Changed
+- `AGENTS.md` §6: replaced the "sandbox cannot push (SSH without
+  passphrase)" note with the verified cause (no controlling terminal, so
+  `ssh` cannot prompt and skips the key) and added the release gate rule
+  (`publish.yml` triggers on `release: published`, not on push, so the CI
+  must be green before tagging). Developer documentation only, no code
+  change.
+
 ## [0.18.2] - 2026-09-29
 
 ### Added

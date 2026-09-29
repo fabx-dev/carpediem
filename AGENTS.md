@@ -179,10 +179,28 @@ Regole dure:
 ## 6. Git e CI
 
 - Commit piccoli e descrittivi in inglese (stile log esistente). Mai `--force`/push da sandbox.
-- **La sandbox NON può pushare** (SSH senza passphrase): commit in locale, l'utente pusha dal
-  suo terminale con `git push origin main`, poi si ricontrolla la CI con `gh run list`.
-- CI (`.github/workflows/ci.yml`): `ruff check` + `ruff format --check` + pytest su 3.12/3.13.
-  Lezione: un push è fallito solo per `ruff format` mai lanciato in locale — correrlo sempre.
+- **La sandbox NON può pushare**, per una ragione precisa: la chiave SSH è protetta da
+  passphrase e non gira alcun `ssh-agent`, quindi **senza terminale di controllo `ssh` non
+  può chiedere la passphrase**, scarta `~/.ssh/id_ed25519` e chiude con
+  `Permission denied (publickey)` senza stampare prompt. Non è un problema di chiave non
+  registrata né di permessi sul repo: verificato il 2026-09-29 che il blob pubblico locale
+  coincide con la chiave registrata su GitHub e che `ssh -vT` con pseudo-terminale mostra
+  `Server accepts key` seguito da `Enter passphrase`. Conclusione: commit in locale, poi
+  l'utente pusha dal suo terminale con `git push origin main`. Nota WSL: l'agent vive solo
+  in RAM, `wsl --shutdown` lo azzera, e in questo ambiente non c'è `~/.ssh/config` né
+  righe in `~/.bashrc` che lo ricreino — digitare la passphrase a ogni push è il metodo
+  collaudato. Non "risolvere" il sintono con chiavi senza passphrase.
+- **Controllare la CI prima di creare una release**: `publish.yml` parte da
+  `release: published`, NON dal push, quindi un tag creato a CI rossa pubblica su PyPI
+  (`trusted publishing` OIDC; `publish-testpypi` resta `skipped`). Sequenza corretta:
+  push → `gh run view <id>` tutti `success` → `gh release create`. Verificato il
+  2026-09-29 con `v0.18.2` (CI 9m37s su 3 job, publish 0.5s: `build` + `publish-pypi`).
+  Dopo la creazione, controllare l'upload su PyPI via API (l'API JSON è la prova, non il
+  workflow verde).
+- CI (`.github/workflows/ci.yml`): `ruff check` + `ruff format --check` + `mypy src/` +
+  pytest su 3.12/3.13 (job `test` in matrice) e su Windows 3.13; il job Linux aggiunge
+  `--cov-fail-under=75`. Lezione: un push è fallito solo per `ruff format` mai lanciato
+  in locale — correrlo sempre.
 - Split di commit misti: classificare hunk per marker (occhio alle righe di contesto vuote nei
   diff, che non hanno prefisso e sballano i conteggi) e validare con round-trip
   stash → apply → commit → md5 dei file. `git apply --check` su un diff del working tree
