@@ -928,7 +928,7 @@ Regole dure:
   B; `max-height` su plan/planp/stats; `#smart-name` fuori scroll
   (+ snapshot senza margine per stare a 70x20). Split dei commit misti
   col WIP presente nel tree: patch filtrata per contenuto + stash round-trip.
-- **Lotto 2 — Why onesta e gerarchia (2026-09-25, fatto)**: due
+- **Lotto 2 — Why onesta e gerarchia (2026-09-25, fatto, 0.18.2)**: due
   difetti di onestà della card Why più il Layout. (a) Il Detail mostrava
   "Nel piano di oggi" anche per task mai confermati oggi (`planned_for`
   stale di ieri): `_why_lines` distingue ora proposta da piano reale con
