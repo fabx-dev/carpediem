@@ -2,6 +2,27 @@
 
 Hobby project, Italian-first. Issues in Italian or English welcome.
 
+## Issues: only real user reports
+
+**This repository's GitHub Issues is for user-facing bug reports and feature
+requests from people who actually use CarpeDiem.**
+
+Until September 2026 the issue tracker held the project's own development plan
+(issues #1–#53, the M1–M6 milestones). Those were created by the maintainer to
+drive the work, not reported by users, and they were closed in a single triage
+against the real code. Only #6 (the M6 umbrella) and #43 (the missing
+*temporal fit*) remain open, and they are maintainer-owned.
+
+So please do not treat the open issue count as a roadmap, and do not file a
+planning issue. The development plan is tracked in `AGENTS.md` §9, the
+milestone status in §9.12, and every user-visible change in `CHANGELOG.md`.
+
+What belongs in Issues:
+
+- something the app does wrong, with the version, the language and steps;
+- a workflow you cannot complete with the current UI or keys;
+- a data-loss or privacy problem (these are treated as urgent).
+
 ## Setup
 
 ```bash
@@ -47,3 +68,12 @@ scoring, capacity or scheduling, and production code never calls legacy
 - New dependencies without discussion (offline-first, lean install).
 - Features that break the JSON formats without migration + tests.
 - AI/network calls in the default path (opt-in only, mocked in tests).
+
+## Planning features
+
+Open a discussion (or read the existing plan) **before** writing the code if a
+change touches the planner. The project's rule is that scoring, constraints and
+capacity move one at a time, each with its own tests, and that the planner stays
+pure, deterministic and explainable — no Textual, no I/O, no network. A patch
+that changes what the planner decides without a deterministic fixture or an
+equivalence test will be asked to grow one.

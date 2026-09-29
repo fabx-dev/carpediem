@@ -963,6 +963,16 @@ Regole dure:
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
+- **Debito CHANGELOG (2026-09-25, preesistente, non fatto)**: le sezioni
+  dated del CHANGELOG si fermano a **0.14.0**, mentre `pyproject.toml` e'
+  gia' a 0.18.x: tutto quello che documenta 0.15.0 → 0.18.2 sta ancora dentro
+  `[Unreleased]`. Non e' un problema introdotto dal WIP (verificato a HEAD:
+  `git show HEAD:CHANGELOG.md` ha la stessa forma) e non e' stato corretto
+  perche' richiederebbe di attribuire ogni bullet alla versione giusta, cioe'
+  un giudizio storico. Se lo si sistema: chiudere le sezioni 0.15.0 → 0.18.2
+  con le date gia' presenti in questo file (§7) e rimettere sotto
+  `[Unreleased]` solo il lavoro non ancora rilasciato.
+
 - **Lancio/visibilita'** (discusso 2026-09-14, in attesa): testi annuncio it/en pronti
   in chat + screenshot per lingua; r/commandline bloccato (progetti <30 giorni
   rimossi + regola 8 alternative + disclosure AI) — candidati ora: r/tui,
@@ -1388,3 +1398,28 @@ matematica in `domain`); `capacity.estimate` riusa `domain`;
 > Nota: **non** spostare una fase su "In progress"/"Done" finché l'implementazione
 > non esiste davvero nel codice e i test non passano. La tabella va aggiornata
 > nella stessa commit che realizza la fase.
+
+### 9.12 Stato delle milestone M (audit 2026-09-25)
+
+Le issue GitHub (#1–#53) erano un piano di lavoro, non segnalazioni utente:
+erano state create dallo sviluppatore per guidare le milestone M1–M6. Il
+triage del 2026-09-25 le ha verificate una a una contro il codice reale e ha
+chiuso 51 su 53. **Da quel momento GitHub Issues contiene solo segnalazioni
+degli utenti** (vedi `CONTRIBUTING.md`); le milestone si tracciano qui e in
+`CHANGELOG.md`.
+
+| Milestone | Stato | Dove vive |
+| --- | --- | --- |
+| M1 Planning Foundation | Done | `tests/test_planner_contract.py`, `_fixtures.py`, `_perf.py`; guardrail in `test_arch.py` |
+| M2 Task Reality | Done | `src/domain.py` (`TaskExecution`, `execution_summary`), `src/storage.py` (`EXECUTIONS_FILE`) |
+| M3 Explainable Planner | Done | `src/planner/decisions.py` + `narrative.py`; card Why in `DetailScreen` |
+| M4 Replanning | Done | `src/planner/replan.py`, `domain.apply_replan`, `ReplanPreviewScreen` (`G`), CLI `carpediem replan` |
+| M5 Calendar & Intelligence | Done | `FixedEvent`/`events_to_busy` in `src/planner/`, `day_window` in config, `WeekReviewScreen` (`W`) |
+| M6 Personal Time Model | **Parziale** | calibrazione e storico fatti; il *temporal fit* manca → #43 resta aperta |
+| M6 Decomposition | Not planned | #44 chiusa: modello di stima non pronto, in conflitto con la direzione del progetto |
+| M6 AI Layer | Not planned | #45 chiusa per scelta architetturale (§9.1: nessun AI/LLM nel percorso di pianificazione) |
+
+La epic #6 resta aperta come umbrella M6 finché #43 non è chiusa (o abbandonata
+con decisione documentata). Nota le tre famiglie duplicate che avevano le
+issue #7–#20, #21–#30, #31–#40: erano la stessa roadmap ripetuta tre volte,
+ora tutte chiuse.
