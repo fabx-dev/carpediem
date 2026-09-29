@@ -7,11 +7,20 @@ messaggio esplicito per stato; coerenza Planner/Detail a parita' di
 
 from datetime import datetime
 
+from textual.widgets import Label
+
 import src.planner.decisions as dec
 from src.lang import T
 from src.planner import Planner, decide
 from src.screens.views import DetailScreen
-from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
+from tests.conftest import (
+    label_texts,
+    make_app,
+    make_todo,
+    run,
+    screen_texts,
+    wait_for,
+)
 
 TODAY = "2026-09-10"
 
@@ -23,25 +32,110 @@ async def _open_detail(pilot, app, todo, today=TODAY, hours=6.0):
     assert type(app.screen).__name__ == "DetailScreen"
 
 
-def test_why_scheduled_con_evidence_e_motivo(tmp_files):
+def _why_block_labels(screen, label_text, story_text):
+    """Etichette della card Why fra decisione e Dettagli (struttura DOM).
+
+    Invariante di gerarchia del Lotto 2: etichetta di decisione, POI una
+    sola riga (la story) e subito la sezione Dettagli. Nessuna riga-bandiera
+    in mezzo (overdue/mandatory/capacita' duplicati): e' il controllo
+    strutturale che sostituisce le vecchie asserzioni negative su chiavi i18n
+    rimosse, che sarebbero vacue perche' `T()` cade sul nome della chiave.
+
+    Sul DOM e non su `screen_texts()`: quello joina le Label con uno spazio,
+    quindi ogni riga finirebbe sulla stessa stringa e l'ordine sarebbe
+    indistinguibile.
+    """
+    texts = label_texts(screen)
+    i = next((n for n, t in enumerate(texts) if label_text in t), None)
+    k = next((n for n, t in enumerate(texts) if T("why_sec_details") in t), None)
+    assert i is not None, f"etichetta di decisione assente: {label_text!r}"
+    assert k is not None and k > i, "sezione Dettagli assente o prima della decisione"
+    between = texts[i + 1 : k]
+    assert len(between) == 1, (
+        f"fra decisione e Dettagli una sola riga (la story), trovate {between!r}"
+    )
+    assert story_text in between[0], f"riga intermedia non e' la story: {between[0]!r}"
+    return between
+
+
+def test_why_nessuna_riga_bandiera_in_mezzo_pianificato(tmp_files):
+    """Fra etichetta di decisione e Dettagli c'e' solo la story, niente bandiere."""
+
     def t():
         async def inner():
-            app = make_app([make_todo("A", todo_id=1, due="2026-09-01", stima_pomo=2)])
+            app = make_app(
+                [
+                    make_todo(
+                        "A",
+                        todo_id=1,
+                        due="2026-09-01",
+                        stima_pomo=2,
+                        planned_for=TODAY,
+                    )
+                ]
+            )
             async with app.run_test(size=(120, 40)) as pilot:
                 await pilot.pause()
                 await _open_detail(pilot, app, app.todos[0])
-                txt = screen_texts(app.screen)
-                assert T("why_title") in txt
-                assert T("why_scheduled") in txt
-                assert "2026-09-01" in txt  # evidence due reale
-                assert T("plan_overdue") in txt  # motivo principale reale
+                _why_block_labels(
+                    app.screen, T("why_scheduled"), T("why_story_sched_overdue")
+                )
 
         return inner()
 
     run(t())
 
 
-def test_why_not_scheduled_con_alternativa(tmp_files):
+def test_why_nessuna_riga_bandiera_in_mezzo_tagliato(tmp_files):
+    """Idem sul lato cut, dove il recap capacita' era la riga eliminata."""
+
+    def t():
+        async def inner():
+            app = make_app([make_todo("Z", todo_id=9, stima_pomo=9)])
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[0], hours=1.0)
+                _why_block_labels(
+                    app.screen, T("why_not_scheduled"), T("why_story_cut")
+                )
+
+        return inner()
+
+    run(t())
+
+
+def test_why_scheduled_con_evidence_e_motivo(tmp_files):
+    def t():
+        async def inner():
+            app = make_app(
+                [
+                    make_todo(
+                        "A",
+                        todo_id=1,
+                        due="2026-09-01",
+                        stima_pomo=2,
+                        planned_for=TODAY,
+                    )
+                ]
+            )
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[0])
+                txt = screen_texts(app.screen)
+                assert T("why_scheduled") in txt
+                assert T("why_story_sched_overdue") in txt
+                assert T("why_sec_details") in txt
+                assert "2026-09-01" in txt  # evidence due reale
+                assert T("plan_overdue") in txt  # motivo principale reale
+                # nessuna riga-flag duplicata: la story le sintetizza
+                # (invariante strutturale in test_why_nessuna_riga_bandiera_in_mezzo)
+
+        return inner()
+
+    run(t())
+
+
+def test_why_not_scheduled_story_neutra(tmp_files):
     def t():
         async def inner():
             app = make_app([make_todo(f"T{i}", todo_id=i) for i in range(1, 8)])
@@ -51,7 +145,8 @@ def test_why_not_scheduled_con_alternativa(tmp_files):
                 txt = screen_texts(app.screen)
                 assert T("why_not_scheduled") in txt
                 assert T("plan_cut") in txt
-                assert T("why_alt_cut", e=1, c="2", r=5, n=7) in txt
+                assert T("why_story_cut") in txt  # wording neutro, mai capacita'
+                assert T("why_sec_details") in txt
 
         return inner()
 
@@ -134,7 +229,9 @@ def test_legacy_default_senza_contesto(tmp_files):
                 await pilot.pause()
                 assert type(app.screen).__name__ == "DetailScreen"
                 txt = screen_texts(app.screen)
-                assert T("why_scheduled") in txt or T("why_no_decision") in txt
+                # Task mai pianificato ma proponibile: la card e' onesta
+                # (proposta, non finto "in piano").
+                assert T("why_proposed") in txt
 
         return inner()
 
@@ -149,7 +246,7 @@ def test_esc_e_reasons_vuote_senza_crash(tmp_files):
                 await pilot.pause()
                 await _open_detail(pilot, app, app.todos[0])
                 ok = await wait_for(
-                    pilot, lambda: T("why_title") in screen_texts(app.screen)
+                    pilot, lambda: T("why_sec_details") in screen_texts(app.screen)
                 )
                 assert ok
                 await pilot.press("escape")
@@ -206,7 +303,9 @@ def test_why_story_sotto_decisione_prima_evidence(tmp_files):
                 f.completed_at = "2026-09-12 10:00"
                 f.actual_pomo = 4
                 todos.append(f)
-            todos.append(make_todo("A", todo_id=1, stima_pomo=2, due=TODAY))
+            todos.append(
+                make_todo("A", todo_id=1, stima_pomo=2, due=TODAY, planned_for=TODAY)
+            )
             app = make_app(todos)
             async with app.run_test(size=(120, 40)) as pilot:
                 await pilot.pause()
@@ -258,3 +357,159 @@ def test_why_story_cut_e_deferred_in_detail(tmp_files):
         return inner()
 
     run(t2())
+
+
+def test_why_proposed_con_planned_for_stale(tmp_files):
+    # Task pianificato IERI e mai confermato oggi: la card non deve dire
+    # "Nel piano di oggi" (il bug segnalato), ma proposta onesta con
+    # reasons/evidence/motivo invariati.
+    def t():
+        async def inner():
+            stale = "2026-09-09"
+            app = make_app(
+                [make_todo("V", todo_id=1, due=TODAY, stima_pomo=2, planned_for=stale)]
+            )
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[0])
+                txt = screen_texts(app.screen)
+                assert T("why_proposed") in txt
+                assert T("why_story_prop_due_today") in txt
+                assert T("why_scheduled") not in txt
+                assert T("why_story_sched_due_today") not in txt
+                assert T("plan_due_today") in txt  # motivo principale invariato
+                assert TODAY in txt  # evidence invariata
+
+        return inner()
+
+    run(t())
+
+
+def test_why_proposed_mai_pianificato_vs_scheduled_in_piano(tmp_files):
+    def t():
+        async def inner():
+            app = make_app(
+                [
+                    make_todo("N", todo_id=1, due=TODAY),
+                    make_todo("P", todo_id=2, due=TODAY, planned_for=TODAY),
+                ]
+            )
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[0])
+                txt = screen_texts(app.screen)
+                assert T("why_proposed") in txt
+                assert T("why_scheduled") not in txt
+                await pilot.press("escape")
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[1])
+                txt2 = screen_texts(app.screen)
+                assert T("why_scheduled") in txt2
+                assert T("why_proposed") not in txt2
+
+        return inner()
+
+    run(t())
+
+
+def test_why_story_va_a_capo_senza_clip(tmp_files):
+    # Le Label del Detail riempiono la cornice (width 1fr): le story lunghe
+    # vanno a capo invece di sbordare tagliate al bordo (bug: `width: auto`,
+    # che e' il default proprio di Label -> riga singola da 90 col in box
+    # da 60).
+
+    async def check(size):
+        app = make_app(
+            [make_todo("P", todo_id=1, due=TODAY, stima_pomo=2, planned_for=TODAY)]
+        )
+        async with app.run_test(size=size) as pilot:
+            await pilot.pause()
+            await _open_detail(pilot, app, app.todos[0])
+            box_w = app.screen.query_one("#detail-box").region.width
+            story = None
+            for w, text in zip(app.screen.query(Label), label_texts(app.screen)):
+                assert w.region.width <= box_w, (size, text[:50])
+                if T("why_story_sched_due_today") in text:
+                    story = w
+            assert story is not None
+            assert story.region.height >= 2, (size, story.region)
+
+    def t():
+        async def inner():
+            await check((120, 40))
+            await check((70, 20))
+
+        return inner()
+
+    run(t())
+
+
+def test_why_senza_duplicazioni(tmp_files):
+    # Decisione, story, Dettagli e motivo dicono cose diverse: la story
+    # compare una sola volta, mai bandiere doppie, mai heading Perché:.
+    def t():
+        async def inner():
+            app = make_app(
+                [
+                    make_todo(
+                        "A",
+                        todo_id=1,
+                        due="2026-09-01",
+                        stima_pomo=2,
+                        planned_for=TODAY,
+                    )
+                ]
+            )
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[0])
+                txt = screen_texts(app.screen)
+                story = T("why_story_sched_overdue")
+                assert txt.count(story) == 1
+                assert T("why_sec_details") in txt
+                assert T("why_scheduled") in txt
+                assert T("why_scheduled") != story
+
+        return inner()
+
+    run(t())
+
+
+def test_detail_usa_decisions_senza_ricalcolo(tmp_files, monkeypatch):
+    # Percorso normale (§12): decisions precalcolate, Planner mai toccato.
+    import src.screens.views as views_mod
+
+    calls = []
+    orig_propose = views_mod.Planner.propose
+
+    def counting(self):
+        calls.append(1)
+        return orig_propose(self)
+
+    monkeypatch.setattr(views_mod.Planner, "propose", counting)
+
+    async def inline():
+        app = make_app([make_todo("A", todo_id=1, due=TODAY, planned_for=TODAY)])
+        precomputed = views_mod.plan_decisions(app.todos, TODAY, 6.0)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            # baseline DOPO il mount: l'oggetto del test e' "il Detail non
+            # ricalcola", non "l'app non usa mai il planner" (un consumer
+            # futuro dell'home romperebbe il test per il motivo sbagliato).
+            n_calls = len(calls)
+            app.push_screen(
+                DetailScreen(
+                    app.todos[0],
+                    app.todos,
+                    today=TODAY,
+                    hours=6.0,
+                    decisions=precomputed,
+                )
+            )
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DetailScreen"
+            assert T("why_scheduled") in screen_texts(app.screen)
+            assert len(calls) == n_calls
+
+    run(inline())

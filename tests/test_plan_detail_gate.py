@@ -65,8 +65,9 @@ def test_enter_su_pianificato_apre_detail_con_why_e_cockpit(tmp_files):
             await pilot.pause()
             assert type(app.screen).__name__ == "DetailScreen"
             txt = screen_texts(app.screen)
-            assert T("why_title") in txt
             assert T("why_scheduled") in txt
+            assert T("why_proposed") not in txt
+            assert T("why_sec_details") in txt
             factor = domain.calibration_factor(app.todos)
             cd = domain.predicted_minutes(60, factor)
             assert T("cockpit_ear_row", tu="60m", cd=f"{cd}m", re="—") in txt

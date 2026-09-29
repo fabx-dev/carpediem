@@ -1,6 +1,7 @@
 """Viste di lettura, template, import, pomodoro, kanban, dettaglio, giorno, calendario. Dipendono solo da models/storage/lang/nlparse/plan/domain (+ _shared). Mai app."""
 
 import calendar
+import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -39,8 +40,17 @@ from src.models import (
     _pomo_label,
     _status,
 )
-from src.planner import Planner, decide, primary_reason
-from src.planner.narrative import explain_decision
+from src.planner import (
+    CONSTRAINED,
+    DEFERRED,
+    NOT_SCHEDULED,
+    SCHEDULED,
+    Planner,
+    PlanningDecision,
+    decide,
+    primary_reason,
+)
+from src.planner.narrative import explain_decision, explain_proposed
 from src.screens._shared import (
     CloseMixin,
     _agenda_due,
@@ -1069,6 +1079,9 @@ class PomodoroScreen(CloseMixin, ModalScreen[None]):
         self._refresh()
 
 
+_log = logging.getLogger(__name__)
+
+
 class KanbanScreen(CloseMixin, ModalScreen[None]):
     """Board kanban Attivo / Sospeso / Completato."""
 
@@ -1163,6 +1176,35 @@ class KanbanScreen(CloseMixin, ModalScreen[None]):
             pass
 
 
+def plan_decisions(
+    all_todos: list[TodoItem], today: str | None, hours: float
+) -> tuple[PlanningDecision, ...]:
+    """Decisioni del planner per il contesto dato (condiviso, mai eccezioni).
+
+    Unico punto di calcolo consumato sia dal Detail (fallback quando il
+    chiamante non passa `decisions`) sia dai caller che precalcolano:
+    a parita' di (todos, today, hours) un solo risultato, mai ricalcoli
+    multipli per navigazione. Mai scoring duplicato: delega al boundary.
+    Fallimento loggato, non silenzioso: `()` renderebbe la card Why
+    indistinguibile da "task non valutato" (lezione §7 radar loggato).
+    """
+    try:
+        plan = Planner(all_todos, today=today, hours=hours).propose()
+    except Exception:
+        _log.exception("plan_decisions: propose() fallito")
+        return ()
+    try:
+        sample_count = _domain.calibration_samples(all_todos)
+    except Exception:
+        _log.exception("plan_decisions: calibration_samples() fallito")
+        sample_count = None
+    try:
+        return decide(plan, all_todos, sample_count=sample_count)
+    except Exception:
+        _log.exception("plan_decisions: decide() fallito")
+        return ()
+
+
 class DetailScreen(ModalScreen[str | None]):
     """Screen to show todo details including notes and subtasks."""
 
@@ -1187,6 +1229,10 @@ class DetailScreen(ModalScreen[str | None]):
     #detail-scroll {
         height: 1fr;
     }
+    #detail-scroll Label {
+        width: 1fr;
+        height: auto;
+    }
     #detail-subtasks-label {
         margin-top: 1;
     }
@@ -1208,6 +1254,7 @@ class DetailScreen(ModalScreen[str | None]):
         all_todos: list[TodoItem],
         today: str | None = None,
         hours: float = 6.0,
+        decisions: tuple[PlanningDecision, ...] | None = None,
     ) -> None:
         super().__init__()
         self.todo = todo
@@ -1221,6 +1268,10 @@ class DetailScreen(ModalScreen[str | None]):
             self.hours = max(1.0, float(hours))
         except (ValueError, TypeError):
             self.hours = 6.0
+        # Contesto precalcolato dal chiamante (via plan_decisions): percorso
+        # normale, niente ricalcoli in navigazione. None = fallback di
+        # compatibilita' (ricalcolo on-demand, stessi input del chiamante).
+        self._decisions = decisions
 
     def _get_subtasks(self, parent_id: int | None) -> list[TodoItem]:
         return [t for t in self.all_todos if t.parent_id == parent_id]
@@ -1245,24 +1296,21 @@ class DetailScreen(ModalScreen[str | None]):
         return result
 
     def _why_lines(self) -> list[str]:
-        """Righe Why da PlanningDecision (M3): decisione, evidence, motivo.
+        """Righe Why: decisione, story naturale, Dettagli, motivo, confidenza.
 
-        Legge Planner.propose()+decide() on-demand sullo stesso contesto
-        (todos, today, hours) del flusso principale: mai scoring duplicato,
-        mai motivi inventati, mai eccezioni verso il compose.
+        Niente heading "Perché:" (la story e' la risposta), niente righe
+        bandiera duplicate (la story le sintetizza), niente alternative
+        ridondanti coi Dettagli (resta solo il rimando "riproposto domani"
+        per i deferred, informazione non altrimenti presente). Consuma le
+        decisions del chiamante o il fallback condiviso: mai scoring
+        duplicato, mai motivi inventati, mai eccezioni verso il compose.
+        La label distingue proposta da piano reale con lo stesso predicato
+        di _planned_todos (lettura di stato, mai planning).
         """
-        try:
-            plan = Planner(self.all_todos, today=self.today, hours=self.hours).propose()
-        except Exception:
-            return []
-        try:
-            sample_count = _domain.calibration_samples(self.all_todos)
-        except Exception:
-            sample_count = None
-        try:
-            decisions = decide(plan, self.all_todos, sample_count=sample_count)
-        except Exception:
-            return []
+        if self._decisions is None:
+            decisions = plan_decisions(self.all_todos, self.today, self.hours)
+        else:
+            decisions = self._decisions
         decision = next((d for d in decisions if d.todo_id == self.todo.id), None)
         if decision is None:
             if self.todo.state == "completato":
@@ -1272,25 +1320,42 @@ class DetailScreen(ModalScreen[str | None]):
             if self.todo.id is None:
                 return [T("why_no_decision_other")]
             return [T("why_no_decision")]
-        label = {
-            "scheduled": T("why_scheduled"),
-            "not_scheduled": T("why_not_scheduled"),
-            "deferred": T("why_deferred"),
-            "constrained": T("why_constrained"),
-        }.get(decision.decision, T("why_no_decision"))
-        lines = [T("why_title"), label]
         try:
-            story = explain_decision(decision)
+            effective = self.today or datetime.now().strftime("%Y-%m-%d")
         except Exception:
-            story = None
+            effective = self.today or ""
+        in_plan = (self.todo.planned_for or "") == effective and (
+            self.todo.state == "attivo"
+        )
+        proposed_only = decision.decision == SCHEDULED and not in_plan
+        if proposed_only:
+            lines = [T("why_proposed")]
+            try:
+                story = explain_proposed(decision)
+            except Exception:
+                story = None
+        else:
+            lines = [
+                {
+                    SCHEDULED: T("why_scheduled"),
+                    NOT_SCHEDULED: T("why_not_scheduled"),
+                    DEFERRED: T("why_deferred"),
+                    CONSTRAINED: T("why_constrained"),
+                }.get(decision.decision, T("why_no_decision"))
+            ]
+            try:
+                story = explain_decision(decision)
+            except Exception:
+                story = None
         if story is not None:
             key, params = story
             lines.append(T(key, **params))
+        lines.append(T("why_sec_details"))
         ev = decision.evidence or {}
         if ev.get("due"):
             lines.append(T("why_ev_due", d=ev["due"]))
         if ev.get("priority"):
-            lines.append(T("why_ev_prio", p=ev["priority"]))
+            lines.append(T("why_ev_prio", p=prio_disp(ev["priority"])))
         lines.append(
             T(
                 "why_ev_score",
@@ -1313,27 +1378,13 @@ class DetailScreen(ModalScreen[str | None]):
                 p=ev.get("planned_pomo", 0),
             )
         )
-        if ev.get("overdue"):
-            lines.append(T("why_ev_overdue"))
-        if ev.get("mandatory"):
-            lines.append(T("why_ev_mandatory"))
         primary = primary_reason(decision)
         if primary is not None:
             key, params = primary
             lines.append(T("why_primary", m=T(key, **params)))
         if decision.confidence is not None:
             lines.append(T("why_confidence", c=decision.confidence))
-        if decision.decision == "not_scheduled":
-            lines.append(
-                T(
-                    "why_alt_cut",
-                    e=ev.get("estimate_pomo", 0),
-                    c=f"{ev.get('capacity_pomo', 0):g}",
-                    r=ev.get("rank", 0),
-                    n=ev.get("rank_of", 0),
-                )
-            )
-        elif decision.decision == "deferred":
+        if decision.decision == DEFERRED:
             lines.append(T("why_alt_deferred"))
         return lines
 

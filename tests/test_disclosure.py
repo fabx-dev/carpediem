@@ -32,7 +32,7 @@ def test_l1_l2_l3_sequenza():
             )
             assert ok
             # L3 (Why) co-locato nel Detail
-            assert T("why_title") in screen_texts(app.screen)
+            assert T("why_sec_details") in screen_texts(app.screen)
             await pilot.press("escape")
             await pilot.pause()
 

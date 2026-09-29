@@ -21,7 +21,7 @@ from src.planner.models import (
     ScheduledItem,
     TimeWindow,
 )
-from src.planner.narrative import explain_decision, story_keys
+from src.planner.narrative import explain_decision, explain_proposed, story_keys
 from src.planner.replan import (
     ADDED,
     DROPPED,
@@ -57,6 +57,7 @@ __all__ = [
     "decide",
     "events_to_busy",
     "explain_decision",
+    "explain_proposed",
     "factor_for",
     "feedback",
     "observe",

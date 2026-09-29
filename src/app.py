@@ -75,6 +75,7 @@ from src.screens import (
     WeekScreen,
     WelcomeScreen,
     WorkflowScreen,
+    plan_decisions,
 )
 from src.screens._shared import _escape_markup
 from src.storage import (
@@ -1163,7 +1164,13 @@ class TodoApp(App):
                 if reopen_detail:
                     today, hours = self._detail_context()
                     self.push_screen(
-                        DetailScreen(todo, self.todos, today=today, hours=hours),
+                        DetailScreen(
+                            todo,
+                            self.todos,
+                            today=today,
+                            hours=hours,
+                            decisions=plan_decisions(self.todos, today, hours),
+                        ),
                         self._on_detail_closed,
                     )
 
@@ -1371,7 +1378,14 @@ class TodoApp(App):
 
         today, hours = self._detail_context()
         self.push_screen(
-            DetailScreen(todo, self.todos, today=today, hours=hours), on_detail
+            DetailScreen(
+                todo,
+                self.todos,
+                today=today,
+                hours=hours,
+                decisions=plan_decisions(self.todos, today, hours),
+            ),
+            on_detail,
         )
 
     def action_view_detail(self) -> None:

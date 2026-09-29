@@ -15,7 +15,7 @@ from src.planner.explain import (
     PRIO,
     SKIPPED,
 )
-from src.planner.narrative import explain_decision, story_keys
+from src.planner.narrative import explain_decision, explain_proposed, story_keys
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"
@@ -31,8 +31,8 @@ def _ev(**kw):
     return base
 
 
-def test_sette_template_distinti():
-    assert len(story_keys()) == 7
+def test_undici_template_distinti():
+    assert len(story_keys()) == 11
     assert all(k.startswith("why_story_") for k in story_keys())
 
 
@@ -89,6 +89,42 @@ def test_deterministico():
 def test_priorita_overdue_su_due_today():
     d = _d(dec.SCHEDULED, [(OVERDUE, {}), (DUE_TODAY, {})], _ev(overdue=True))
     assert explain_decision(d) == ("why_story_sched_overdue", {})
+
+
+def test_proposed_overdue():
+    d = _d(dec.SCHEDULED, [(OVERDUE, {})], _ev(overdue=True, mandatory=True))
+    assert explain_proposed(d) == ("why_story_prop_overdue", {})
+
+
+def test_proposed_due_today():
+    d = _d(dec.SCHEDULED, [(DUE_TODAY, {})], _ev())
+    assert explain_proposed(d) == ("why_story_prop_due_today", {})
+
+
+def test_proposed_prio():
+    d = _d(dec.SCHEDULED, [(PRIO, {})], _ev(priority="alta"))
+    assert explain_proposed(d) == ("why_story_prop_prio", {})
+
+
+def test_proposed_fallback():
+    d = _d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())
+    assert explain_proposed(d) == ("why_story_prop_fallback", {})
+
+
+def test_proposed_solo_scheduled():
+    d = _d(dec.NOT_SCHEDULED, [(CUT, {})], _ev())
+    assert explain_proposed(d) is None
+    assert explain_proposed(_d(dec.SCHEDULED, [], _ev())) is None
+
+
+def test_proposed_mai_pianificato_nel_wording(italian_lang):
+    for key in (
+        "why_story_prop_overdue",
+        "why_story_prop_due_today",
+        "why_story_prop_prio",
+        "why_story_prop_fallback",
+    ):
+        assert "pianificato" not in lang.STRINGS["it"][key].lower()
 
 
 def test_it_en_parita_e_distinte(italian_lang):

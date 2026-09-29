@@ -57,6 +57,25 @@ def _italian_module():
     os.environ.pop("TASKO_LANG", None)
 
 
+def _widget_text(w) -> str:
+    """Testo di un widget, compatibile Textual 8.x (.content) e 3.x (.renderable)."""
+    content = getattr(w, "content", None)
+    if content is None:
+        content = getattr(w, "renderable", "")
+    return str(content)
+
+
+def label_texts(screen) -> list[str]:
+    """Testo delle Label in ordine di composizione (una voce per Label).
+
+    Per gli invarianti strutturali: `screen_texts` joina tutto con uno
+    spazio, quindi non distingue righe diverse. Mai usare `.content`
+    direttamente: la CI installa la Textual piu' recente <4, diversa
+    dalla venv, e le due API non coincidono.
+    """
+    return [_widget_text(w) for w in screen.query("Label")]
+
+
 def screen_texts(screen) -> str:
     """Testo di Static e Label, compatibile Textual 8.x (.content) e 3.x (.renderable)."""
     out = []
@@ -65,10 +84,7 @@ def screen_texts(screen) -> str:
         if id(w) in seen:
             continue
         seen.add(id(w))
-        content = getattr(w, "content", None)
-        if content is None:
-            content = getattr(w, "renderable", "")
-        out.append(str(content))
+        out.append(_widget_text(w))
     return " ".join(out)
 
 

@@ -928,6 +928,38 @@ Regole dure:
   B; `max-height` su plan/planp/stats; `#smart-name` fuori scroll
   (+ snapshot senza margine per stare a 70x20). Split dei commit misti
   col WIP presente nel tree: patch filtrata per contenuto + stash round-trip.
+- **Lotto 2 — Why onesta e gerarchia (2026-09-25, fatto)**: due
+  difetti di onestà della card Why più il Layout. (a) Il Detail mostrava
+  "Nel piano di oggi" anche per task mai confermati oggi (`planned_for`
+  stale di ieri): `_why_lines` distingue ora proposta da piano reale con
+  lo stesso predicato `planned_for == today` + `attivo` usato da
+  `_planned_todos`/`scheduled_for_today` (lettura di stato, mai planning)
+  -> label `why_proposed` + story `why_story_prop_*` (4 varianti, it/en),
+  reasons/evidence/primary/confidence invariati. (b) Gerarchia: via
+  l'heading `Perché:`, via le bandiere overdue/mandatory duplicate, via
+  il recap capacita' `why_alt_cut` (info già nei Dettagli; resta
+  `why_alt_deferred`, unica informazione non altrove); nuova sezione
+  `why_sec_details`. `why_story_cut` neutra sulla causa (futuro split
+  `capacity_cut`/`ranking_cut` = lavoro del planner, non della UI).
+  `DetailScreen(decisions=None)` + helper condiviso `plan_decisions()`
+  (re-export in `src/screens`): i 3 caller produttivi (home x2, piano)
+  precalcolano, fallback on demand per compatibilità; i fallimenti di
+  `plan_decisions` sono **loggati** (`_log.exception`) perché `()` è
+  altrimenti indistinguibile da "task non valutato" (lezione §7 radar).
+  Label del Detail con `width: 1fr` (`#detail-scroll Label`; il default
+  `width: auto` e' proprio di `Label` e faceva croppare la riga lunga al
+  bordo della cornice): le story lunghe vanno a capo invece di essere
+  tagliate (regressione 120x40 + 70x20).
+  Chiavi i18n `why_title`/`why_ev_overdue`/`why_ev_mandatory`/`why_alt_cut`
+  **rimosse** (senza consumer): le vecchie asserzioni negative diventavano
+  vacue perche' `T()` cade sul nome della chiave, sostituite dall'invariante
+  strutturale `test_why_nessuna_riga_bandiera_in_mezzo_{pianificato,tagliato}`
+  (fra etichetta di decisione e `why_sec_details` c'e' esattamente una riga,
+  la story; va letto sul DOM, `screen_texts` joina le Label con uno spazio).
+  Costanti `SCHEDULED`/`DEFERRED`/... invece dei letterali.
+  Follow-up annotato (non fatto): test sui 3 caller di produzione (quello
+  presente inietta `decisions` e non verifica le chiamate nei 3 caller);
+  nessuno pulisce mai i `planned_for` passati (igiene dati da valutare).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

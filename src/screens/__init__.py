@@ -28,6 +28,7 @@ __all__ = [
     "OutlookSetupScreen",
     "PasswordScreen",
     "PlanProposalScreen",
+    "plan_decisions",
     "PomodoroScreen",
     "RadarPickScreen",
     "ReplanPreviewScreen",
@@ -106,4 +107,5 @@ from src.screens.views import (
     WeekReviewScreen,
     WeekScreen,
     WorkflowScreen,
+    plan_decisions,
 )
