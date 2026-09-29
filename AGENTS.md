@@ -192,6 +192,21 @@ Regole dure:
   esistente) prima del push — mai lasciare una feature committata senza versione
   (la publish parte dalla release GitHub, `publish.yml`, e la versione pubblicata
   deve già contenere tutto). Numerazione: patch per fix, minor per feature.
+- **Ciclo del CHANGELOG (regola, dal 2026-09-29)**: i commit di feature
+  scrivono **solo** sotto `## [Unreleased]` e NON toccano `pyproject.toml`; il
+  commit `chore(release): bump to X.Y.Z` chiude la sezione datandola
+  (`## [X.Y.Z] - YYYY-MM-DD`) e riapre una `[Unreleased]` vuota. Precedente:
+  `09e52e3` (0.18.1), `0b578d8` (0.18.2). Il bump di `version` sta **nel
+  commit di release**, non in quello di feature.
+  - *Perché* il vecchio modo accumulava: facendo il bump dentro la feature, la
+    sezione `[Unreleased]` cresceva di 5 release senza mai essere datata
+    (0.15.0→0.18.1 finivano tutte sotto `Unreleased`, invisibili a chi legge le
+    note di rilascio su PyPI). sistemato il 2026-09-29 con lo split.
+  - Se il backlog si riaccumula, l'attribuzione è **meccanica**, non storica:
+    `git blame` sulla sezione, e per ogni bullet il primo commit *a valle* che
+    cambia `version` in `pyproject.toml` dice a quale release appartiene
+    (un commit senza bump proprio → il bump successivo, non la versione letta
+    oggi). Verificato: nessun bullet attraversa due release.
 
 ## 7. Sprint log (fatto)
 
@@ -962,16 +977,6 @@ Regole dure:
   nessuno pulisce mai i `planned_for` passati (igiene dati da valutare).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
-
-- **Debito CHANGELOG (2026-09-25, preesistente, non fatto)**: le sezioni
-  dated del CHANGELOG si fermano a **0.14.0**, mentre `pyproject.toml` e'
-  gia' a 0.18.x: tutto quello che documenta 0.15.0 → 0.18.2 sta ancora dentro
-  `[Unreleased]`. Non e' un problema introdotto dal WIP (verificato a HEAD:
-  `git show HEAD:CHANGELOG.md` ha la stessa forma) e non e' stato corretto
-  perche' richiederebbe di attribuire ogni bullet alla versione giusta, cioe'
-  un giudizio storico. Se lo si sistema: chiudere le sezioni 0.15.0 → 0.18.2
-  con le date gia' presenti in questo file (§7) e rimettere sotto
-  `[Unreleased]` solo il lavoro non ancora rilasciato.
 
 - **Lancio/visibilita'** (discusso 2026-09-14, in attesa): testi annuncio it/en pronti
   in chat + screenshot per lingua; r/commandline bloccato (progetti <30 giorni

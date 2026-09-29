@@ -5,6 +5,58 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-09-29
+
+### Added
+- Detail Why hierarchy (M3 UX refinement): the task Detail no longer
+  looks like a planner dump — decision label directly followed by one
+  natural sentence, then a `Dettagli` section (due, priority, score/rank,
+  estimate, capacity), then primary reason and estimate confidence.
+  Removed the `Perché:` heading, the duplicated overdue/mandatory flag
+  lines (now synthesized by the story) and the capacity recap line.
+  New deterministic `explain_proposed()` with four `why_story_prop_*`
+  variants (overdue/due-today/priority/fallback, "proposed" wording,
+  it/en).
+  `DetailScreen` accepts precomputed `decisions` (new shared
+  `plan_decisions()` helper consumed by home/plan callers, fallback kept
+  for compatibility); no scoring/scheduler/calibration changes.
+
+### Fixed
+- Detail text wrapping: long Why lines (e.g. the natural-language story)
+  overflowed the 60-col popup on a single 90-col row and got cut at the
+  frame border, because Detail labels defaulted to `width: auto` (`Label`
+  ships with that default; `Static` does not). Labels
+  inside the detail scroll area now fill the frame (`width: 1fr`) so text
+  wraps instead of being cut; covered by a regression test at 120x40 and
+  70x20.
+- Honest Why card for tasks not actually planned today: the Detail used
+  to claim "In today's plan" for any proposal-scheduled task — including
+  ones planned yesterday (stale `planned_for`) but never confirmed today
+  — because it only read the planner proposal. Now a scheduled proposal
+  without today's confirmation shows "Proposed for today (not in plan
+  yet)" with a matching sentence, while reasons, evidence, primary
+  reason and estimate confidence stay unchanged (it/en).
+- Cut-story wording: the cut story attributed the exclusion to exhausted
+  capacity, which the planner does not guarantee (a cut can also be
+  ranking-based), and the IT/EN sentences contradicted themselves
+  ("not in the plan" next to a description of being selected). The
+  sentence is now neutral about the cause — a future
+  `capacity_cut`/`ranking_cut` split belongs to the planner, not the UI
+  (it/en).
+- `plan_decisions()` no longer swallows planner failures silently: a
+  caught exception is logged, since an empty result is otherwise
+  indistinguishable from "task not evaluated" (same lesson as the radar
+  draw fallback). Decision labels now use the exported `SCHEDULED` /
+  `DEFERRED` / `NOT_SCHEDULED` / `CONSTRAINED` constants instead of
+  string literals.
+- Removed four unused i18n keys (`why_title`, `why_ev_overdue`,
+  `why_ev_mandatory`, `why_alt_cut`); the negative assertions that
+  referenced them were vacuous (an unknown key falls back to its own
+  name) and are replaced by a structural invariant asserting exactly one
+  story row between the decision label and the `Dettagli` section.
+
+## [0.18.1] - 2026-09-25
+
 ### Changed
 - UX hygiene pass (Lotto 1 of the screen audit): footer now shows the
   day keys (`P` plan, `p` day plan, `R` closing, `o` pomodoro) instead of
@@ -22,20 +74,6 @@ Entries in English from now on.
   so it never drops below the fold.
 
 ### Fixed
-- Detail text wrapping: long Why lines (e.g. the natural-language story)
-  overflowed the 60-col popup on a single 90-col row and got cut at the
-  frame border, because Detail labels defaulted to `width: auto` (`Label`
-  ships with that default; `Static` does not). Labels
-  inside the detail scroll area now fill the frame (`width: 1fr`) so text
-  wraps instead of being cut; covered by a regression test at 120x40 and
-  70x20.
-- Honest Why card for tasks not actually planned today: the Detail used
-  to claim "In today's plan" for any proposal-scheduled task — including
-  ones planned yesterday (stale `planned_for`) but never confirmed today
-  — because it only read the planner proposal. Now a scheduled proposal
-  without today's confirmation shows "Proposed for today (not in plan
-  yet)" with a matching sentence, while reasons, evidence, primary
-  reason and estimate confidence stay unchanged (it/en).
 - Day plan Enter gate: `Enter` on a plan row now opens the task Detail
   only for rows actually planned today (`planned` section,
   `planned_for == today` and active). Rows from the due/overdue/upcoming/
@@ -43,37 +81,10 @@ Entries in English from now on.
   Detail with a misleading "scheduled today" Why context; they show the
   standard not-applicable notice instead. Click behavior unchanged
   (moves highlight only). Other screens opening the Detail are unchanged.
-- Cut-story wording: the cut story attributed the exclusion to exhausted
-  capacity, which the planner does not guarantee (a cut can also be
-  ranking-based), and the IT/EN sentences contradicted themselves
-  ("not in the plan" next to a description of being selected). The
-  sentence is now neutral about the cause (it/en).
-- `plan_decisions()` no longer swallows planner failures silently: a
-  caught exception is logged, since an empty result is otherwise
-  indistinguishable from "task not evaluated" (same lesson as the radar
-  draw fallback). Decision labels now use the exported `SCHEDULED` /
-  `DEFERRED` / `NOT_SCHEDULED` / `CONSTRAINED` constants instead of
-  string literals.
-- Removed four unused i18n keys (`why_title`, `why_ev_overdue`,
-  `why_ev_mandatory`, `why_alt_cut`); the negative assertions that
-  referenced them were vacuous (an unknown key falls back to its own
-  name) and are replaced by a structural invariant asserting exactly one
-  story row between the decision label and the `Dettagli` section.
+
+## [0.18.0] - 2026-09-25
 
 ### Added
-- Detail Why hierarchy (M3 UX refinement): the task Detail no longer
-  looks like a planner dump — decision label directly followed by one
-  natural sentence, then a `Dettagli` section (due, priority, score/rank,
-  estimate, capacity), then primary reason and estimate confidence.
-  Removed the `Perché:` heading, the duplicated overdue/mandatory flag
-  lines (now synthesized by the story) and the capacity recap line.
-  New deterministic `explain_proposed()` with four `why_story_prop_*`
-  variants (overdue/due-today/priority/fallback, "proposed" wording,
-  it/en); the cut story is now neutral about the cause (a future
-  `capacity_cut`/`ranking_cut` split belongs to the planner, not the UI).
-  `DetailScreen` accepts precomputed `decisions` (new shared
-  `plan_decisions()` helper consumed by home/plan callers, fallback kept
-  for compatibility); no scoring/scheduler/calibration changes.
 - Natural-language Why explanations (M3 UX): the task Detail now shows a
   short deterministic sentence under the decision (e.g. overdue, due
   today, high priority, over capacity, deferred, constrained) produced by
@@ -81,6 +92,10 @@ Entries in English from now on.
   from the existing `PlanningDecision` reasons + evidence — no LLM, no
   network, no scoring changes. Structured evidence, primary reason and
   estimate confidence are unchanged below the sentence (it/en).
+
+## [0.17.0] - 2026-09-24
+
+### Added
 - Planning Cockpit UX (#46, #47, #50, #51): the day plan row now shows a
   compact `!` for high priority, the planned duration (slot) or the
   estimate (`~N🍅`), and the due date even on planned/due tasks; the task
@@ -91,6 +106,10 @@ Entries in English from now on.
   Weekly Review built on real executions (done, estimates vs actual,
   accuracy, deferrals, per-day). A progressive-disclosure audit and a
   shortcut inventory test keep the four information levels coherent.
+
+## [0.16.0] - 2026-09-24
+
+### Added
 - Replanning engine (M4): `carpediem replan [--now HH:MM] [--apply]`
   recomputes the day from the current plan, the remaining tasks, the
   calendar and the residual capacity, showing kept/moved/deferred/added
@@ -99,14 +118,10 @@ Entries in English from now on.
   today's skip, kept/moved untouched). Past slots are unavailable by
   clipping availability to [now, end]; already-planned tasks keep their
   privilege and are never dropped by capacity.
-- Explainable planner (M3): every evaluated task now has an explicit
-  `PlanningDecision` (SCHEDULED / NOT_SCHEDULED / DEFERRED, plus
-  CONSTRAINED for mandatory tasks with no valid slot) with real-data
-  evidence and optional M2 confidence when a calibrated estimate is used.
-  The task Detail shows a Why section (decision, evidence, primary reason,
-  honest alternative for cuts/deferrals, explicit message for
-  non-evaluated tasks). Buongiorno summary now counts over-capacity cuts
-  and deferrals separately.
+
+## [0.15.0] - 2026-09-24
+
+### Added
 - Planning Foundation (M1): planner contract tests, frozen deterministic
   fixtures (10 scenarios), performance baseline (50/100/500/1000 tasks),
   and an architecture guardrail keeping stats/calibration out of the UI.
@@ -116,6 +131,14 @@ Entries in English from now on.
   robust history statistics, informative confidence (LOW/MEDIUM/HIGH),
   and personal calibration with safe fallback to the user estimate.
   No migration needed; behavior without history is unchanged.
+- Explainable planner (M3): every evaluated task now has an explicit
+  `PlanningDecision` (SCHEDULED / NOT_SCHEDULED / DEFERRED, plus
+  CONSTRAINED for mandatory tasks with no valid slot) with real-data
+  evidence and optional M2 confidence when a calibrated estimate is used.
+  The task Detail shows a Why section (decision, evidence, primary reason,
+  honest alternative for cuts/deferrals, explicit message for
+  non-evaluated tasks). Buongiorno summary now counts over-capacity cuts
+  and deferrals separately.
 
 ## [0.14.0] - 2026-09-23
 
