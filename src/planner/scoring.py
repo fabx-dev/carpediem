@@ -10,10 +10,16 @@ PRIO_SCORES e' a chiavi stringa ("alta"/"media"/"bassa", stessi pesi storici;
 parita' coperta dalle fixture). Niente import dal modello storage.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from src.planner import explain
 from src.planner.models import TaskView
+
+# Classi stdlib reali: i test congelano l'orologio patchando il nome
+# `datetime` del modulo con una sottoclasse (unico modo per freezare
+# datetime.now); gli isinstance qui devono restare veri anche patchati.
+_REAL_DATE = date
+_REAL_DATETIME = datetime
 
 OVERDUE_SCORE = 100
 DUE_TODAY_SCORE = 60
@@ -25,7 +31,16 @@ STALE_SCORE = 15
 PLANNED_SCORE = 5
 
 
-def parse_day(value: str):
+def parse_day(value):
+    """YYYY-MM-DD (o date/datetime) -> date, o None se non interpretabile.
+
+    Totale: accetta str, date, datetime; garbage (None, "", "xx") -> None
+    e il chiamante applica la catena esplicito -> fallback compat.
+    """
+    if isinstance(value, _REAL_DATETIME):
+        return value.date()
+    if isinstance(value, _REAL_DATE):
+        return value
     try:
         return datetime.strptime(value.strip()[:10], "%Y-%m-%d").date()
     except (ValueError, TypeError, AttributeError):

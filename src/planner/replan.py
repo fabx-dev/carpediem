@@ -20,6 +20,11 @@ from src.planner.decisions import decide, primary_reason
 from src.planner.models import DayPlan, ScheduledDayPlan, TimeWindow
 from src.planner.service import Planner
 
+# Vedi scoring._REAL_DATETIME: classi reali per isinstance robusti al
+# congelamento dell'orologio nei test (patch del nome `datetime`).
+_REAL_DATE = date
+_REAL_DATETIME = datetime
+
 KEPT = "kept"
 MOVED = "moved"
 DROPPED = "dropped"
@@ -88,7 +93,7 @@ def replan(
     hours: float,
     availability,
     busy=(),
-    now: datetime | None = None,
+    now: datetime | date | None = None,
     *,
     current: ScheduledDayPlan | None = None,
     sample_count=None,
@@ -96,12 +101,19 @@ def replan(
     """Ricalcola la giornata e confronta col piano corrente (puro).
 
     availability/busy sono finestre gia' parsate (il parsing day_window
-    resta al chiamante); now=None = adesso (i test passano now esplicito).
-    current = ScheduledDayPlan corrente per gli slot vecchi (None = slot
-    vecchi ignoti: kept solo se anche i nuovi mancano). Non muta i todos,
-    non scrive.
+    resta al chiamante); now=None = fallback compat wall-clock (allowlisted
+    Phase 1, docs/planner-phase1-plan.md §6.0: produzione sempre esplicita,
+    rimozione in fase successiva); date = mezzanotte. I test passano now
+    esplicito. current = ScheduledDayPlan corrente per gli slot vecchi
+    (None = slot vecchi ignoti: kept solo se anche i nuovi mancano).
+    Non muta i todos, non scrive.
     """
-    moment = now if isinstance(now, datetime) else datetime.now()
+    if isinstance(now, _REAL_DATETIME):
+        moment = now
+    elif isinstance(now, _REAL_DATE):
+        moment = datetime(now.year, now.month, now.day)
+    else:
+        moment = datetime.now()
     new_plan: DayPlan = Planner(todos, today=today, hours=hours).propose()
     decisions = {
         d.todo_id: d for d in decide(new_plan, todos, sample_count=sample_count)

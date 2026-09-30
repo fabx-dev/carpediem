@@ -9,9 +9,15 @@ Factor: None (omesso o esplicito) = auto-calibrazione via
 domain.calibration_factor sui todos (la screen non conosce piu' la
 calibration); valore esplicito = usato cosi' com'e' (normalizzato in
 capacity). Su todos senza dati di calibrazione l'auto vale None.
+
+Tempo (Phase 1, docs/planner-phase1-plan.md §6.0): risoluzione esplicita
+prima — `today`, poi `now` (solo parte data) — poi fallback compat
+`datetime.now()` (allowlisted qui, rimozione rinviata alla fase
+temporale/contrattuale). Tutti i caller di produzione passano valori
+espliciti; il fallback copre solo compat (plan_day, test, script ad-hoc).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from src.planner import calibration, capacity, constraints, scheduler, scoring
 from src.planner.explain import CUT
@@ -31,9 +37,10 @@ class Planner:
         self,
         todos: list,
         *,
-        today: str | None = None,
+        today: str | date | datetime | None = None,
         hours: float = 6.0,
         factor: float | None = None,
+        now: date | datetime | None = None,
     ) -> None:
         # Phase 1: normalizzazione unica al bordo — il core lavora solo su
         # TaskView; TodoItem resta accettato per compat (adapter permanente).
@@ -41,10 +48,21 @@ class Planner:
         self.today = today
         self.hours = hours
         self.factor = factor
+        self.now = now
+
+    def _resolve_day(self):
+        """Giorno di pianificazione: today esplicito, poi now, poi fallback
+        compat wall-clock (allowlisted Phase 1, docs/planner-phase1-plan.md
+        §6.0: produzione sempre esplicita, rimozione in fase successiva)."""
+        return (
+            scoring.parse_day(self.today)
+            or scoring.parse_day(self.now)
+            or datetime.now().date()
+        )
 
     def propose(self) -> DayPlan:
         """Proposta giornaliera come DayPlan (planned/cut/skipped + capacita')."""
-        today_d = scoring.parse_day(self.today or "") or datetime.now().date()
+        today_d = self._resolve_day()
         today_s = today_d.strftime("%Y-%m-%d")
         raw = (
             self.factor
