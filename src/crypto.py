@@ -56,7 +56,16 @@ def encode_password(password: str) -> bytes:
 def _derive(password: str, salt: bytes) -> bytes:
     """PBKDF2-SHA256 con cache (le chiavi derivate restano in RAM come `_key`,
     per disegno: mai su disco). La cache evita di ripagare i 600k giri a ogni
-    lettura dello stesso file; le scritture usano salt freschi e derivano sempre."""
+    lettura dello stesso file; le scritture usano salt freschi e derivano sempre.
+
+    Decisione hardening 2026-09-30 (Opzione C: tenere + documentare): una
+    derivazione costa ~0.08s e le letture dello stesso file (salt stabile)
+    sono frequenti (state_readable + load + merge rileggono); senza cache
+    ogni rilettura ripagherebbe il KDF. maxsize=8 copre i file di stato
+    senza trattenere all'infinito chiavi di salt vecchi (ogni riscrittura
+    usa un salt fresco e fa decadere le entry LRU). Non rimuovere senza
+    benchmark; vedi docs/security.md.
+    """
     raw = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, KDF_ITERATIONS)
     return base64.urlsafe_b64encode(raw)
 

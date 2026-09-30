@@ -5,6 +5,20 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Added
+- Hardening phase (technical only, no behavior change): release gate in
+  `publish.yml` (full checks re-run on the release SHA before build and
+  PyPI publish, `pypi` environment, smoke test from installed wheel),
+  `build-smoke` job in CI, `requirements.lock` (deterministic release
+  env; policy stays in `requirements.txt`), backup dir `0700` / zip
+  `0600` (POSIX, no-op on Windows), Hypothesis property tests for the
+  planner, and invariant suites for merge, storage/concurrency,
+  timezone/DST, planner, Outlook security and config validation.
+  New docs: `docs/release.md`, `docs/dependencies.md`,
+  `docs/security.md`, `docs/adr-001..005`.
+- Targeted `.gitignore` runtime patterns (replaces generic `*.json`, so
+  future fixtures stay versionable).
+
 ### Changed
 - `AGENTS.md` §6: replaced the "sandbox cannot push (SSH without
   passphrase)" note with the verified cause (no controlling terminal, so
