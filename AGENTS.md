@@ -1422,6 +1422,8 @@ matematica in `domain`); `capacity.estimate` riusa `domain`;
 > Nota: **non** spostare una fase su "In progress"/"Done" finché l'implementazione
 > non esiste davvero nel codice e i test non passano. La tabella va aggiornata
 > nella stessa commit che realizza la fase.
+> Direzione evolutiva del Planner Engine (TARGET/FUTURE, niente codice): `docs/planner-engine.md`
+> (Phase 1 futura = Domain Consolidation, non estrazione; ADR-001 resta valido fino alla Phase 8).
 
 ### 9.12 Stato delle milestone M (audit 2026-09-25)
 
