@@ -20,6 +20,7 @@ from textual.widgets import (
 from src import crypto as _crypto
 from src import domain
 from src import export_ical as _export_ical
+from src import security_validation as _sec_validation
 from src.commands import CarpeDiemMenuProvider, menu_categories
 from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
 from src.integrations import outlook_auth as _outlook_auth
@@ -3238,28 +3239,16 @@ class TodoApp(App):
             )
 
     def _pw_valid_new(self, values: list[str]) -> str | None:
-        if any(not v for v in values):
-            return T("n_sec_fill")
-        new, repeat = values[-2], values[-1]
-        if len(new) < 8:
-            return T("n_sec_need8")
-        if new != repeat:
-            return T("n_sec_mismatch")
-        return None
+        # E2: logica in src/security_validation.py, qui solo delega.
+        return _sec_validation.valid_new(values)
 
     def _pw_valid_change(self, values: list[str]) -> str | None:
-        if any(not v for v in values):
-            return T("n_sec_fill")
-        if not self._sec_current_ok(values[0]):
-            return T("n_sec_badcurrent")
-        return self._pw_valid_new(values[1:])
+        # E2: logica in src/security_validation.py, qui solo delega.
+        return _sec_validation.valid_change(values, self._sec_current_ok)
 
     def _pw_valid_disable(self, values: list[str]) -> str | None:
-        if any(not v for v in values):
-            return T("n_sec_fill")
-        if not self._sec_current_ok(values[0]):
-            return T("n_sec_badcurrent")
-        return None
+        # E2: logica in src/security_validation.py, qui solo delega.
+        return _sec_validation.valid_disable(values, self._sec_current_ok)
 
     def _rewrite_all_state(self) -> None:
         self._save_data()
