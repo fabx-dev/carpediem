@@ -54,6 +54,14 @@ class TaskView:
     pomodoros: int = 0
     actual_minutes: int = 0
 
+    @property
+    def stima_pomo(self) -> int:
+        """Alias compat per il seam D1: domain.calibrated_estimate legge
+        `.stima_pomo` e resta single source of truth (capacity.estimate
+        delega senza duplicare l'algoritmo). Non e' un campo (T2 resta
+        fail-closed sui 13 campi)."""
+        return self.estimate_pomo
+
 
 def _as_int(value) -> int:
     try:

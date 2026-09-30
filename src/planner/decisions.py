@@ -57,7 +57,9 @@ def _evidence(item, todo, day_s: str, rank: int, rank_of: int, plan: DayPlan) ->
     except Exception:
         due = ""
     try:
-        priority = str(getattr(getattr(todo, "priority", ""), "value", "") or "")
+        raw_prio = getattr(todo, "priority", "")
+        # TaskView porta stringhe normalizzate, TodoItem l'enum (.value).
+        priority = str(getattr(raw_prio, "value", raw_prio) or "")
     except Exception:
         priority = ""
     return {

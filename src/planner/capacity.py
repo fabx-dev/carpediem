@@ -13,12 +13,17 @@ la calibrazione corregge durate -> appartiene alla capacita', non al merito.
 """
 
 from src.domain import CAL_CLAMP_MAX, CAL_CLAMP_MIN, calibrated_estimate
-from src.models import _due_date_part
 from src.planner import explain
 from src.planner.scoring import rank_key
 
 POMO_HOURS = 0.5
 DEFAULT_ESTIMATE = 1
+
+
+def _date_part(due: str) -> str:
+    """Solo YYYY-MM-DD (copia locale: niente import dal modello storage)."""
+    s = str(due or "")
+    return s.strip().split()[0] if s.strip() else ""
 
 
 def total(hours: float) -> float:
@@ -43,7 +48,8 @@ def estimate(todo, factor: float | None = None) -> int:
     """Stima pomodori: base stima_pomo o DEFAULT; con factor, calibrata.
 
     Unica fonte: domain.calibrated_estimate (stessa semantica, niente
-    duplicazione); il factor corregge senza riscrivere mai la stima originale.
+    duplicazione; TaskView espone l'alias .stima_pomo per il seam D1);
+    il factor corregge senza riscrivere mai la stima originale.
     """
     corrected, _used = calibrated_estimate(todo, factor)
     return corrected
@@ -78,7 +84,7 @@ def allocate(
         key=lambda e: (
             any(k == explain.CUT for k, _p in e[2]),
             -e[1],
-            _due_date_part(e[0].due) or "9999",
+            _date_part(e[0].due) or "9999",
             e[0].id,
         )
     )

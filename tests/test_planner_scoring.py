@@ -4,6 +4,7 @@ from datetime import date
 
 from src.models import Priority
 from src.planner import scoring
+from src.planner.models import todo_to_task
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"
@@ -13,7 +14,10 @@ TODAY_D = date(2026, 9, 10)
 def _score(todo, **kw):
     args = {"today": TODAY_D, "today_s": TODAY, "stale_n": None, "calib": None}
     args.update(kw)
-    return scoring.score(todo, **args)
+    # Phase 1: score() consuma TaskView (contratto interno); le asserzioni
+    # di merito restano invariate. stale_days/rank_key sotto restano su
+    # TodoItem e provano la tolleranza duale.
+    return scoring.score(todo_to_task(todo), **args)
 
 
 def test_scadenze_e_mandatory():

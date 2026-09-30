@@ -13,10 +13,15 @@ capacity). Su todos senza dati di calibrazione l'auto vale None.
 
 from datetime import datetime
 
-from src.models import TodoItem
 from src.planner import calibration, capacity, constraints, scheduler, scoring
 from src.planner.explain import CUT
-from src.planner.models import DayPlan, PlanItem, ScheduledDayPlan
+from src.planner.models import (
+    DayPlan,
+    PlanItem,
+    ScheduledDayPlan,
+    TaskView,
+    todo_to_task,
+)
 
 
 class Planner:
@@ -24,13 +29,15 @@ class Planner:
 
     def __init__(
         self,
-        todos: list[TodoItem],
+        todos: list,
         *,
         today: str | None = None,
         hours: float = 6.0,
         factor: float | None = None,
     ) -> None:
-        self.todos = todos
+        # Phase 1: normalizzazione unica al bordo — il core lavora solo su
+        # TaskView; TodoItem resta accettato per compat (adapter permanente).
+        self.todos = [t if isinstance(t, TaskView) else todo_to_task(t) for t in todos]
         self.today = today
         self.hours = hours
         self.factor = factor

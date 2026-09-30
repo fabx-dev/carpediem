@@ -4,17 +4,22 @@ Pesi e regole identici allo storico plan_day(): scadenze (scaduto/oggi/domani),
 priorita', progetto fermo, gia' pianificato oggi, annotazione calibrata
 (solo motivo, mai punteggio). Il flag mandatory (scaduto/oggi) e' un vincolo
 duro consumato da capacity (mai tagliati); tutto il resto e' preferenza.
+
+Phase 1: opera su TaskView (proiezione normalizzata, mai TodoItem diretto).
+PRIO_SCORES e' a chiavi stringa ("alta"/"media"/"bassa", stessi pesi storici;
+parita' coperta dalle fixture). Niente import dal modello storage.
 """
 
 from datetime import datetime
 
-from src.models import Priority, TodoItem, _due_date_part
 from src.planner import explain
+from src.planner.models import TaskView
 
 OVERDUE_SCORE = 100
 DUE_TODAY_SCORE = 60
 DUE_TOMORROW_SCORE = 30
-PRIO_SCORES = {Priority.HIGH: 20, Priority.MEDIUM: 10, Priority.LOW: 0}
+PRIO_SCORES = {"alta": 20, "media": 10, "bassa": 0}
+_PRIO_MEDIUM = 10
 STALE_DAYS = 4
 STALE_SCORE = 15
 PLANNED_SCORE = 5
@@ -27,6 +32,14 @@ def parse_day(value: str):
         return None
 
 
+def _date_part(due: str) -> str:
+    """Solo YYYY-MM-DD (TaskView.due e' gia' normalizzato: identita';
+    tollera comunque stringhe con orario). Copia locale per non importare
+    il modello storage."""
+    s = str(due or "")
+    return s.strip().split()[0] if s.strip() else ""
+
+
 def stale_days(project: str, todos: list, today) -> int | None:
     """Giorni di fermo del progetto, o None se attivo.
 
@@ -34,6 +47,7 @@ def stale_days(project: str, todos: list, today) -> int | None:
     vecchio (mai completato niente). Le created recenti non mascherano mai
     l'assenza di completamenti. Itera su TUTTI i todos (i completati servono
     per l'ultimo completamento), non solo sugli eleggibili.
+    Accetta TaskView o TodoItem (stato letto via .state in entrambi).
     """
     if not project:
         return None
@@ -42,7 +56,7 @@ def stale_days(project: str, todos: list, today) -> int | None:
     for t in todos:
         if t.project != project:
             continue
-        if t.done and t.completed_at:
+        if t.state == "completato" and t.completed_at:
             d = parse_day(t.completed_at)
             if d and (last_done is None or d > last_done):
                 last_done = d
@@ -58,7 +72,7 @@ def stale_days(project: str, todos: list, today) -> int | None:
 
 
 def score(
-    todo: TodoItem,
+    todo: TaskView,
     *,
     today,
     today_s: str,
@@ -68,7 +82,7 @@ def score(
     """(punteggio, reasons, mandatory) di un singolo task eleggibile."""
     result = 0
     reasons: list[tuple[str, dict]] = []
-    due = _due_date_part(todo.due)
+    due = _date_part(todo.due)
     due_d = parse_day(due) if due else None
     mandatory = False
     if due_d and due_d < today:
@@ -82,8 +96,8 @@ def score(
     elif due_d and (due_d - today).days == 1:
         result += DUE_TOMORROW_SCORE
         reasons.append(explain.due_tomorrow())
-    result += PRIO_SCORES.get(todo.priority, PRIO_SCORES[Priority.MEDIUM])
-    if todo.priority == Priority.HIGH:
+    result += PRIO_SCORES.get(todo.priority, _PRIO_MEDIUM)
+    if todo.priority == "alta":
         reasons.append(explain.prio())
     if stale_n is not None:
         result += STALE_SCORE
@@ -92,7 +106,7 @@ def score(
         result += PLANNED_SCORE
         reasons.append(explain.planned())
     try:
-        has_est = int(todo.stima_pomo or 0) > 0
+        has_est = int(todo.estimate_pomo or 0) > 0
     except (ValueError, TypeError):
         has_est = False
     if calib is not None and has_est:
@@ -101,8 +115,8 @@ def score(
 
 
 def score_all(
-    eligible: list[TodoItem],
-    all_todos: list[TodoItem],
+    eligible: list[TaskView],
+    all_todos: list[TaskView],
     today,
     today_s: str,
     calib: float | None,
@@ -127,4 +141,4 @@ def score_all(
 def rank_key(entry) -> tuple:
     """Ordinamento per merito: score desc, poi scadenza, poi id."""
     todo, score, _reasons = entry[0], entry[1], entry[2]
-    return (-score, _due_date_part(todo.due) or "9999", todo.id)
+    return (-score, _date_part(todo.due) or "9999", todo.id)
