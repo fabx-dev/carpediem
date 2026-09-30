@@ -19,7 +19,9 @@ from src.planner.models import (
     PlanItem,
     ScheduledDayPlan,
     ScheduledItem,
+    TaskView,
     TimeWindow,
+    todo_to_task,
 )
 from src.planner.narrative import explain_decision, explain_proposed, story_keys
 from src.planner.replan import (
@@ -53,6 +55,7 @@ __all__ = [
     "SCHEDULED",
     "ScheduledDayPlan",
     "ScheduledItem",
+    "TaskView",
     "TimeWindow",
     "decide",
     "events_to_busy",
@@ -67,4 +70,5 @@ __all__ = [
     "replan",
     "schedule",
     "story_keys",
+    "todo_to_task",
 ]

@@ -12,10 +12,112 @@ la realta' dell'algoritmo. Gli hard-excluded (non attivi, id None) non
 compaiono, come nella proposta storica.
 
 Tempi: datetime naive wall-time (convenzione del repo, mai aware).
+
+TaskView (Phase 1): proiezione planner-owned del task in ingresso, non il
+modello di dominio futuro — vedi docstring di TaskView/todo_to_task.
 """
 
 from dataclasses import dataclass
 from datetime import date, datetime
+
+
+@dataclass(frozen=True)
+class TaskView:
+    """Proiezione planner-owned di un task (Phase 1, anti-corruption edge).
+
+    Solo i campi scalari letti DAVVERO dagli algoritmi del planner
+    (stato, scadenze, priorita', progetto, piano, stime, actual): niente
+    titolo/note/tag/parenti/ricorrenze/sorgenti/log — quelli restano
+    vocabolario applicativo di TodoItem e non entrano mai nel core.
+
+    Status architetturale (vincolante, docs/planner-phase1-plan.md §5.0):
+    TaskView e' una forma di input normalizzata minima e un boundary di
+    compatibilita', INTENZIONALMENTE non il futuro modello di dominio
+    canonico `Task` (decisione aperta di Phase 2+) e non il futuro `Task`
+    pubblico. Regola: non aggiungere semantica di dominio a TaskView solo
+    perche' potrebbe servire in futuro — ogni campo richiede una
+    giustificazione nell'algoritmo corrente (test T2 fallisce chiuso su
+    aggiunte: lista campi esatta).
+    """
+
+    id: int | None = None
+    state: str = ""
+    due: str = ""
+    priority: str = ""
+    project: str = ""
+    planned_for: str = ""
+    plan_skip: str = ""
+    estimate_pomo: int = 0
+    actual_pomo: int = 0
+    created: str = ""
+    completed_at: str = ""
+    pomodoros: int = 0
+    actual_minutes: int = 0
+
+
+def _as_int(value) -> int:
+    try:
+        return int(value or 0)
+    except (ValueError, TypeError):
+        return 0
+
+
+def _as_nonneg_int(value) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (ValueError, TypeError):
+        return 0
+
+
+def _as_id(value) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _date_part(value) -> str:
+    """Solo YYYY-MM-DD di un due con eventuale HH:MM (stessa semantica di
+    models._due_date_part, copiata per non importare il modello storage)."""
+    s = str(value or "")
+    return s.strip().split()[0] if s.strip() else ""
+
+
+def todo_to_task(todo) -> TaskView:
+    """TodoItem (o duck-typed equivalente) -> TaskView (totale, puro).
+
+    Non solleva mai: campi mancanti/malformati diventano default sicuri con
+    le stesse regole di TodoItem (clamp ≥0 su stime/actual, priorita' da
+    enum .value o stringa raw, due ridotto alla parte data, progetto
+    normalizzato come in TodoItem). Unico punto che conosce TodoItem.
+    """
+    state = str(getattr(todo, "state", "") or "")
+    if not state:
+        # Ripiego per oggetti senza proprieta' state: stessa regola di
+        # TodoItem.state (done > paused > attivo).
+        if getattr(todo, "done", False):
+            state = "completato"
+        elif getattr(todo, "paused", False):
+            state = "in_sospeso"
+        else:
+            state = "attivo"
+    raw_prio = getattr(todo, "priority", "")
+    priority = str(getattr(raw_prio, "value", raw_prio) or "").strip().lower()
+    return TaskView(
+        id=_as_id(getattr(todo, "id", None)),
+        state=state,
+        due=_date_part(getattr(todo, "due", "")),
+        priority=priority,
+        project=str(getattr(todo, "project", "") or "").strip().lower(),
+        planned_for=str(getattr(todo, "planned_for", "") or ""),
+        plan_skip=str(getattr(todo, "plan_skip", "") or ""),
+        estimate_pomo=_as_nonneg_int(getattr(todo, "stima_pomo", 0)),
+        actual_pomo=_as_nonneg_int(getattr(todo, "actual_pomo", 0)),
+        created=str(getattr(todo, "created", "") or ""),
+        completed_at=str(getattr(todo, "completed_at", "") or ""),
+        pomodoros=_as_int(getattr(todo, "pomodoros", 0)),
+        actual_minutes=_as_nonneg_int(getattr(todo, "actual_minutes", 0)),
+    )
 
 
 @dataclass(frozen=True)

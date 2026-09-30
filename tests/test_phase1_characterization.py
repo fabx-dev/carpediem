@@ -341,6 +341,7 @@ def test_t9_export_boundary_invariati():
         "SCHEDULED",
         "ScheduledDayPlan",
         "ScheduledItem",
+        "TaskView",
         "TimeWindow",
         "decide",
         "events_to_busy",
@@ -355,4 +356,5 @@ def test_t9_export_boundary_invariati():
         "replan",
         "schedule",
         "story_keys",
+        "todo_to_task",
     }
