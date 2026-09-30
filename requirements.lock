@@ -1,0 +1,29 @@
+# Lock file per release (Opzione A del piano hardening).
+#
+# `requirements.txt` resta la compatibility policy (intervalli);
+# QUESTO file e' l'ambiente esatto di release (versioni deterministiche).
+# Generato da: .venv/bin/pip freeze (venv con textual 3.7.1, 2026-09-30).
+# Aggiornamento: ricreare dopo ogni bump di dipendenze verificato in CI,
+# vedi docs/dependencies.md.
+
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.1
+cryptography==50.0.1
+idna==3.20
+linkify-it-py==2.2.0
+markdown-it-py==4.2.0
+mdurl==0.1.2
+msal==1.39.0
+platformdirs==4.11.7
+plotext==5.3.2
+pycparser==3.0
+Pygments==2.21.0
+PyJWT==2.14.0
+requests==2.34.2
+rich==15.0.0
+textual==3.7.1
+textual-plotext==1.0.1
+typing_extensions==4.16.0
+tzdata==2026.4
+urllib3==2.8.0
