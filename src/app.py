@@ -37,6 +37,17 @@ from src.models import (
     _pomo_label,
     _status,
 )
+from src.radar import (
+    RADAR_MARKER,
+    RADAR_RED,
+    RADAR_ROW_Y,
+    RADAR_YELLOW,
+    _radar_day,
+    _radar_horizon,
+)
+from src.radar import (
+    _radar_caption as _radar_caption_fn,
+)
 from src.screens import (
     ActualScreen,
     AgendaScreen,
@@ -114,43 +125,9 @@ try:
 except Exception:  # dipendenza grafica: mai crash se manca/rotta, fallback testo
     PlotextPlot = None
 
-# Radar scadenze in home (strip-scatter priorita' x orizzonte, vedi spike
-# in /tmp/spike — S0): colori come tuple RGB perche' il tema "auto" di
-# textual-plotext rimappa i nomi (es. "yellow" diventava viola).
-RADAR_RED = (255, 80, 80)
-RADAR_YELLOW = (255, 215, 0)
-RADAR_MARKER = "hd"
-# Mappatura cella -> dato calibrata sullo spike (S0, plotext 5.x, assi fissati
-# in _draw_radar): zero sempre a w//2; riga tick esclusa dall'hit-test.
-# Se un upgrade di plotext sposta la geometria, il golden test in
-# tests/test_kanban_plot.py fallisce rumorosamente (mai misclick silenziosi).
-RADAR_SPAN_SLOPE = 0.9283
-RADAR_SPAN_OFF = -1.0
-RADAR_ROW_Y = {0: 3.05, 1: 2.35, 2: 1.6, 3: 0.95}
-
-
-def _radar_horizon(todo: TodoItem, today_str: str) -> int:
-    """Giorni alla scadenza non cappati (i punti del radar l'hanno valida)."""
-    try:
-        due = datetime.strptime(_due_date_part(todo.due), "%Y-%m-%d").date()
-        ref = datetime.strptime(today_str, "%Y-%m-%d").date()
-    except ValueError:
-        return 0
-    return (due - ref).days
-
-
-def _radar_span(width: int) -> int:
-    """Larghezza canvas utile calibrata (S0): zero sempre a width // 2."""
-    return max(1, round(RADAR_SPAN_SLOPE * width + RADAR_SPAN_OFF))
-
-
-def _radar_day(col: int, width: int) -> float:
-    """Colonna cella -> giorni alla scadenza (inversa del layout plotext)."""
-    return (col - width // 2) * 28 / _radar_span(width)
-
-
-# Il toast del reminder scadenze resta visibile finche' non lo clicchi
-# (default Textual: 5 s) e suona 3 beep invece di 1.
+# Radar scadenze in home (strip-scatter priorita' x orizzonte):
+# implementazione pura in src/radar.py (E3) e re-esportata sopra;
+# _draw_radar resta qui (legato al widget PlotextPlot).
 REMINDER_TOAST_TIMEOUT = 600
 REMINDER_BEEPS = 3
 
@@ -874,16 +851,8 @@ class TodoApp(App):
         plt.grid(False)
 
     def _radar_caption(self, data: dict) -> str:
-        worst = data["worst"]
-        wtxt = (
-            " ".join(T("radar_worst_one", id=tid, h=h) for tid, h in worst)
-            if worst
-            else T("radar_noworst")
-        )
-        cap = T("radar_cap", late=data["late"], ok=data["open_ok"], worst=wtxt)
-        if data["nodate"]:
-            cap += T("radar_nodate", n=data["nodate"])
-        return cap
+        # E3: logica pura in src/radar.py, qui solo delega.
+        return _radar_caption_fn(data)
 
     def _update_kanban(self) -> None:
         try:

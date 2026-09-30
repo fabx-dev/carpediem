@@ -6,6 +6,7 @@ import pytest
 from textual.widgets import Button
 
 import src.app as app_module
+import src.radar as radar_module
 from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
 from src.lang import T
 from src.models import Priority
@@ -115,9 +116,9 @@ def test_geometria_plot_stabile(tmp_files, monkeypatch):
     rows = canvas(80, [(7, 5, 1.0, "open")])
     assert [c for c, ch in enumerate(rows[3]) if ch in "▗▖▝▘"] == [53]
     # formula inversa coerente entro mezza cella
-    assert abs(app_module._radar_day(3, 80) - (-14)) < 0.6
-    assert abs(app_module._radar_day(77, 80) - 14) < 0.6
-    assert abs(app_module._radar_day(40, 80)) < 0.6
+    assert abs(radar_module._radar_day(3, 80) - (-14)) < 0.6
+    assert abs(radar_module._radar_day(77, 80) - 14) < 0.6
+    assert abs(radar_module._radar_day(40, 80)) < 0.6
 
 
 def test_geometria_plot_120(tmp_files, monkeypatch):
@@ -200,7 +201,7 @@ def test_plot_widget_e_caption(tmp_files):
 def _click_col(app, horizon: float) -> tuple[int, int]:
     plot = app.query_one("#kanban-plot")
     w = plot.region.width
-    span = app_module._radar_span(w)
+    span = radar_module._radar_span(w)
     return round(w // 2 + horizon * span / 28), 0
 
 
