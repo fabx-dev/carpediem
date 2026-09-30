@@ -790,9 +790,15 @@ def _snapshot_manifest(files: dict[str, int]) -> dict:
 
 def create_backup() -> Path:
     """Crea uno snapshot zip di tutti i file di stato + manifest. Ritorna il path."""
+    import os
     import zipfile
 
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        # Owner-only quando supportato (POSIX); su Windows no-op senza rompere.
+        os.chmod(BACKUP_DIR, 0o700)
+    except OSError:
+        pass
     # Microsecondi + contatore anti-collisione: due backup nello stesso
     # istante non devono mai sovrascriversi (ZipFile(out, "w") tronca).
     ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -832,6 +838,11 @@ def create_backup() -> Path:
         except OSError:
             pass
         raise OSError(f"Snapshot corrotto, scartato: {bad}")
+    try:
+        # Owner-only quando supportato (POSIX); su Windows no-op senza rompere.
+        os.chmod(out, 0o600)
+    except OSError:
+        pass
     prune_snapshots()
     return out
 
