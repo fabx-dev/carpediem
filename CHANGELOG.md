@@ -5,6 +5,8 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+## [0.18.3] - 2026-09-30
+
 ### Added
 - Hardening phase (technical only, no behavior change): release gate in
   `publish.yml` (full checks re-run on the release SHA before build and
