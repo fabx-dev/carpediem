@@ -5,6 +5,8 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+## [0.18.4] - 2026-09-30
+
 ### Added
 - `app.py` modularization (pure extractions, no behavior change):
   `src/export_ical.py`, `src/security_validation.py`, `src/radar.py`,
