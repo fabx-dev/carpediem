@@ -19,6 +19,7 @@ from textual.widgets import (
 
 from src import crypto as _crypto
 from src import domain
+from src import export_ical as _export_ical
 from src.commands import CarpeDiemMenuProvider, menu_categories
 from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
 from src.integrations import outlook_auth as _outlook_auth
@@ -2780,48 +2781,12 @@ class TodoApp(App):
     def _ical_event_lines(
         self, todo: TodoItem, date_part: str, time_part: str, stamp: str
     ) -> list[str]:
-        uid = (
-            f"carpediem-{todo.id or abs(hash((todo.title, todo.due)))}@carpediem.local"
-        )
-        desc_bits = []
-        if todo.project:
-            desc_bits.append(f"Progetto: {todo.project}")
-        if todo.tags:
-            desc_bits.append("Tags: " + ", ".join(todo.tags))
-        desc_bits.append(f"Priorita: {prio_disp(todo.priority.value)}")
-        if todo.notes:
-            desc_bits.append(todo.notes)
-        lines = [
-            "BEGIN:VEVENT",
-            f"UID:{self._ical_escape(uid)}",
-            f"DTSTAMP:{stamp}",
-            f"SUMMARY:{self._ical_escape(todo.title)}",
-            f"DESCRIPTION:{self._ical_escape(chr(10).join(desc_bits))}",
-        ]
-        if time_part:
-            start = date_part.replace("-", "") + "T" + time_part.replace(":", "") + "00"
-            lines.append(f"DTSTART:{start}")
-        else:
-            start = date_part.replace("-", "")
-            try:
-                end = (
-                    datetime.strptime(date_part, "%Y-%m-%d") + timedelta(days=1)
-                ).strftime("%Y%m%d")
-            except ValueError:
-                end = start
-            lines.append(f"DTSTART;VALUE=DATE:{start}")
-            lines.append(f"DTEND;VALUE=DATE:{end}")
-        lines.append("END:VEVENT")
-        return lines
+        # E1: logica pura in src/export_ical.py, qui solo delega.
+        return _export_ical.ical_event_lines(todo, date_part, time_part, stamp)
 
     def _ical_escape(self, value: str) -> str:
-        return (
-            str(value)
-            .replace("\\", "\\\\")
-            .replace(";", "\\;")
-            .replace(",", "\\,")
-            .replace("\n", "\\n")
-        )
+        # E1: logica pura in src/export_ical.py, qui solo delega.
+        return _export_ical.ical_escape(value)
 
     def action_export_stats_csv(self) -> None:
         """Export aggregati giornalieri (CSV): data, completati, pomodori."""
