@@ -199,7 +199,8 @@ Regole dure:
   workflow verde).
 - CI (`.github/workflows/ci.yml`): `ruff check` + `ruff format --check` + `mypy src/` +
   pytest su 3.12/3.13 (job `test` in matrice) e su Windows 3.13; il job Linux aggiunge
-  `--cov-fail-under=75`. Lezione: un push è fallito solo per `ruff format` mai lanciato
+  `--cov-fail-under=75`; il job `build-smoke` installa la wheel in un venv pulito e
+  lancia entry-point + import smoke. Lezione: un push è fallito solo per `ruff format` mai lanciato
   in locale — correrlo sempre.
 - Split di commit misti: classificare hunk per marker (occhio alle righe di contesto vuote nei
   diff, che non hanno prefisso e sballano i conteggi) e validare con round-trip

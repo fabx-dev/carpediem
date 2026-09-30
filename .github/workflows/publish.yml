@@ -6,6 +6,11 @@
 #      owner/repo = fabx-dev/carpediem, workflow = publish.yml
 #      (stesso su TestPyPI; il primo upload crea il progetto da solo).
 #
+# Flusso garantito: commit -> CI verde sullo stesso SHA -> release -> publish.
+# Questo workflow NON pubblica mai senza aver rieseguito tutti i gate
+# (ruff, format, mypy, pytest, build, smoke da wheel installata) sul
+# commit/tag che si sta pubblicando. Vedi docs/release.md.
+#
 # Uso: Release GitHub -> pubblica su PyPI in automatico;
 #      Actions -> Publish -> Run workflow -> testpypi per le prove.
 
@@ -24,15 +29,43 @@ on:
         options: [testpypi, pypi]
 
 jobs:
-  build:
+  gate:
+    # Gate esplicito sullo stesso SHA della release: se un solo check
+    # fallisce, build e publish non partono (niente `if: success()` tra
+    # workflow separati come unica protezione).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: git rev-parse HEAD && git describe --tags --exact-match 2>/dev/null || echo "no exact tag on HEAD (dispatch run)"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check src/ tests/
+      - run: ruff format --check src/ tests/
+      - run: mypy src/
+      - run: python -m pytest tests/ -q
+
+  build:
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install build
       - run: python -m build
+      - run: test -f dist/*.whl && test -f dist/*.tar.gz
+      - run: python -m venv /tmp/smoke-venv
+      - run: /tmp/smoke-venv/bin/pip install dist/*.whl
+      - run: /tmp/smoke-venv/bin/carpediem --help
+      # cd /tmp: l'import deve risolversi dalla wheel installata, mai dal checkout.
+      - run: cd /tmp && /tmp/smoke-venv/bin/python -c "import src.main, src.planner, src.storage, src.crypto, src.domain; print('smoke import ok')"
       - uses: actions/upload-artifact@v7
         with:
           name: dist
@@ -57,6 +90,7 @@ jobs:
     needs: build
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       id-token: write
     steps:

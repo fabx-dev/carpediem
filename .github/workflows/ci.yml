@@ -33,3 +33,21 @@ jobs:
       - run: ruff format --check src/ tests/
       - run: mypy src/
       - run: python -m pytest tests/ -q
+
+  build-smoke:
+    # Verifica il prodotto come viene distribuito: wheel installata in
+    # ambiente pulito, non `pip install -e .` dal repo.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      - run: python -m venv /tmp/smoke-venv
+      - run: /tmp/smoke-venv/bin/pip install dist/*.whl
+      - run: /tmp/smoke-venv/bin/carpediem --help
+      # cd /tmp: l'import deve risolversi dalla wheel installata, mai dal checkout.
+      - run: cd /tmp && /tmp/smoke-venv/bin/python -c "import src.main, src.planner, src.storage, src.crypto, src.domain; print('smoke import ok')"
+      - run: test -f dist/*.whl && test -f dist/*.tar.gz
