@@ -5,6 +5,12 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Added
+- `app.py` modularization (pure extractions, no behavior change):
+  `src/export_ical.py`, `src/security_validation.py`, `src/radar.py`,
+  `src/import_csv.py` with equivalence tests; `TodoApp` keeps thin
+  delegating wrappers.
+
 ## [0.18.3] - 2026-09-30
 
 ### Added
