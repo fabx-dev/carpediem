@@ -13,8 +13,18 @@ coverage.xml
 # Ambienti virtuali
 .venv/
 venv/
-# Dati locali (mai nel repo)
-*.json
+# Dati locali (mai nel repo): pattern mirati ai file runtime generati
+# (ex `*.json` generico: impediva fixture/JSON legittimi futuri).
+.todo_*.json
+*.bak.json
+*.corrotto.json
+.todo_*.lock
+.todo_*.tmp
+.todo_*.restore_tmp
+# Tooling locale non versionato (gli agents .opencode/agents/*.md restano tracked)
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json
 # Screenshot/export locali
 Tasko_screenshots/
 CarpeDiem_screenshots/
