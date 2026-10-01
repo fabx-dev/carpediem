@@ -311,6 +311,77 @@ class PlanningRequest:
         object.__setattr__(self, "busy", tuple(self.busy or ()))
 
 
+# Bloccanti per PlanAlternative.blocked_by (Phase 6, vocabolario chiuso):
+# primo blocco deterministico osservato, MAI causa unica (vedi diagnose()).
+BLOCKED_USER_SKIP = "user_skip"
+BLOCKED_CAPACITY = "capacity"
+BLOCKED_DEADLINE = "deadline"
+BLOCKED_BUSY = "busy"
+BLOCKED_WINDOW = "window"
+BLOCKED_DURATION = "duration"
+
+BLOCKED_KINDS = frozenset(
+    {
+        BLOCKED_USER_SKIP,
+        BLOCKED_CAPACITY,
+        BLOCKED_DEADLINE,
+        BLOCKED_BUSY,
+        BLOCKED_WINDOW,
+        BLOCKED_DURATION,
+    }
+)
+
+# Tipi di diagnostica di piano (Phase 6, vocabolario chiuso, solo se veri).
+DIAG_OVERFLOW = "overflow"
+DIAG_CONSTRAINED = "constrained_mandatory"
+DIAG_NO_AVAIL = "empty_availability"
+
+DIAG_KINDS = frozenset({DIAG_OVERFLOW, DIAG_CONSTRAINED, DIAG_NO_AVAIL})
+
+# Chiavi ammesse in PlanAlternative.detail / PlanDiagnostic.detail
+# (vocabolario chiuso: solo fatti che Phase 6 sa davvero).
+DETAIL_KEYS = frozenset(
+    {
+        "needed_min",
+        "deadline",
+        "estimate_pomo",
+        "capacity_pomo",
+        "planned_pomo",
+        "over_pomo",
+        "count",
+        "todo_ids",
+        "planned_count",
+    }
+)
+
+
+@dataclass(frozen=True)
+class PlanAlternative:
+    """Informazione diagnostica su un candidato escluso/non collocato
+    (Phase 6) — candidato, stato, primo blocco osservato, dettagli fattuali.
+
+    NON e' un piano alternativo ne' un'alternativa completa: non evolve in
+    un modello di alternative-planning senza decisione architetturale
+    esplicita. `blocked_by` = primo blocco deterministico osservato con le
+    regole esistenti (ordine duration → deadline → busy → window), mai
+    "unica causa possibile". `detail` solo chiavi DETAIL_KEYS.
+    """
+
+    todo_id: int
+    decision: str
+    blocked_by: str
+    detail: dict | None = None
+
+
+@dataclass(frozen=True)
+class PlanDiagnostic:
+    """Fatto di piano osservato (Phase 6): solo se vero, solo fatti
+    (conteggi, capienze, id) — mai interpretazioni, mai severity."""
+
+    kind: str
+    detail: dict | None = None
+
+
 @dataclass(frozen=True)
 class PlanningResult:
     """Output unico del Planner (Phase 2, forma di lavoro interna-al-repo).
@@ -318,6 +389,7 @@ class PlanningResult:
     Eco del request (tracciabilita'), DayPlan invariato, schedulazione
     (None senza availability: decisione ≠ schedulazione), decisions sempre
     presenti (confidence da request.sample_count, anche None).
+    alternatives/diagnostics (Phase 6): osservabili additivi, mai decisionali.
     Stesso status instabile del Request (vedi sopra).
     """
 
@@ -325,3 +397,5 @@ class PlanningResult:
     plan: DayPlan
     scheduled: ScheduledDayPlan | None = None
     decisions: tuple = ()
+    alternatives: tuple = ()
+    diagnostics: tuple = ()

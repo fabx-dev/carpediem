@@ -31,7 +31,14 @@ EXPECTED_REQUEST_FIELDS = [
     "sample_count",
 ]
 
-EXPECTED_RESULT_FIELDS = ["request", "plan", "scheduled", "decisions"]
+EXPECTED_RESULT_FIELDS = [
+    "request",
+    "plan",
+    "scheduled",
+    "decisions",
+    "alternatives",
+    "diagnostics",
+]
 
 
 def test_u1_liste_campi_esatte():
