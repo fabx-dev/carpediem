@@ -35,6 +35,7 @@ from src.models import (
 )
 from src.planner import Planner, capacity, events_to_busy, explain
 from src.planner import feedback as planner_feedback
+from src.planner import plan as plan_request
 from src.planner.models import (
     DayPlan,
     FixedEvent,
@@ -261,7 +262,7 @@ def scheduled_for_today(
         planned = [t for t in todos if t.planned_for == today and t.state == "attivo"]
     if not planned:
         return None, [], [], []
-    plan = Planner(todos, today=today, hours=hours).propose()
+    plan = plan_request(build_planning_request(todos, today, hours, None)).plan
     items_by_id = {it.todo_id: it for it in plan.items}
     attivi = [t for t in planned if t.state == "attivo"]
     ordered = [items_by_id[t.id] for t in attivi if t.id in items_by_id]
@@ -1414,11 +1415,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.hours = max(1.0, float(hours))
         except (ValueError, TypeError):
             self.hours = 6.0
-        self.plan = Planner(
-            self.all_todos,
-            today=self.today,
-            hours=self.hours,
-        ).propose()
+        self.plan = plan_request(
+            build_planning_request(self.all_todos, self.today, self.hours, None)
+        ).plan
         # Semantica additiva: i gia' pianificati non si ripropongono (per
         # togliere c'e' il piano giorno con x). Restano nel computo capacita'.
         planned_ids = {

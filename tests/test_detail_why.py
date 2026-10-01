@@ -480,13 +480,14 @@ def test_detail_usa_decisions_senza_ricalcolo(tmp_files, monkeypatch):
     import src.screens.views as views_mod
 
     calls = []
-    orig_propose = views_mod.Planner.propose
+    orig_plan = views_mod.plan_request
 
-    def counting(self):
+    def counting(request):
         calls.append(1)
-        return orig_propose(self)
+        return orig_plan(request)
 
-    monkeypatch.setattr(views_mod.Planner, "propose", counting)
+    # Phase 2 (P2-6): il Detail passa per la facade plan(), non Planner.
+    monkeypatch.setattr(views_mod, "plan_request", counting)
 
     async def inline():
         app = make_app([make_todo("A", todo_id=1, due=TODAY, planned_for=TODAY)])

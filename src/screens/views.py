@@ -45,11 +45,10 @@ from src.planner import (
     DEFERRED,
     NOT_SCHEDULED,
     SCHEDULED,
-    Planner,
     PlanningDecision,
-    decide,
     primary_reason,
 )
+from src.planner import plan as plan_request
 from src.planner.narrative import explain_decision, explain_proposed
 from src.screens._shared import (
     CloseMixin,
@@ -1184,24 +1183,22 @@ def plan_decisions(
     Unico punto di calcolo consumato sia dal Detail (fallback quando il
     chiamante non passa `decisions`) sia dai caller che precalcolano:
     a parita' di (todos, today, hours) un solo risultato, mai ricalcoli
-    multipli per navigazione. Mai scoring duplicato: delega al boundary.
-    Fallimento loggato, non silenzioso: `()` renderebbe la card Why
-    indistinguibile da "task non valutato" (lezione §7 radar loggato).
+    multipli per navigazione. Phase 2 (P2-6): via facade plan() su request
+    costruito dall'adapter (stessi input, stesso output — E1). Fallimento
+    loggato, non silenzioso: `()` renderebbe la card Why indistinguibile
+    da "task non valutato" (lezione §7 radar loggato).
     """
     try:
-        plan = Planner(all_todos, today=today, hours=hours).propose()
+        # Import locale: evita dipendenze tra aree screen all'import
+        # (precedente plan.py -> views).
+        from src.screens.plan import build_planning_request
+
+        res = plan_request(
+            build_planning_request(list(all_todos or ()), today or "", hours)
+        )
+        return res.decisions
     except Exception:
-        _log.exception("plan_decisions: propose() fallito")
-        return ()
-    try:
-        sample_count = _domain.calibration_samples(all_todos)
-    except Exception:
-        _log.exception("plan_decisions: calibration_samples() fallito")
-        sample_count = None
-    try:
-        return decide(plan, all_todos, sample_count=sample_count)
-    except Exception:
-        _log.exception("plan_decisions: decide() fallito")
+        _log.exception("plan_decisions: plan() fallito")
         return ()
 
 

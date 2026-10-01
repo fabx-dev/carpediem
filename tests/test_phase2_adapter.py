@@ -72,3 +72,41 @@ def test_adapter_ore_e_today_tolleranti():
     assert build_planning_request(_todos(), TODAY_S, "xx", None).capacity_pomo == 0.0
     req = build_planning_request(_todos(), "xx", 6.0, None)
     assert req.day == datetime.now().date()  # orologio del caller, documentato
+
+
+def test_e2_scheduled_for_today_golden():
+    """E2 (P2-6): scheduled_for_today via facade — slot espliciti pinnati,
+    completati-oggi fuori dal dayplan ma nei confermati (briefing)."""
+    from src.screens.plan import scheduled_for_today
+
+    done = make_todo("C", todo_id=3, completed_at=f"{TODAY_S} 16:00")
+    done.done = True
+    done.planned_for = ""  # apply_state azzera al completamento: conta completed_at
+    todos = [
+        make_todo("A", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
+        make_todo("B", todo_id=2, planned_for=TODAY_S, stima_pomo=2),
+        done,
+    ]
+    sched, events, _allday, planned = scheduled_for_today(
+        todos, TODAY_S, 6.0, _window()
+    )
+    slots = {s.item.todo_id: s for s in sched.scheduled}
+    assert [
+        (s.start.strftime("%H:%M"), s.end.strftime("%H:%M")) for s in sched.scheduled
+    ] == [
+        ("09:00", "10:00"),
+        ("10:00", "11:00"),
+    ]
+    assert set(slots) == {1, 2}
+    assert [t.id for t in planned] == [1, 2]  # il completato resta fuori
+    assert len(events) == 1 and events[0].title == "Pausa"
+
+    sched2, _ev, _al, planned2 = scheduled_for_today(
+        todos, TODAY_S, 6.0, _window(), include_done=True
+    )
+    assert [t.id for t in planned2] == [1, 2, 3]
+    in_plan = {s.item.todo_id for s in sched2.scheduled} | {
+        it.todo_id for it in sched2.unscheduled
+    }
+    assert 3 not in in_plan  # non-attivi mai schedulati, slot None
+    assert sched2 is not None and sched2.plan is not None
