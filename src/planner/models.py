@@ -232,3 +232,71 @@ class ExecutionFeedback:
     actual_pomo: int
     actual_minutes: int
     completed: bool
+
+
+@dataclass(frozen=True)
+class PlanningRequest:
+    """Input unico del Planner (Phase 2, forma di lavoro interna-al-repo).
+
+    Solo cio' che serve oggi: task normalizzati, giorno esplicito,
+    capacita' in pomodori (unita' core; ore→pomo nell'adapter app-side),
+    factor esplicito (None = non calibrato, MAI auto-risolto qui —
+    l'auto vive nell'adapter e nel path legacy), finestre temporali,
+    now per il clipping replan, contesto calibrazione per decisions.
+    Niente constraints/preferences/timezone (Phase 4+).
+
+    Status vincolante (docs/planner-phase2-plan.md §1): INSTABILE fino
+    alla Phase 7 — forma di lavoro, non promessa di stabilita', non
+    versionata. La Phase 7 puo' rinominare e ricomporre liberamente.
+    Differenza voluta vs legacy tollerante: day invalido = ValueError
+    subito, mai piano silenziosamente spostato.
+    """
+
+    day: date
+    tasks: tuple = ()
+    capacity_pomo: float = 0.0
+    factor: float | None = None
+    availability: tuple = ()
+    busy: tuple = ()
+    now: datetime | None = None
+    sample_count: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.tasks is None:
+            raise ValueError("PlanningRequest.tasks richieste (anche vuote)")
+        norm = tuple(
+            t if isinstance(t, TaskView) else todo_to_task(t) for t in self.tasks
+        )
+        object.__setattr__(self, "tasks", norm)
+        day = self.day
+        if isinstance(day, datetime):
+            day = day.date()
+        if not isinstance(day, date):
+            raise ValueError(
+                "PlanningRequest.day deve essere date/datetime, "
+                f"non {type(self.day).__name__}"
+            )
+        object.__setattr__(self, "day", day)
+        try:
+            cap = max(0.0, float(self.capacity_pomo))
+        except (ValueError, TypeError):
+            cap = 0.0
+        object.__setattr__(self, "capacity_pomo", cap)
+        object.__setattr__(self, "availability", tuple(self.availability or ()))
+        object.__setattr__(self, "busy", tuple(self.busy or ()))
+
+
+@dataclass(frozen=True)
+class PlanningResult:
+    """Output unico del Planner (Phase 2, forma di lavoro interna-al-repo).
+
+    Eco del request (tracciabilita'), DayPlan invariato, schedulazione
+    (None senza availability: decisione ≠ schedulazione), decisions sempre
+    presenti (confidence da request.sample_count, anche None).
+    Stesso status instabile del Request (vedi sopra).
+    """
+
+    request: PlanningRequest
+    plan: DayPlan
+    scheduled: ScheduledDayPlan | None = None
+    decisions: tuple = ()

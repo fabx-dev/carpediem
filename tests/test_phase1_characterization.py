@@ -449,6 +449,8 @@ def test_t9_export_boundary_invariati():
         "SCHEDULED",
         "ScheduledDayPlan",
         "ScheduledItem",
+        "PlanningRequest",
+        "PlanningResult",
         "TaskView",
         "TimeWindow",
         "decide",
