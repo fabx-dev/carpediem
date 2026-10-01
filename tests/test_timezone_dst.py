@@ -9,6 +9,7 @@ from datetime import datetime
 
 import src.integrations.outlook as o
 import src.planner.scheduler as sched
+from src.planner.models import TimeWindow
 
 
 def _item(title, start, end, tz="Europe/Rome", show_as="busy", allday=False):
@@ -110,3 +111,25 @@ def test_overlapping_resta_ordinato_e_deterministico():
     first = o.parse_graph_events(_payload(items), "2026-06-01")
     assert [e.title for e in first[0]] == ["a", "b"]
     assert first == o.parse_graph_events(_payload(items), "2026-06-01")
+
+
+def test_politica_core_naive_su_transizione_dst():
+    """Limite dichiarato (scheduler docstring): il core somma wall-time
+    naive anche sull'ora mancante del 2026-03-29 a Roma (02:00 -> 03:00):
+    01:30 + 30min = 02:00 naive (1h reale). Pinnato per impedire fix
+    ingenui verso aware (romperebbero i dati); il bordo Outlook resta
+    l'unico punto tz-aware."""
+    from datetime import timedelta
+
+    from src.planner.models import DayPlan, PlanItem
+
+    plan = DayPlan(
+        day=datetime(2026, 3, 29).date(), planned=(PlanItem(1, 10, (), 1, False),)
+    )
+    avail = [TimeWindow(datetime(2026, 3, 29, 1, 30), datetime(2026, 3, 29, 4, 0))]
+    (slot,) = sched.schedule(plan, avail, ()).scheduled
+    assert (slot.start, slot.end) == (
+        datetime(2026, 3, 29, 1, 30),
+        datetime(2026, 3, 29, 2, 0),
+    )
+    assert slot.end - slot.start == timedelta(minutes=30)

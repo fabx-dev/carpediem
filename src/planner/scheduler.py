@@ -15,6 +15,19 @@ comportamento legacy identico).
 Cut e skipped non si schedulano (gia' decisi dal Planner); i planned senza
 slot restano unscheduled (strutturale, senza reason nuova). Mandatory senza
 slot = unscheduled: mai overlap, mai ore inventate, mai durate modificate.
+
+Policy temporale (Phase 3, canonica per il core):
+- wall-time naive ovunque (convenzione repo: aware romperebbe i dati);
+  mai tzinfo/astimezone/ZoneInfo qui dentro (guard G2).
+- conversioni tz SOLO ai bordi di integrazione (Outlook: naive-in-zona
+  o aware-con-offset -> naive nella tz mailbox, DST gestito li —
+  test_timezone_dst.py). Mailbox tz da config validata (default
+  Europe/Rome), usata sia per l'header Graph `Prefer` sia come target
+  del parse (wiring auditato, test_outlook_auth.py).
+- limite noto e dichiarato: l'aritmetica naive ignora le transizioni DST
+  (slot a cavallo dell'ora mancante misura 1h reale; ambiguità fold non
+  rappresentabile). Fixarlo richiederebbe aware nel core = rottura
+  storage: rinviato per disegno, non per dimenticanza.
 """
 
 from datetime import datetime, timedelta
