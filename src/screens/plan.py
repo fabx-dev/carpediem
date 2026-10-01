@@ -33,12 +33,13 @@ from src.models import (
     _pomo_label,
     _status,
 )
-from src.planner import Planner, events_to_busy, explain
+from src.planner import Planner, capacity, events_to_busy, explain
 from src.planner import feedback as planner_feedback
 from src.planner.models import (
     DayPlan,
     FixedEvent,
     PlanItem,
+    PlanningRequest,
     ScheduledDayPlan,
     TimeWindow,
 )
@@ -185,6 +186,45 @@ def day_window_parts(window: dict | None, day_s: str):
                 if len(allday) >= 30:
                     break
     return start, end, events, allday
+
+
+def build_planning_request(
+    todos: list[TodoItem],
+    today: str,
+    hours: float,
+    window: dict | None = None,
+) -> PlanningRequest:
+    """TodoItem/config app -> PlanningRequest (Phase 2, adapter app-owned).
+
+    Unico punto dove il mondo applicativo entra nel core: normalizzazione
+    task (via Request), ore -> pomodori (capacity.total, pura conversione),
+    factor auto via domain (D2: l'auto-risoluzione vive QUI, mai nel path
+    plan(request)), finestra -> availability/busy, contesto calibrazione.
+    Puro sui dati passati (mai I/O): il commit resta al chiamante.
+    `today` garbage -> giorno corrente (l'orologio appartiene al caller).
+    """
+    try:
+        day = datetime.strptime(str(today or "")[:10], "%Y-%m-%d").date()
+        today_s = day.strftime("%Y-%m-%d")
+    except ValueError:
+        day = datetime.now().date()
+        today_s = day.strftime("%Y-%m-%d")
+    avail: list = []
+    busy: tuple = ()
+    parts = day_window_parts(window, today_s)
+    if parts is not None:
+        start, end, events, _allday = parts
+        avail = [TimeWindow(start, end)]
+        busy = events_to_busy(events)
+    return PlanningRequest(
+        day=day,
+        tasks=tuple(todos or ()),
+        capacity_pomo=capacity.total(hours),
+        factor=domain.calibration_factor(list(todos or ())),
+        availability=tuple(avail),
+        busy=tuple(busy),
+        sample_count=domain.calibration_samples(list(todos or ())),
+    )
 
 
 def scheduled_for_today(
