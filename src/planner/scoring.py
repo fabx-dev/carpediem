@@ -6,6 +6,11 @@ fermo, S3 domani, S4 bonus gia'-pianificato, S5 annotazione calibrata
 (solo motivo, mai punteggio). Il flag mandatory (scaduto/oggi) e' un vincolo
 duro consumato da capacity (mai tagliati, H4); tutto il resto e' preferenza.
 
+Phase 5 (S-NoScore): pesi rivalutati esplicitamente — nessuna evidenza di
+merito sbagliato (fixture 40+ verdi, nessuno scenario che li smentisca) —
+invariati. La procedura differenziale legacy-vs-nuovo resta armata per
+quando servira'.
+
 Phase 1: opera su TaskView (proiezione normalizzata, mai TodoItem diretto).
 PRIO_SCORES e' a chiavi stringa ("alta"/"media"/"bassa", stessi pesi storici;
 parita' coperta dalle fixture). Niente import dal modello storage.
