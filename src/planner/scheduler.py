@@ -19,7 +19,7 @@ slot = unscheduled: mai overlap, mai ore inventate, mai durate modificate.
 
 from datetime import datetime, timedelta
 
-from src.planner.capacity import POMO_HOURS
+from src.planner.capacity import pomo_minutes
 from src.planner.models import (
     FixedEvent,
     PlanItem,
@@ -88,7 +88,7 @@ def _subtract(free: list, busy: list) -> list:
 
 
 def _duration(item: PlanItem) -> timedelta:
-    return timedelta(hours=POMO_HOURS * max(0, item.estimate_pomo))
+    return timedelta(minutes=pomo_minutes(item.estimate_pomo))
 
 
 def deadlines_for(todos) -> dict:

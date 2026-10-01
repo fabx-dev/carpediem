@@ -29,7 +29,7 @@ tuple di DayPlan: NON e' un secondo motore decisionale. Pipeline:
 from dataclasses import dataclass, replace
 
 from src.domain import execution_confidence
-from src.planner.capacity import POMO_HOURS
+from src.planner.capacity import pomo_minutes
 from src.planner.explain import CALIBRATED, CUT, SKIPPED
 from src.planner.models import DayPlan, ScheduledDayPlan
 
@@ -74,7 +74,7 @@ def _evidence(item, todo, day_s: str, rank: int, rank_of: int, plan: DayPlan) ->
         "rank": rank,
         "rank_of": rank_of,
         "estimate_pomo": item.estimate_pomo,
-        "estimate_minutes": int(item.estimate_pomo * POMO_HOURS * 60),
+        "estimate_minutes": pomo_minutes(item.estimate_pomo),
         "mandatory": bool(item.mandatory),
         "capacity_pomo": plan.capacity_pomo,
         "planned_pomo": plan.planned_pomo,

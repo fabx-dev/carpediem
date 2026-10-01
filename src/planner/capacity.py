@@ -20,6 +20,20 @@ POMO_HOURS = 0.5
 DEFAULT_ESTIMATE = 1
 
 
+def pomo_minutes(pomo) -> int:
+    """Pomodori -> minuti wall-clock (UNICO convertitore nel planner).
+
+    Usato da scheduler (durate slot), feedback e decisions (evidence):
+    una sola formula, mai letterali 30/60 sparsi. Lock-step con
+    domain.POMO_MINUTES (= 30, stessa unita' dal lato history — se
+    POMO_HOURS cambia si aggiornano entrambi).
+    """
+    try:
+        return max(0, int(POMO_HOURS * 60 * int(pomo or 0)))
+    except (ValueError, TypeError):
+        return 0
+
+
 def _date_part(due: str) -> str:
     """Solo YYYY-MM-DD (copia locale: niente import dal modello storage)."""
     s = str(due or "")
