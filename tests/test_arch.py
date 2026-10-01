@@ -194,6 +194,22 @@ def test_phase1_planner_senza_commit_o_persistenza():
                     )
 
 
+def test_phase2_estimation_math_solo_in_capacity():
+    """D1: la matematica estimation di domain entra nel planner da un solo
+    seam (capacity.estimate/normalize_factor), documentato e sotto contratto
+    (tests/test_phase2_estimation.py). Trasloco vietato fino a Phase 5."""
+    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            s = line.strip()
+            if s.startswith(("from ", "import ")) and (
+                "calibrated_estimate" in s or "CAL_CLAMP" in s
+            ):
+                assert path.name == "capacity.py", (
+                    f"{path}: matematica estimation fuori dal seam capacity. "
+                    "Vedi docs/planner-phase2-plan.md §7 D1."
+                )
+
+
 def test_phase1_wall_clock_solo_allowlisted():
     found = []
     for path in sorted(pathlib.Path("src/planner").glob("*.py")):
