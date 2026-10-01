@@ -39,3 +39,28 @@ def test_partition_gruppi_motivo_ordine():
     ]
     # input non mutato (motivo aggiunto su copia)
     assert scored[1][2] == [("plan_due_today", {})]
+
+
+def test_eligibility_of_tre_vie():
+    """V1 (P4-2): H1/H2 -> EXCLUDED, H3 -> SKIPPED, resto -> ELIGIBLE."""
+    assert constraints.eligibility_of(make_todo("A", todo_id=1), TODAY) == (
+        constraints.ELIGIBLE
+    )
+    assert constraints.eligibility_of(
+        make_todo("S", todo_id=2, plan_skip=TODAY), TODAY
+    ) == (constraints.SKIPPED)
+    done = make_todo("D", todo_id=3)
+    done.done = True
+    assert constraints.eligibility_of(done, TODAY) == constraints.EXCLUDED
+    paused = make_todo("P", todo_id=4)
+    paused.paused = True
+    assert constraints.eligibility_of(paused, TODAY) == constraints.EXCLUDED
+    assert constraints.eligibility_of(make_todo("N", todo_id=None), TODAY) == (
+        constraints.EXCLUDED
+    )
+    # Costanti frozen come gli stati decisione.
+    assert {constraints.ELIGIBLE, constraints.SKIPPED, constraints.EXCLUDED} == {
+        "eligible",
+        "skipped",
+        "excluded",
+    }

@@ -15,6 +15,14 @@ vive in scoring.
 from src.planner import explain
 from src.planner.scoring import rank_key
 
+# Verdetti di ammissibilita' (Phase 4, frozen come gli stati decisione):
+# ELIGIBLE = entra in selezione; SKIPPED = scartato oggi con motivo (H3);
+# EXCLUDED = fuori in silenzio, mai in nessuna sezione (H1/H2: il perche'
+# resta interno per non cambiare l'output).
+ELIGIBLE = "eligible"
+SKIPPED = "skipped"
+EXCLUDED = "excluded"
+
 
 def is_eligible(todo) -> bool:
     """Solo task attivi con id (hard constraint, esclusione silenziosa)."""
@@ -26,6 +34,16 @@ def is_skipped(todo, today_s: str) -> bool:
     return getattr(todo, "plan_skip", "") == today_s
 
 
+def eligibility_of(todo, today_s: str) -> str:
+    """Verdetto a 3 vie (Phase 4): H1/H2 -> EXCLUDED, H3 -> SKIPPED,
+    resto -> ELIGIBLE. Totale sui campi mancanti come gli helper storici."""
+    if not is_eligible(todo):
+        return EXCLUDED
+    if is_skipped(todo, today_s):
+        return SKIPPED
+    return ELIGIBLE
+
+
 def partition(scored: list, today_s: str) -> tuple[list, list]:
     """(candidati, scartati): gli scartati ricevono il motivo e sono ordinati
     per merito; i candidati (inclusi i mandatory) vanno a capacity.
@@ -33,7 +51,7 @@ def partition(scored: list, today_s: str) -> tuple[list, list]:
     candidates = []
     skipped = []
     for t, result, reasons, mandatory in scored:
-        if is_skipped(t, today_s):
+        if eligibility_of(t, today_s) == SKIPPED:
             skipped.append((t, result, [*reasons, explain.skipped()], mandatory))
         else:
             candidates.append((t, result, reasons, mandatory))
