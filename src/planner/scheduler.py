@@ -1,7 +1,8 @@
 """Scheduler temporale deterministico (puro, niente I/O/UI/i18n).
 
-Colloca le voci planned di un DayPlan in slot [start, end) dentro la
-disponibilita' esplicita, evitando i busy (hard constraint). Greedy
+Catalogo hard Phase 4 (H5-H8; H9 vive in replan._clip_future; H1-H4 in
+constraints/capacity): H5 solo dentro availability, H6 mai overlap busy,
+H7 scadenza oggi+orario (sotto), H8 clip finestre al giorno. Greedy
 first-fit nell'ordine del Planner: niente ottimizzazione, niente secondo
 scoring, niente ricalcolo delle stime (usa PlanItem.estimate_pomo).
 

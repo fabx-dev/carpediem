@@ -125,12 +125,14 @@ def todo_to_task(todo) -> TaskView:
     if not state:
         # Ripiego per oggetti senza proprieta' state: stessa regola di
         # TodoItem.state (done > paused > attivo).
-        if getattr(todo, "done", False):
-            state = "completato"
-        elif getattr(todo, "paused", False):
-            state = "in_sospeso"
-        else:
-            state = "attivo"
+        # constraint-site: derivazione stato in normalizzazione (non decisione)
+        state = (
+            "completato"
+            if getattr(todo, "done", False)
+            else "in_sospeso"
+            if getattr(todo, "paused", False)
+            else "attivo"
+        )
     raw_prio = getattr(todo, "priority", "")
     priority = str(getattr(raw_prio, "value", raw_prio) or "").strip().lower()
     return TaskView(

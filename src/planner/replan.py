@@ -135,6 +135,7 @@ def replan(
     current_ids = set()
     try:
         for t in todos or ():
+            # constraint-site: scan confermati per diff (non decisione)
             if (
                 getattr(t, "state", None) == "attivo"
                 and getattr(t, "planned_for", "") == today

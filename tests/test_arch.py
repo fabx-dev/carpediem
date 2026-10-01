@@ -234,6 +234,32 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
             )
 
 
+def test_phase4_constraint_sites_allowlisted():
+    """G3: decisioni su stato solo nei siti dichiarati (marker
+    `# constraint-site`): nuove esclusioni silenziose sparse vietate.
+    Righe docstring/elenco (che iniziano per - # " ' *) documentano,
+    non decidono. Window ±6: i blocchi di derivazione (models.py) tengono
+    un marker solo in testa — guard euristico come T8, dichiarato qui."""
+    import re
+
+    pat = re.compile(r"""["'](?:attivo|completato|in_sospeso)["']""")
+    checked = 0
+    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            s = line.strip()
+            if not pat.search(s) or (s[:1] in "-#\"'*>" or s.startswith("```")):
+                continue
+            checked += 1
+            window = lines[max(0, i - 6) : i + 1]
+            assert any("constraint-site" in w for w in window), (
+                f"{path}:{i + 1}: decisione su stato senza marker. "
+                "Siti nuovi vietati: le esclusioni vivono in constraints.py "
+                "(docs/planner-phase4-plan.md §3 C-Guard)."
+            )
+    assert checked >= 5, f"siti attesi >= 5, trovati: {checked}"
+
+
 def test_phase3_core_senza_aware():
     """G2: il core resta naive (convenzione storage): niente aritmetica di
     zona in src/planner/ — conversioni solo ai bordi (Outlook edge)."""

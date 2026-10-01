@@ -40,6 +40,7 @@ def feedback(scheduled_plan, todos: list) -> tuple:
                 sessions=_as_int(getattr(todo, "pomodoros", 0)),
                 actual_pomo=_as_int(getattr(todo, "actual_pomo", 0)),
                 actual_minutes=_as_int(getattr(todo, "actual_minutes", 0)),
+                # constraint-site: evidence completamento (non decisione)
                 completed=bool(todo is not None and todo.state == "completato"),
             )
         )

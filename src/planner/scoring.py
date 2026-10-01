@@ -1,9 +1,10 @@
 """Merito delle task: punteggio, motivi e flag mandatory (puri, niente I/O).
 
-Pesi e regole identici allo storico plan_day(): scadenze (scaduto/oggi/domani),
-priorita', progetto fermo, gia' pianificato oggi, annotazione calibrata
+Pesi e regole identici allo storico plan_day(); catalogo soft Phase 4
+(S1-S5, influenza senza veto — mai vincoli): S1 priorita', S2 progetto
+fermo, S3 domani, S4 bonus gia'-pianificato, S5 annotazione calibrata
 (solo motivo, mai punteggio). Il flag mandatory (scaduto/oggi) e' un vincolo
-duro consumato da capacity (mai tagliati); tutto il resto e' preferenza.
+duro consumato da capacity (mai tagliati, H4); tutto il resto e' preferenza.
 
 Phase 1: opera su TaskView (proiezione normalizzata, mai TodoItem diretto).
 PRIO_SCORES e' a chiavi stringa ("alta"/"media"/"bassa", stessi pesi storici;
@@ -71,11 +72,12 @@ def stale_days(project: str, todos: list, today) -> int | None:
     for t in todos:
         if t.project != project:
             continue
+        # constraint-site: lettura stato per fermo progetto (non decisione)
         if t.state == "completato" and t.completed_at:
             d = parse_day(t.completed_at)
             if d and (last_done is None or d > last_done):
                 last_done = d
-        elif t.state == "attivo" and t.created:
+        elif t.state == "attivo" and t.created:  # constraint-site: vedi sopra
             d = parse_day(t.created)
             if d and (oldest_open is None or d < oldest_open):
                 oldest_open = d
