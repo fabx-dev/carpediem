@@ -18,6 +18,7 @@ EXPECTED_FIELDS = [
     "id",
     "state",
     "due",
+    "due_time",
     "priority",
     "project",
     "planned_for",
@@ -65,6 +66,7 @@ def test_t2_normalizza_todoitem():
         id=7,
         state="attivo",
         due="2026-09-10",
+        due_time="14:00",
         priority="alta",
         project="mixed",
         planned_for="2026-09-10",
@@ -89,6 +91,26 @@ def test_t2_stati_e_priorita():
     assert todo_to_task(low).priority == "bassa"
     med = make_todo("M", todo_id=4)
     assert todo_to_task(med).priority == "media"
+
+
+def test_t2_due_time_solo_orari_validi():
+    """P3-1: due_time = HH:MM con range reali, altrimenti '' (mai vincoli
+    inventati dallo scheduler)."""
+    assert todo_to_task(make_todo("A", todo_id=1, due="2026-09-10")).due_time == ""
+    assert todo_to_task(make_todo("C", todo_id=3, due="")).due_time == ""
+    # TodoItem normalizza "9:30" in forma valida: qui raw via namespace.
+    for raw, expected in (
+        ("2026-09-10 09:30", "09:30"),
+        ("2026-09-10 9:30", ""),
+        ("2026-09-10 24:00", ""),
+        ("2026-09-10 12:60", ""),
+        ("2026-09-10 xx:yy", ""),
+        ("2026-09-10 09:30:00", ""),
+        ("2026-09-10", ""),
+        ("", ""),
+    ):
+        view = todo_to_task(types.SimpleNamespace(due=raw))
+        assert view.due_time == expected, raw
 
 
 def test_t2_totalita_mai_solleva():

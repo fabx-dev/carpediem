@@ -43,6 +43,7 @@ class TaskView:
     id: int | None = None
     state: str = ""
     due: str = ""
+    due_time: str = ""
     priority: str = ""
     project: str = ""
     planned_for: str = ""
@@ -91,6 +92,27 @@ def _date_part(value) -> str:
     return s.strip().split()[0] if s.strip() else ""
 
 
+def _valid_hhmm(part: str) -> bool:
+    """HH:MM con range reali (00-23, 00-59): oltre la forma serve il range,
+    altrimenti lo scheduler non potrebbe costruire la deadline."""
+    if len(part) != 5 or part[2] != ":":
+        return False
+    try:
+        h, m = int(part[:2]), int(part[3:])
+    except ValueError:
+        return False
+    return 0 <= h <= 23 and 0 <= m <= 59
+
+
+def _due_time_part(value) -> str:
+    """Orario di un due con eventuale HH:MM (forma di models._due_time_part
+    + validazione range: garbage -> "", mai vincoli inventati)."""
+    parts = str(value or "").strip().split()
+    if len(parts) >= 2 and _valid_hhmm(parts[1]):
+        return parts[1]
+    return ""
+
+
 def todo_to_task(todo) -> TaskView:
     """TodoItem (o duck-typed equivalente) -> TaskView (totale, puro).
 
@@ -115,6 +137,7 @@ def todo_to_task(todo) -> TaskView:
         id=_as_id(getattr(todo, "id", None)),
         state=state,
         due=_date_part(getattr(todo, "due", "")),
+        due_time=_due_time_part(getattr(todo, "due", "")),
         priority=priority,
         project=str(getattr(todo, "project", "") or "").strip().lower(),
         planned_for=str(getattr(todo, "planned_for", "") or ""),
