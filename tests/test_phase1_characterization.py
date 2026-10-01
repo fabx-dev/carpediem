@@ -240,6 +240,45 @@ def test_t7a_replan_usa_factor_auto_interno():
         assert moved_ids <= (new_ids | current_ids), f"scenario {name}"
 
 
+def test_t7a_replan_condivide_factor_auto_calibrato():
+    """Step 4a, caso forte: con dati di calibrazione (factor attivo, non
+    None) il replan interno usa ESATTAMENTE l'auto-factor del chiamante.
+
+    6 completati (stima 2, actual 4) -> factor 2.0; gli attivi raddoppiano
+    la stima consumata. Prova auto≡auto a calibrazione viva, prima del seam.
+    """
+    todos = [
+        make_todo(f"C{i}", todo_id=100 + i, stima_pomo=2, actual_pomo=4)
+        for i in range(6)
+    ]
+    for t in todos:
+        t.done = True
+    todos += [
+        make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2),
+        make_todo("B", todo_id=2, stima_pomo=1),
+        make_todo("C", todo_id=3, stima_pomo=3),
+    ]
+    auto = calibration_factor(todos)
+    assert auto == 2.0  # precondizione: calibrazione viva
+    avail = [_win(9, 0, 18, 0)]
+    proposal = replan(todos, TODAY, 6.0, avail, (), FROZEN_NOW)
+    plan_auto = Planner(todos, today=TODAY, hours=6.0).propose()
+    plan_explicit = Planner(todos, today=TODAY, hours=6.0, factor=auto).propose()
+    assert plan_auto.factor == 2.0
+    assert plan_auto == plan_explicit  # auto ≡ esplicito sullo stesso input
+    assert proposal.planned_pomo == plan_auto.planned_pomo
+    assert proposal.capacity_pomo == plan_auto.capacity_pomo
+    # Le mosse coprono current ∪ planned: i kept/moved/added sono ESATTAMENTE
+    # i planned del motore interno (nessun secondo scoring nel replan).
+    assert {it.todo_id for it in plan_auto.planned} == {
+        m.todo_id for m in proposal.moves if m.kind in ("kept", "moved", "added")
+    }
+    # Le stime consumate sono calibrate (2 -> 4): A da solo riempie 4 pomo.
+    by_id = {it.todo_id: it for it in plan_auto.planned}
+    assert by_id[1].estimate_pomo == 4
+    assert any(k == "plan_calibrated" for k, _p in by_id[1].reasons)
+
+
 # --- T9: compat wrapper + layout frozen --------------------------------------
 
 
