@@ -6,6 +6,12 @@ ExecutionFeedback, senza duplicare alcun algoritmo e senza cambiare wiring.
 
 Loop: feedback → observations → factor → future estimate. Solo future:
 piani/actual/slot passati non vengono mai modificati.
+
+Status (Phase 1, D3): observe/observe_all/factor_for sono il boundary verso
+il core; calibration_summary e' invece un helper di integrazione NON-core
+(aggregazione history per la UI, derivata on-demand, mai persistita) —
+resta re-esportato per compat, candidato a trasloco fuori dal boundary
+in Phase 2.
 """
 
 from src.domain import (

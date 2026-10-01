@@ -20,6 +20,10 @@ tuple di DayPlan: NON e' un secondo motore decisionale. Pipeline:
   NUOVE decisioni (mai mutazione in-place, frozen) aggiungendo gli slot;
   solo mandatory-senza-slot diventa CONSTRAINED. Mai overlap, mai orari
   inventati, mai vincoli rilassati.
+- evidence stabile (superficie proto-diagnostica per Phase 6, solo lettura):
+  due/priority/overdue/score/rank/rank_of/estimate_pomo/estimate_minutes/
+  mandatory/capacity_pomo/planned_pomo (+ slot_start/slot_end dopo refine).
+  Niente nuovi campi in Phase 1 (ogni aggiunta si propaga alla Why-card).
 """
 
 from dataclasses import dataclass, replace
@@ -77,23 +81,35 @@ def _evidence(item, todo, day_s: str, rank: int, rank_of: int, plan: DayPlan) ->
     }
 
 
-def _confidence(reasons, sample_count) -> str | None:
+# Seam D4 (Phase 1): la traduzione int->livello resta delegata a domain di
+# default, ma e' sostituibile nei test senza toccare il codice. Nessuna
+# seconda soglia copiata qui (le soglie sono cambiate in M2: due copie
+# divergerebbero — precedente POMO_HOURS/POMO_MINUTES).
+_confidence_resolver = None
+
+
+def _confidence(reasons, sample_count, explicit=None) -> str | None:
+    if explicit is not None:
+        return explicit
     if sample_count is None:
         return None
     if not any(k == CALIBRATED for k, _p in reasons):
         return None
+    resolve = _confidence_resolver or execution_confidence
     try:
-        return execution_confidence(int(sample_count))
+        return resolve(int(sample_count))
     except (ValueError, TypeError):
         return None
 
 
-def decide(plan: DayPlan, todos, *, sample_count=None) -> tuple:
+def decide(plan: DayPlan, todos, *, sample_count=None, confidence=None) -> tuple:
     """Proietta un DayPlan in decisioni, una per voce valutata, in ordine.
 
     sample_count e' misurato dal chiamante (es. domain.calibration_samples):
     qui diventa confidence solo con stima calibrata, altrimenti None.
-    I non eleggibili non compaiono nel piano e non diventano decisioni.
+    confidence esplicita vince sempre (opt-in, nessun caller di produzione
+    la passa in Phase 1). I non eleggibili non compaiono nel piano e non
+    diventano decisioni.
     """
     try:
         by_id = {t.id: t for t in todos or ()}
@@ -118,7 +134,7 @@ def decide(plan: DayPlan, todos, *, sample_count=None) -> tuple:
                 section_of.get(id(item), SCHEDULED),
                 tuple(item.reasons),
                 _evidence(item, by_id.get(item.todo_id), day_s, rank, rank_of, plan),
-                _confidence(item.reasons, sample_count),
+                _confidence(item.reasons, sample_count, confidence),
             )
         )
     return tuple(out)

@@ -165,3 +165,31 @@ def test_primary_reason_flag_prima_e_none():
     assert primary_reason(by_id[1]) == ("plan_overdue", {})
     empty = dec.PlanningDecision(9, dec.SCHEDULED, (), {}, None)
     assert primary_reason(empty) is None
+
+
+def test_t6_confidence_esplicita_vince_e_default_delega(monkeypatch):
+    """Step 6 (D4): confidence= esplicita vince; default delega al resolver
+    (sostituibile); sample_count invalido -> None (comportamento invariato)."""
+    todos, plan = _scenario()
+    by_id = {d.todo_id: d for d in dec.decide(plan, todos, confidence="HIGH")}
+    assert all(d.confidence == "HIGH" for d in by_id.values())
+    # Default invariato: senza calibrazione nessuna confidence.
+    by_id = {d.todo_id: d for d in dec.decide(plan, todos)}
+    assert all(d.confidence is None for d in by_id.values())
+    # Resolver sostituibile: conta le chiamate senza cambiare l'output tipo.
+    seen = []
+    monkeypatch.setattr(
+        dec, "_confidence_resolver", lambda n: seen.append(n) or "MEDIUM"
+    )
+    calibrated = [
+        make_todo("E", todo_id=1, due="2026-09-01", stima_pomo=2),
+    ]
+    for i in range(5):
+        c = make_todo(f"H{i}", todo_id=10 + i, stima_pomo=2, actual_pomo=4)
+        c.done = True
+        calibrated.append(c)
+    plan2 = Planner(calibrated, today=TODAY, hours=6.0).propose()
+    got = {d.todo_id: d for d in dec.decide(plan2, calibrated, sample_count=12)}
+    assert got[1].confidence == "MEDIUM"
+    assert seen == [12]
+    assert dec.decide(plan2, calibrated, sample_count="xx")[0].confidence is None

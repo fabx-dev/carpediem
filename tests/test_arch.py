@@ -125,3 +125,85 @@ def test_no_stadi_planner_in_views():
             f"src/screens/views.py: '{name}' nel Detail. "
             "Il Why consuma PlanningDecision dal boundary, non gli stadi."
         )
+
+
+# Phase 1 (Step 6, T8): il core non importa il modello storage (solo
+# l'adapter planner/models.py lo conosce per conversione); i fallback
+# wall-clock sono allowlisted riga per riga; niente commit/persistenza
+# nel planner (propone, non scrive). Le menzioni in docstring/commenti
+# sono documentazione del boundary, non dipendenze: si controllano solo
+# le righe di import.
+_PLANNER_CORE = (
+    "scoring",
+    "capacity",
+    "constraints",
+    "decisions",
+    "feedback",
+)
+
+_PLANNER_NO_STORAGE_TOKENS = (
+    "TodoItem",
+    "Priority",
+    "_due_date_part",
+    "src.models",
+)
+
+_PLANNER_NO_COMMIT_TOKENS = (
+    "apply_replan",
+    "store",
+    "commit",
+    "save_",
+    "load_",
+)
+
+
+def _planner_lines(name):
+    return (
+        pathlib.Path(f"src/planner/{name}.py").read_text(encoding="utf-8").splitlines()
+    )
+
+
+def _import_lines(name):
+    return [
+        ln.strip()
+        for ln in _planner_lines(name)
+        if ln.strip().startswith(("from ", "import "))
+    ]
+
+
+def test_phase1_core_senza_modello_storage():
+    for name in _PLANNER_CORE:
+        for line in _import_lines(name):
+            for token in _PLANNER_NO_STORAGE_TOKENS:
+                assert token not in line, (
+                    f"src/planner/{name}.py: '{token}' negli import del core. "
+                    "Usa TaskView/projection."
+                )
+
+
+def test_phase1_planner_senza_commit_o_persistenza():
+    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            s = line.strip()
+            if s.startswith(("from ", "import ")):
+                for token in _PLANNER_NO_COMMIT_TOKENS:
+                    assert token not in s, (
+                        f"{path}: '{token}' negli import del planner. "
+                        "Il planner propone, l'applicazione committa."
+                    )
+
+
+def test_phase1_wall_clock_solo_allowlisted():
+    found = []
+    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if "datetime.now()" in line or "date.today()" in line:
+                window = lines[max(0, i - 3) : i + 1]
+                assert any("allowlist" in w for w in window), (
+                    f"{path}:{i + 1}: wall-clock senza marker allowlist. "
+                    "Phase 1: produzione esplicita, fallback solo compat "
+                    "documentato (docs/planner-phase1-plan.md §6.0)."
+                )
+                found.append((str(path), i + 1))
+    assert len(found) == 2, f"fallback attesi: 2, trovati: {found}"

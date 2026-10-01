@@ -117,7 +117,7 @@ def replan(
     elif isinstance(now, _REAL_DATE):
         moment = datetime(now.year, now.month, now.day)
     else:
-        moment = datetime.now()
+        moment = datetime.now()  # allowlist Phase 1 (§6.0): fallback compat
     new_plan: DayPlan = Planner(
         todos, today=today, hours=hours, factor=factor
     ).propose()

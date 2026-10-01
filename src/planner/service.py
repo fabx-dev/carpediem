@@ -12,7 +12,7 @@ capacity). Su todos senza dati di calibrazione l'auto vale None.
 
 Tempo (Phase 1, docs/planner-phase1-plan.md §6.0): risoluzione esplicita
 prima — `today`, poi `now` (solo parte data) — poi fallback compat
-`datetime.now()` (allowlisted qui, rimozione rinviata alla fase
+wall-clock (allowlisted in _resolve_day, rimozione rinviata alla fase
 temporale/contrattuale). Tutti i caller di produzione passano valori
 espliciti; il fallback copre solo compat (plan_day, test, script ad-hoc).
 """
@@ -75,7 +75,7 @@ class Planner:
         return (
             scoring.parse_day(self.today)
             or scoring.parse_day(self.now)
-            or datetime.now().date()
+            or datetime.now().date()  # allowlist Phase 1 (§6.0): fallback compat
         )
 
     def _normalize(self) -> _PlannerInput:
