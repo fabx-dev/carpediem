@@ -17,6 +17,7 @@ temporale/contrattuale). Tutti i caller di produzione passano valori
 espliciti; il fallback copre solo compat (plan_day, test, script ad-hoc).
 """
 
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from src.planner import calibration, capacity, constraints, scheduler, scoring
@@ -28,6 +29,23 @@ from src.planner.models import (
     TaskView,
     todo_to_task,
 )
+
+
+@dataclass(frozen=True)
+class _PlannerInput:
+    """Forma di input normalizzata interna (Phase 1, privata, non esportata).
+
+    Dimostra l'idea "un solo input in entrata" senza congelare il futuro
+    contratto pubblico PlanningRequest (Phase 2+/7): giorno risolto,
+    viste normalizzate, capacita' e factor. Costruita solo da TaskView,
+    mai direttamente da TodoItem.
+    """
+
+    day: date
+    today_s: str
+    capacity_pomo: float
+    factor: float | None
+    views: tuple
 
 
 class Planner:
@@ -60,19 +78,29 @@ class Planner:
             or datetime.now().date()
         )
 
-    def propose(self) -> DayPlan:
-        """Proposta giornaliera come DayPlan (planned/cut/skipped + capacita')."""
-        today_d = self._resolve_day()
-        today_s = today_d.strftime("%Y-%m-%d")
+    def _normalize(self) -> _PlannerInput:
+        """Risoluzione unica dell'input: giorno, viste, capacita', factor."""
+        day = self._resolve_day()
         raw = (
             self.factor
             if self.factor is not None
             else calibration.factor_for(self.todos)
         )
-        calib = capacity.normalize_factor(raw)
-        total = capacity.total(self.hours)
-        eligible = [t for t in self.todos if constraints.is_eligible(t)]
-        scored = scoring.score_all(eligible, self.todos, today_d, today_s, calib)
+        return _PlannerInput(
+            day=day,
+            today_s=day.strftime("%Y-%m-%d"),
+            capacity_pomo=capacity.total(self.hours),
+            factor=capacity.normalize_factor(raw),
+            views=tuple(self.todos),
+        )
+
+    def propose(self) -> DayPlan:
+        """Proposta giornaliera come DayPlan (planned/cut/skipped + capacita')."""
+        inp = self._normalize()
+        today_d, today_s = inp.day, inp.today_s
+        calib, total = inp.factor, inp.capacity_pomo
+        eligible = [t for t in inp.views if constraints.is_eligible(t)]
+        scored = scoring.score_all(eligible, list(inp.views), today_d, today_s, calib)
         candidates, skipped = constraints.partition(scored, today_s)
         included = capacity.allocate(
             candidates, today_s=today_s, capacity=total, calib=calib

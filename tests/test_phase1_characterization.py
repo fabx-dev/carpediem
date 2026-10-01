@@ -169,6 +169,28 @@ def test_t1_esclusioni_invisibili_anche_via_mirror():
     assert ids == {3}, ids  # completato/sospeso/id-None non compaiono mai
 
 
+def test_input_normalizzato_forma_e_coerenza():
+    """Step 5: _normalize() e' la sola via di risoluzione input — giorno,
+    viste TaskView, capacita', factor coerenti con propose()."""
+    from src.planner.models import TaskView
+
+    todos = [
+        make_todo("A", todo_id=1, due=TODAY, stima_pomo=2),
+        make_todo("B", todo_id=2),
+    ]
+    planner = Planner(todos, today=TODAY, hours=4.0)
+    inp = planner._normalize()
+    assert str(inp.day) == TODAY and inp.today_s == TODAY
+    assert inp.capacity_pomo == 8.0
+    assert inp.factor is None  # senza storia: nessuna calibrazione
+    assert all(isinstance(v, TaskView) for v in inp.views)
+    assert [v.id for v in inp.views] == [1, 2]
+    plan = planner.propose()
+    assert plan.capacity_pomo == inp.capacity_pomo
+    assert plan.factor == inp.factor
+    assert str(plan.day) == inp.today_s
+
+
 # --- T3: fallback wall-clock caratterizzato ----------------------------------
 
 
