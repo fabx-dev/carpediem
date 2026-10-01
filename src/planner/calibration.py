@@ -7,20 +7,12 @@ ExecutionFeedback, senza duplicare alcun algoritmo e senza cambiare wiring.
 Loop: feedback → observations → factor → future estimate. Solo future:
 piani/actual/slot passati non vengono mai modificati.
 
-Status (Phase 1, D3): observe/observe_all/factor_for sono il boundary verso
-il core; calibration_summary e' invece un helper di integrazione NON-core
-(aggregazione history per la UI, derivata on-demand, mai persistita) —
-resta re-esportato per compat, candidato a trasloco fuori dal boundary
-in Phase 2.
+Status (Phase 2, D3): observe/observe_all/factor_for sono il boundary verso
+il core; calibration_summary e' traslocato in domain (stesso comportamento,
+stesso nome) — era pura aggregazione history, mai appartenuto al core.
 """
 
-from src.domain import (
-    calibration_factor,
-    execution_calibration_factor,
-    execution_confidence,
-    execution_stats,
-    last_observation_at,
-)
+from src.domain import calibration_factor
 from src.planner.models import ExecutionFeedback
 
 
@@ -57,16 +49,3 @@ def observe_all(feedbacks) -> list:
 def factor_for(todos: list) -> float | None:
     """Fattore di calibrazione sui todos (delega a domain, unica fonte)."""
     return calibration_factor(todos)
-
-
-def calibration_summary(executions) -> dict:
-    """Quadro derivato on-demand dalla history (M2): factor, sample_count,
-    confidence, last_observation_at. Mai persistito (single source of truth
-    = .todo_executions.json); la UI consuma questo, non ricalcola."""
-    count = execution_stats(executions)["count"]
-    return {
-        "factor": execution_calibration_factor(executions),
-        "sample_count": count,
-        "confidence": execution_confidence(count),
-        "last_observation_at": last_observation_at(executions),
-    }

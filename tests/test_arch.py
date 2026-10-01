@@ -41,7 +41,8 @@ REIMPLEMENTATION = (
 # dominio sono presentazione dati e quindi ammessi nella UI (precedente
 # StatsScreen con calibration_factor): siano primitivi (predicted_minutes,
 # resolve_actual_minutes) o aggregati di sola lettura (execution_summary,
-# execution_stats, calibration_summary), purche' senza I/O ne' mutazioni.
+# execution_stats, calibration_summary — quest'ultimo in domain da Phase 2),
+# purche' senza I/O ne' mutazioni.
 SCREEN_FORBIDDEN = (
     "make_execution",
     "append_execution",

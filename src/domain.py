@@ -555,6 +555,24 @@ def execution_calibration_factor(executions) -> float | None:
     return max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, _median(ratios) or 0))
 
 
+def calibration_summary(executions) -> dict:
+    """Quadro derivato on-demand dalla history (M2): factor, sample_count,
+    confidence, last_observation_at. Mai persistito (single source of truth
+    = .todo_executions.json); la UI consuma questo, non ricalcola.
+
+    Phase 2 (D3): traslocato qui da src/planner/calibration (pura
+    aggregazione di execution_*, zero input planner — mai appartenuto al
+    core). Comportamento identico.
+    """
+    count = execution_stats(executions)["count"]
+    return {
+        "factor": execution_calibration_factor(executions),
+        "sample_count": count,
+        "confidence": execution_confidence(count),
+        "last_observation_at": last_observation_at(executions),
+    }
+
+
 def predicted_minutes(estimate_minutes, factor) -> int:
     """predicted = estimate x factor; senza factor (o stima nulla) = estimate."""
     try:

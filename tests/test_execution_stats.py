@@ -8,7 +8,7 @@ la stima utente.
 
 import src.domain as domain
 import src.models as models
-from src.planner.calibration import calibration_summary
+from src.domain import calibration_summary
 
 
 def _exec(i, actual, estimate=2, planned=60, completed=True):
