@@ -210,6 +210,30 @@ def test_phase2_estimation_math_solo_in_capacity():
                 )
 
 
+def test_phase2_niente_stadi_interni_fuori_boundary():
+    """G1: app/screens/CLI consumano il boundary (Planner/plan/decide/
+    replan/feedback/models/narrative), mai gli stadi decisionali. Fa
+    eccezione capacity.total (pura conversione ore->pomo nell'adapter,
+    nessuna decisione): allocate/estimate restano vietati qui."""
+    files = sorted(pathlib.Path("src/screens").glob("*.py")) + [
+        pathlib.Path("src/app.py"),
+        pathlib.Path("src/cli.py"),
+    ]
+    banned = (
+        "planner.scoring",
+        "planner.constraints",
+        "capacity.allocate",
+        "capacity.estimate",
+    )
+    for path in files:
+        src = path.read_text(encoding="utf-8")
+        for token in banned:
+            assert token not in src, (
+                f"{path}: '{token}' fuori dal boundary. "
+                "Decisioni solo in src/planner, la UI consuma il risultato."
+            )
+
+
 def test_phase1_wall_clock_solo_allowlisted():
     found = []
     for path in sorted(pathlib.Path("src/planner").glob("*.py")):
