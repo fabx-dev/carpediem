@@ -239,7 +239,10 @@ def test_phase4_constraint_sites_allowlisted():
     `# constraint-site`): nuove esclusioni silenziose sparse vietate.
     Righe docstring/elenco (che iniziano per - # " ' *) documentano,
     non decidono. Window ±6: i blocchi di derivazione (models.py) tengono
-    un marker solo in testa — guard euristico come T8, dichiarato qui."""
+    un marker solo in testa — guard euristico come T8, dichiarato qui.
+    Limiti noti (non bloccanti): scope solo src/planner/ (un sito in
+    app/domain/screens passa); vede solo letterali quotati (filtri su
+    booleani .done/.paused o costanti evadono senza marker)."""
     import re
 
     pat = re.compile(r"""["'](?:attivo|completato|in_sospeso)["']""")

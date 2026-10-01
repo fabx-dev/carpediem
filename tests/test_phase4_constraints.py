@@ -137,6 +137,18 @@ def test_s_merito_non_vieta():
         [make_todo("L", todo_id=1, priority=Priority.LOW)], today=TODAY_S, hours=6.0
     ).propose()
     assert [it.todo_id for it in plan.planned] == [1]
+    # S2: progetto fermo aggiunge (stale_days=40) ma non veta mai.
+    from src.planner import scoring as scoring_mod
+
+    assert scoring_mod.stale_days("vuoto", [], DAY) is None
+    fermi = [
+        make_todo("F1", todo_id=1, project="fermo", created="2026-08-01"),
+        make_todo("F2", todo_id=2, project="fermo", created="2026-08-02"),
+    ]
+    assert scoring_mod.stale_days("fermo", fermi, DAY) == 40
+    pf = Planner(fermi, today=TODAY_S, hours=6.0).propose()
+    assert {it.todo_id for it in pf.planned} == {1, 2}
+    assert all(any(k == "plan_stale" for k, _ in it.reasons) for it in pf.planned)
     # S3: domani aggiunge ma non decide da solo; S4: planned bonus.
     a = Planner(
         [make_todo("T", todo_id=1, due="2026-09-11")], today=TODAY_S, hours=6.0
