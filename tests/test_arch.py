@@ -234,6 +234,20 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
             )
 
 
+def test_phase5_planner_senza_domain():
+    """G4: direzione unica app -> core. Niente in src/planner/ importa
+    src.domain (dal P5-1 la matematica vive in planner.estimation e domain
+    delega). Docstring/commenti possono nominarlo (documentano il passato)."""
+    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            s = line.strip()
+            if s.startswith(("from ", "import ")) and "src.domain" in s:
+                raise AssertionError(
+                    f"{path}: import da src.domain. "
+                    "Il core non dipende dall'app (docs/planner-phase5-plan.md §3)."
+                )
+
+
 def test_phase4_constraint_sites_allowlisted():
     """G3: decisioni su stato solo nei siti dichiarati (marker
     `# constraint-site`): nuove esclusioni silenziose sparse vietate.
