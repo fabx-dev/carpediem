@@ -188,9 +188,19 @@ def schedule(plan, availability, busy=(), deadlines=None) -> ScheduledDayPlan:
     avail = _normalize(availability, lo, hi)
     busy_n = _merge(_normalize(busy, lo, hi))
     free = _subtract(avail, busy_n)
+    # Feasibility-first (Phase 5): a parita' d'altro, le voci con scadenza
+    # odierna si collocano prima di quelle libere — una deadline stretta non
+    # resta stranded dietro una voce capiente. Stable sort: l'ordine di
+    # merito del DayPlan resta l'unico criterio oltre il vincolo, il DayPlan
+    # stesso non e' riordinato, niente secondo scoring. Senza scadenze la
+    # chiave e' costante e la sequenza e' identica a prima.
+    ordered = sorted(
+        plan.planned,
+        key=lambda it: _deadline(deadlines, it.todo_id, plan.day) is None,
+    )
     scheduled: list = []
     unscheduled: list = []
-    for item in plan.planned:
+    for item in ordered:
         need = _duration(item)
         limit = _deadline(deadlines, item.todo_id, plan.day)
         placed = None

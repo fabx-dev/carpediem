@@ -92,10 +92,14 @@ def test_busy_oltre_scadenza_unscheduled():
 
 
 def test_primo_fit_rispetta_ordine_e_deadline():
-    # A senza vincolo prende 09-10; B (scadenza 10:30, 1🍅) va 10-10:30.
+    # P5-3 (feasibility-first): B vincolata (scadenza 10:30, 1🍅) si colloca
+    # prima di A libera, anche se A precede per merito. Il DayPlan non si
+    # tocca: cambia solo la sequenza di collocazione.
     d = {2: (TODAY_S, "10:30")}
-    s = _sched([_item(1), _item(2, 1)], d)
-    assert _hhmm(s) == [(1, "09:00", "10:00"), (2, "10:00", "10:30")]
+    items = [_item(1), _item(2, 1)]
+    s = _sched(items, d)
+    assert _hhmm(s) == [(2, "09:00", "09:30"), (1, "09:30", "10:30")]
+    assert [it.todo_id for it in s.plan.planned] == [1, 2]
 
 
 def test_deadlines_for_dai_task():
