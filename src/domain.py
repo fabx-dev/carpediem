@@ -12,14 +12,38 @@ from datetime import datetime, timedelta
 
 from src.models import Recurrence, TaskExecution, TodoItem, _due_date_part
 
-STATES = ("attivo", "in_sospeso", "completato")
+# Phase 5 (S-Own): la matematica estimation vive in src/planner/estimation
+# (fonte unica del core). Nomi usati qui sotto: import diretto. Altri nomi:
+# re-export con alias ridondante per compat (UI/stats/test importano da
+# domain invariati). Direzione consentita: app -> core, mai core -> app.
+from src.planner.estimation import (
+    CAL_CLAMP_MAX,
+    CAL_CLAMP_MIN,
+    CAL_MIN_SAMPLES,
+    POMO_MINUTES,
+    _median,
+    execution_confidence,
+)
+from src.planner.estimation import (
+    CONFIDENCE_LEVELS as CONFIDENCE_LEVELS,
+)
+from src.planner.estimation import (
+    _calibration_ratios as _calibration_ratios,
+)
+from src.planner.estimation import (
+    calibrated_estimate as calibrated_estimate,
+)
+from src.planner.estimation import (
+    calibration_factor as calibration_factor,
+)
+from src.planner.estimation import (
+    calibration_samples as calibration_samples,
+)
+from src.planner.estimation import (
+    predicted_minutes as predicted_minutes,
+)
 
-# Calibrazione locale stime ("piano che impara"): policy anti-rumore.
-# Minimo campioni per fidarsi, clamp del fattore, mediana (non media) per
-# resistere agli outlier. Mai riscrive stima_pomo: solo display in plan_day.
-CAL_MIN_SAMPLES = 5
-CAL_CLAMP_MIN = 0.5
-CAL_CLAMP_MAX = 3.0
+STATES = ("attivo", "in_sospeso", "completato")
 
 RADAR_CAP = 14
 RADAR_PRIO_Y = {"alta": 3.0, "media": 2.0, "bassa": 1.0}
@@ -310,69 +334,9 @@ def validate_smart_name(name: str, lists: list[dict], max_n: int) -> tuple:
     return (True, "", {"n": clean})
 
 
-def _calibration_ratios(todos: list[TodoItem]) -> list[float]:
-    """Rapporti actual/stima sui completati con entrambi > 0 (anti-rumore)."""
-    ratios: list[float] = []
-    for t in todos:
-        try:
-            est = int(t.stima_pomo or 0)
-            act = int(t.actual_pomo or 0)
-        except (ValueError, TypeError):
-            continue
-        if t.state == "completato" and est > 0 and act > 0:
-            ratios.append(act / est)
-    return ratios
-
-
-def calibration_samples(todos: list[TodoItem]) -> int:
-    """Quanti completati alimentano la calibrazione."""
-    try:
-        return len(_calibration_ratios(list(todos)))
-    except TypeError:
-        return 0
-
-
-def calibration_factor(todos: list[TodoItem]) -> float | None:
-    """Fattore mediano actual/stima sui completati con entrambi > 0.
-
-    None se campioni < CAL_MIN_SAMPLES; clamp [MIN, MAX] per non fidarsi
-    mai ciecamente di pochi dati o outlier estremi."""
-    ratios = _calibration_ratios(todos)
-    if len(ratios) < CAL_MIN_SAMPLES:
-        return None
-    ratios.sort()
-    mid = len(ratios) // 2
-    median = ratios[mid] if len(ratios) % 2 else (ratios[mid - 1] + ratios[mid]) / 2
-    return max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, median))
-
-
-def calibrated_estimate(todo: TodoItem, factor: float | None) -> tuple[int, bool]:
-    """(stima_corretta, usata_calibrazione). Base = stima o 1 se assente.
-
-    L'1 per stima assente e' un fallback di pianificazione (il piano ha
-    bisogno di una durata), non una stima dichiarata dall'utente."""
-    try:
-        base = int(todo.stima_pomo or 0) or 1
-    except (ValueError, TypeError):
-        base = 1
-    if factor is None:
-        return base, False
-    try:
-        f = max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, float(factor)))
-    except (ValueError, TypeError):
-        return base, False
-    return max(1, round(base * f)), True
-
-
-# M2 Task Reality Model: minuti wall-time come unita' canonica della history.
-# 1 pomodoro = 30 minuti, in lock-step con planner.capacity.POMO_HOURS (0.5):
-# l'import diretto e' vietato qui (capacity importa domain, sarebbe un ciclo).
-# Se POMO_HOURS cambia, aggiornare anche POMO_MINUTES.
-POMO_MINUTES = 30
-
-# Soglie confidence (informativa in M2, mai decisionale): LOW < 10,
-# MEDIUM 10-29, HIGH >= 30 osservazioni.
-CONFIDENCE_LEVELS = ("LOW", "MEDIUM", "HIGH")
+# Stima/calibrazione/confidence: implementazione in src/planner/estimation
+# (fonte unica, Phase 5); qui re-export invariato per compat. POMO_MINUTES
+# resta l'unita' minuti della history, in lock-step con POMO_HOURS.
 
 
 def make_execution(
@@ -451,15 +415,6 @@ def _valid_observations(executions) -> list[TaskExecution]:
     ]
 
 
-def _median(sorted_vals: list) -> float | None:
-    if not sorted_vals:
-        return None
-    mid = len(sorted_vals) // 2
-    if len(sorted_vals) % 2:
-        return float(sorted_vals[mid])
-    return (sorted_vals[mid - 1] + sorted_vals[mid]) / 2
-
-
 def execution_stats(executions) -> dict:
     """Statistiche robuste sugli actual (minuti) delle osservazioni valide.
 
@@ -486,19 +441,6 @@ def execution_stats(executions) -> dict:
         "p90": actuals[rank - 1],
         "variance": sum((a - mean) ** 2 for a in actuals) / n,
     }
-
-
-def execution_confidence(count) -> str:
-    """LOW < 10, MEDIUM 10-29, HIGH >= 30. Informativa, mai decisionale."""
-    try:
-        n = int(count)
-    except (ValueError, TypeError):
-        n = 0
-    if n >= 30:
-        return "HIGH"
-    if n >= 10:
-        return "MEDIUM"
-    return "LOW"
 
 
 def last_observation_at(executions) -> str:
@@ -571,20 +513,3 @@ def calibration_summary(executions) -> dict:
         "confidence": execution_confidence(count),
         "last_observation_at": last_observation_at(executions),
     }
-
-
-def predicted_minutes(estimate_minutes, factor) -> int:
-    """predicted = estimate x factor; senza factor (o stima nulla) = estimate."""
-    try:
-        est = int(estimate_minutes or 0)
-    except (ValueError, TypeError):
-        est = 0
-    if est <= 0:
-        return 0
-    if factor is None:
-        return est
-    try:
-        f = max(CAL_CLAMP_MIN, min(CAL_CLAMP_MAX, float(factor)))
-    except (ValueError, TypeError):
-        return est
-    return max(1, round(est * f))

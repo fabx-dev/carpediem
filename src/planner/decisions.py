@@ -28,8 +28,8 @@ tuple di DayPlan: NON e' un secondo motore decisionale. Pipeline:
 
 from dataclasses import dataclass, replace
 
-from src.domain import execution_confidence
 from src.planner.capacity import pomo_minutes
+from src.planner.estimation import execution_confidence
 from src.planner.explain import CALIBRATED, CUT, SKIPPED
 from src.planner.models import DayPlan, ScheduledDayPlan
 

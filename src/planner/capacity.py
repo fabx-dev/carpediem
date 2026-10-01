@@ -7,13 +7,18 @@ e possono sforare; gli altri riempiono greedy per merito; gli esclusi hanno
 motivo e restano visibili in fondo (non spariscono).
 
 Calibrazione: il factor (da calibration.factor_for sui todos quando non
-fornito, unica fonte domain) corregge le stime consumate qui senza riscrivere
+fornito, matematica in planner.estimation) corregge le stime consumate qui
+senza riscrivere
 mai la stima originale; scoring si limita ad annotare il motivo. Motivazione:
 la calibrazione corregge durate -> appartiene alla capacita', non al merito.
 """
 
-from src.domain import CAL_CLAMP_MAX, CAL_CLAMP_MIN, calibrated_estimate
 from src.planner import explain
+from src.planner.estimation import (
+    CAL_CLAMP_MAX,
+    CAL_CLAMP_MIN,
+    calibrated_estimate,
+)
 from src.planner.scoring import rank_key
 
 POMO_HOURS = 0.5

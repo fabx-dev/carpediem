@@ -1,6 +1,6 @@
 """Boundary di calibrazione del Planner (puro, niente I/O/UI/i18n).
 
-La matematica resta interamente in domain (mediana, min-samples, clamp):
+La matematica vive in planner.estimation (fonte unica, Phase 5):
 questo modulo espone API coerenti col Planner e deriva observations dagli
 ExecutionFeedback, senza duplicare alcun algoritmo e senza cambiare wiring.
 
@@ -12,7 +12,7 @@ il core; calibration_summary e' traslocato in domain (stesso comportamento,
 stesso nome) — era pura aggregazione history, mai appartenuto al core.
 """
 
-from src.domain import calibration_factor
+from src.planner.estimation import calibration_factor
 from src.planner.models import ExecutionFeedback
 
 
