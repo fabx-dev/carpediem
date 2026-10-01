@@ -18,6 +18,7 @@ from datetime import date, datetime
 
 from src.planner.decisions import decide, primary_reason
 from src.planner.models import DayPlan, ScheduledDayPlan, TimeWindow
+from src.planner.scheduler import deadlines_for
 from src.planner.service import Planner
 
 # Vedi scoring._REAL_DATETIME: classi reali per isinstance robusti al
@@ -125,7 +126,7 @@ def replan(
         d.todo_id: d for d in decide(new_plan, todos, sample_count=sample_count)
     }
     future = _clip_future(availability, moment)
-    new_sched = Planner.schedule(new_plan, future, busy or ())
+    new_sched = Planner.schedule(new_plan, future, busy or (), deadlines_for(todos))
     new_slots = {s.item.todo_id: s for s in new_sched.scheduled}
     old_slots = {}
     if current is not None:

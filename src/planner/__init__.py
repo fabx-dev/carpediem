@@ -35,7 +35,7 @@ from src.planner.replan import (
     ReplanProposal,
     replan,
 )
-from src.planner.scheduler import events_to_busy, schedule
+from src.planner.scheduler import deadlines_for, events_to_busy, schedule
 from src.planner.service import Planner, plan
 
 __all__ = [
@@ -62,6 +62,7 @@ __all__ = [
     "TaskView",
     "TimeWindow",
     "decide",
+    "deadlines_for",
     "events_to_busy",
     "explain_decision",
     "explain_proposed",

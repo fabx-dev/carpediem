@@ -105,9 +105,11 @@ class Planner:
         )
 
     @staticmethod
-    def schedule(plan: DayPlan, availability, busy=()) -> ScheduledDayPlan:
+    def schedule(
+        plan: DayPlan, availability, busy=(), deadlines=None
+    ) -> ScheduledDayPlan:
         """Collocazione temporale di un DayPlan (thin wrapper a scheduler)."""
-        return scheduler.schedule(plan, availability, busy)
+        return scheduler.schedule(plan, availability, busy, deadlines)
 
 
 def _build_day_plan(views, day, today_s: str, calib, total) -> DayPlan:
@@ -183,7 +185,12 @@ def plan(request: PlanningRequest) -> PlanningResult:
         request.capacity_pomo,
     )
     scheduled = (
-        scheduler.schedule(dayplan, request.availability, request.busy)
+        scheduler.schedule(
+            dayplan,
+            request.availability,
+            request.busy,
+            scheduler.deadlines_for(views),
+        )
         if request.availability
         else None
     )

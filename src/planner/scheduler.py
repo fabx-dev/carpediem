@@ -5,6 +5,13 @@ disponibilita' esplicita, evitando i busy (hard constraint). Greedy
 first-fit nell'ordine del Planner: niente ottimizzazione, niente secondo
 scoring, niente ricalcolo delle stime (usa PlanItem.estimate_pomo).
 
+Deadline (Phase 3): una voce con scadenza OGGI con orario si colloca solo
+in slot che finiscono ENTRO la scadenza (bordo inclusivo); altrimenti resta
+unscheduled strutturale. Vale solo due-date == plan.day + orario valido:
+scaduti (merito, non vincolo), futuri e senza-ora schedulano come prima.
+Le scadenze arrivano nella mappa esplicita `deadlines` (None = spente =
+comportamento legacy identico).
+
 Cut e skipped non si schedulano (gia' decisi dal Planner); i planned senza
 slot restano unscheduled (strutturale, senza reason nuova). Mandatory senza
 slot = unscheduled: mai overlap, mai ore inventate, mai durate modificate.
@@ -84,6 +91,51 @@ def _duration(item: PlanItem) -> timedelta:
     return timedelta(hours=POMO_HOURS * max(0, item.estimate_pomo))
 
 
+def deadlines_for(todos) -> dict:
+    """{todo_id: (due_date_s, due_time_s)} dai task (TodoItem o TaskView).
+
+    Totale, mai solleva: id None saltati, date/ore malformate passate cosi'
+    come sono (`_deadline` le scarta). Unico punto che estrae scadenze per
+    lo scheduler — i caller con i todos la costruiscono e la passano.
+    """
+    from src.planner.models import todo_to_task
+
+    out = {}
+    for t in todos or ():
+        try:
+            v = t if hasattr(t, "due_time") else todo_to_task(t)
+        except Exception:
+            continue
+        if v.id is None:
+            continue
+        out[v.id] = (v.due, v.due_time)
+    return out
+
+
+def _deadline(deadlines, todo_id, day):
+    """Limite superiore di fine-slot, o None se non applicabile (totale).
+
+    Solo due-date == plan.day + orario HH:MM valido: il resto (scaduti,
+    futuri, senza ora, garbage, mappa assente) schedula come prima.
+    """
+    try:
+        due_s, due_t = (deadlines or {}).get(todo_id, ("", ""))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if not due_t or str(due_s or "")[:10] != day.isoformat():
+        return None
+    try:
+        h, m = int(str(due_t)[:2]), int(str(due_t)[3:5])
+        if not (0 <= h <= 23 and 0 <= m <= 59 and str(due_t)[2:3] == ":"):
+            return None
+    except (ValueError, TypeError, IndexError):
+        return None
+    try:
+        return datetime(day.year, day.month, day.day, h, m)
+    except ValueError:
+        return None
+
+
 def events_to_busy(events) -> tuple:
     """Proiezione pura FixedEvent -> TimeWindow per il parametro busy.
 
@@ -101,8 +153,13 @@ def events_to_busy(events) -> tuple:
     return tuple(out)
 
 
-def schedule(plan, availability, busy=()) -> ScheduledDayPlan:
-    """Colloca plan.planned in availability evitando busy (first-fit)."""
+def schedule(plan, availability, busy=(), deadlines=None) -> ScheduledDayPlan:
+    """Colloca plan.planned in availability evitando busy (first-fit).
+
+    deadlines = {todo_id: (due_date_s, due_time_s)} da deadlines_for():
+    con scadenza oggi+orario lo slot deve finire entro la scadenza, senno'
+    la voce resta unscheduled. None = vincoli spenti (legacy identico).
+    """
     lo, hi = _day_bounds(plan.day)
     avail = _normalize(availability, lo, hi)
     busy_n = _merge(_normalize(busy, lo, hi))
@@ -111,9 +168,11 @@ def schedule(plan, availability, busy=()) -> ScheduledDayPlan:
     unscheduled: list = []
     for item in plan.planned:
         need = _duration(item)
+        limit = _deadline(deadlines, item.todo_id, plan.day)
         placed = None
         for i, slot in enumerate(free):
-            if slot.start + need <= slot.end:
+            end = slot.end if limit is None else min(slot.end, limit)
+            if slot.start + need <= end:
                 placed = ScheduledItem(item, slot.start, slot.start + need)
                 if slot.start + need < slot.end:
                     free[i] = TimeWindow(slot.start + need, slot.end)

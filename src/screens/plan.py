@@ -33,7 +33,7 @@ from src.models import (
     _pomo_label,
     _status,
 )
-from src.planner import Planner, capacity, events_to_busy, explain
+from src.planner import Planner, capacity, deadlines_for, events_to_busy, explain
 from src.planner import feedback as planner_feedback
 from src.planner import plan as plan_request
 from src.planner.models import (
@@ -286,7 +286,10 @@ def scheduled_for_today(
         return ScheduledDayPlan(dayplan), [], [], planned
     start, end, events, allday = parts
     sched = Planner.schedule(
-        dayplan, [TimeWindow(start, end)], busy=events_to_busy(events)
+        dayplan,
+        [TimeWindow(start, end)],
+        busy=events_to_busy(events),
+        deadlines=deadlines_for(todos),
     )
     return sched, events, allday, planned
 
@@ -1474,7 +1477,10 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.events, self.events_bad = parse_event_lines(self.events_text, self.today)
         self.window_start, self.window_end = start, end
         self.sched = Planner.schedule(
-            self.plan, [TimeWindow(start, end)], busy=events_to_busy(self.events)
+            self.plan,
+            [TimeWindow(start, end)],
+            busy=events_to_busy(self.events),
+            deadlines=deadlines_for(self.all_todos),
         )
 
     def _window_payload(self) -> dict | None:
