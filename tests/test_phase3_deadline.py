@@ -132,6 +132,22 @@ def test_due_time_sempre_formato_valido():
         assert v.due_time == "" or ok.match(v.due_time), (due, v.due_time)
 
 
+def test_p1_placeable_congiunzione():
+    """P1 (P4-4): fit + entro-scadenza come congiunti nominati."""
+    from datetime import timedelta
+
+    from src.planner.scheduler import _placeable
+
+    slot = _win(9, 0, 18, 0)
+    assert _placeable(slot, timedelta(minutes=30), None) is True
+    assert _placeable(slot, timedelta(hours=9), None) is True
+    assert _placeable(slot, timedelta(hours=9, minutes=1), None) is False
+    limit = datetime(2026, 9, 10, 10, 0)
+    assert _placeable(slot, timedelta(minutes=60), limit) is True
+    assert _placeable(slot, timedelta(minutes=61), limit) is False
+    assert _placeable(slot, timedelta(0), datetime(2026, 9, 10, 8, 0)) is False
+
+
 def test_e_date_only_identico_con_e_senza_mappa():
     todos = [
         make_todo("A", todo_id=1, due="2026-09-09"),

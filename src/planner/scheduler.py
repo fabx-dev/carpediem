@@ -166,6 +166,16 @@ def events_to_busy(events) -> tuple:
     return tuple(out)
 
 
+def _placeable(slot: TimeWindow, need, limit) -> bool:
+    """Congiunzione di collocazione (Phase 4): fit nel libero + entro la
+    scadenza quando c'e'. Un futuro bound temporale aggiunge qui un
+    congiunto + mappa esplicita (precedente deadlines), mai chirurgia del
+    loop. Terzo congiunto senza consumer reale vietato in review."""
+
+    end = slot.end if limit is None else min(slot.end, limit)
+    return slot.start + need <= end
+
+
 def schedule(plan, availability, busy=(), deadlines=None) -> ScheduledDayPlan:
     """Colloca plan.planned in availability evitando busy (first-fit).
 
@@ -184,8 +194,7 @@ def schedule(plan, availability, busy=(), deadlines=None) -> ScheduledDayPlan:
         limit = _deadline(deadlines, item.todo_id, plan.day)
         placed = None
         for i, slot in enumerate(free):
-            end = slot.end if limit is None else min(slot.end, limit)
-            if slot.start + need <= end:
+            if _placeable(slot, need, limit):
                 placed = ScheduledItem(item, slot.start, slot.start + need)
                 if slot.start + need < slot.end:
                     free[i] = TimeWindow(slot.start + need, slot.end)
