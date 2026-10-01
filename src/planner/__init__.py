@@ -36,7 +36,7 @@ from src.planner.replan import (
     replan,
 )
 from src.planner.scheduler import events_to_busy, schedule
-from src.planner.service import Planner
+from src.planner.service import Planner, plan
 
 __all__ = [
     "ADDED",
@@ -69,6 +69,7 @@ __all__ = [
     "feedback",
     "observe",
     "observe_all",
+    "plan",
     "primary_reason",
     "refine_with_schedule",
     "replan",

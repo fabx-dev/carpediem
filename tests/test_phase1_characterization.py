@@ -453,6 +453,7 @@ def test_t9_export_boundary_invariati():
         "PlanningResult",
         "TaskView",
         "TimeWindow",
+        "plan",
         "decide",
         "events_to_busy",
         "explain_decision",
