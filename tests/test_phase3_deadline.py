@@ -110,6 +110,28 @@ def test_deadlines_for_dai_task():
     assert deadlines_for(None) == {} and deadlines_for("xx") == {}
 
 
+def test_due_time_sempre_formato_valido():
+    """G2: due_time e' '' o HH:MM con range reali su qualunque input,
+    mai garbage che lo scheduler non saprebbe interpretare."""
+    import re
+
+    ok = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+    dues = [
+        "2026-09-10 10:00",
+        "2026-09-10",
+        "",
+        "xx",
+        None,
+        "2026-09-10 99:99",
+        "2026-09-10 1:2",
+        "2026-09-10 10:00:00",
+        " 2026-09-10 23:59 ",
+    ]
+    for i, due in enumerate(dues):
+        v = todo_to_task(make_todo("T", todo_id=i + 1, due=due))
+        assert v.due_time == "" or ok.match(v.due_time), (due, v.due_time)
+
+
 def test_e_date_only_identico_con_e_senza_mappa():
     todos = [
         make_todo("A", todo_id=1, due="2026-09-09"),

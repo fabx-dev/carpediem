@@ -17,9 +17,9 @@ slot restano unscheduled (strutturale, senza reason nuova). Mandatory senza
 slot = unscheduled: mai overlap, mai ore inventate, mai durate modificate.
 
 Policy temporale (Phase 3, canonica per il core):
-- wall-time naive ovunque (convenzione repo: aware romperebbe i dati);
-  mai tzinfo/astimezone/ZoneInfo qui dentro (guard G2).
-- conversioni tz SOLO ai bordi di integrazione (Outlook: naive-in-zona
+- wall-time naive ovunque (convenzione repo: oggetti con fuso romperebbero
+  i dati); mai conversioni di zona qui dentro (guard G2).
+- conversioni di fuso SOLO ai bordi di integrazione (Outlook: naive-in-zona
   o aware-con-offset -> naive nella tz mailbox, DST gestito li —
   test_timezone_dst.py). Mailbox tz da config validata (default
   Europe/Rome), usata sia per l'header Graph `Prefer` sia come target

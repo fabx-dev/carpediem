@@ -234,6 +234,18 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
             )
 
 
+def test_phase3_core_senza_aware():
+    """G2: il core resta naive (convenzione storage): niente aritmetica di
+    zona in src/planner/ — conversioni solo ai bordi (Outlook edge)."""
+    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+        src = path.read_text(encoding="utf-8")
+        for token in ("tzinfo", "astimezone", "ZoneInfo", "utcoffset"):
+            assert token not in src, (
+                f"{path}: '{token}' nel core. "
+                "Wall-time naive per convenzione (policy in scheduler.py)."
+            )
+
+
 def test_phase1_wall_clock_solo_allowlisted():
     found = []
     for path in sorted(pathlib.Path("src/planner").glob("*.py")):
