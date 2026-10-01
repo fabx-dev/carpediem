@@ -69,20 +69,34 @@ def estimate(todo, factor: float | None = None) -> int:
     return corrected
 
 
+def keep_always(entry, today_s: str) -> bool:
+    """H4 (Phase 4): mandatory e gia' pianificati oggi non si tagliano mai.
+
+    entry = (todo, score, reasons, mandatory). Lo sforamento e' rappresentato,
+    non nascosto (planned_pomo puo' superare capacity_pomo)."""
+
+    _t, _result, _reasons, mandatory = entry
+    try:
+        planned_today = _t.planned_for == today_s
+    except AttributeError:
+        planned_today = False
+    return bool(mandatory or planned_today)
+
+
 def allocate(
     candidates: list, *, today_s: str, capacity: float, calib: float | None
 ) -> list:
     """Seleziona i candidati: [(todo, score, reasons, mandatory)] in ordine finale.
 
-    Mandatory e gia' pianificati entrano sempre (possono sforare); gli altri
-    in ordine di merito finche' c'e' capienza, poi motivo di taglio. I tagliati
-    restano in fondo (cut-last), mai nascosti. Il mandatory passa attraverso
-    per il DayPlan (PlanItem lo porta come campo esplicito)."""
+    keep_always() entrano sempre (possono sforare); gli altri in ordine di
+    merito finche' c'e' capienza, poi motivo di taglio. I tagliati restano in
+    fondo (cut-last), mai nascosti. Il mandatory passa attraverso per il
+    DayPlan (PlanItem lo porta come campo esplicito)."""
     included: list[tuple] = []
     rest: list[tuple] = []
     used = 0
     for t, result, reasons, mandatory in candidates:
-        if mandatory or t.planned_for == today_s:
+        if keep_always((t, result, reasons, mandatory), today_s):
             included.append((t, result, reasons, mandatory))
             used += estimate(t, calib)
         else:

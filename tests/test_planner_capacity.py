@@ -69,3 +69,25 @@ def test_allocate_pianificati_sempre_dentro():
     out = capacity.allocate([_cand(p, 5)], today_s=TODAY, capacity=1.0, calib=None)
     assert [t.id for t, _s, _r, _m in out] == [1]
     assert "plan_cut" not in [k for k, _p in out[0][2]]
+
+
+def test_keep_always_contratto():
+    """K1 (P4-3, H4): mandatory/pianificati mai tagliati anche a capacita'
+    0; gli altri greedy con taglio. Sforamento rappresentato."""
+    m = make_todo("M", todo_id=1, due="2026-09-01", stima_pomo=4)
+    p = make_todo("P", todo_id=2, planned_for=TODAY, stima_pomo=4)
+    o = make_todo("O", todo_id=3)
+    assert capacity.keep_always((m, 100, [], True), TODAY) is True
+    assert capacity.keep_always((p, 5, [], False), TODAY) is True
+    assert capacity.keep_always((o, 10, [], False), TODAY) is False
+    assert capacity.keep_always((o, 10, [], False), "2026-09-11") is False
+    out = capacity.allocate(
+        [(m, 100, [], True), (p, 5, [], False), (o, 10, [], False)],
+        today_s=TODAY,
+        capacity=0.0,
+        calib=None,
+    )
+    kept = {t.id for t, _s, r, _m in out if "plan_cut" not in [k for k, _p in r]}
+    assert kept == {1, 2}
+    by_id = {t.id: [k for k, _p in r] for t, _s, r, _m in out}
+    assert "plan_cut" in by_id[3]
