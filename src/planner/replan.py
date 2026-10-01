@@ -97,16 +97,20 @@ def replan(
     *,
     current: ScheduledDayPlan | None = None,
     sample_count=None,
+    factor: float | None = None,
 ) -> ReplanProposal:
     """Ricalcola la giornata e confronta col piano corrente (puro).
 
     availability/busy sono finestre gia' parsate (il parsing day_window
     resta al chiamante); now=None = fallback compat wall-clock (allowlisted
     Phase 1, docs/planner-phase1-plan.md §6.0: produzione sempre esplicita,
-    rimozione in fase successiva); date = mezzanotte. I test passano now
-    esplicito. current = ScheduledDayPlan corrente per gli slot vecchi
-    (None = slot vecchi ignoti: kept solo se anche i nuovi mancano).
-    Non muta i todos, non scrive.
+    rimozione in fase successiva); date = mezzanotte. factor=None = auto-
+    calibrazione come Planner (compat, default invariato); valore esplicito
+    = iniettato nel propose interno (seam Phase 1 §10.1, opt-in: nessun
+    caller di produzione lo passa). I test passano now esplicito.
+    current = ScheduledDayPlan corrente per gli slot vecchi (None = slot
+    vecchi ignoti: kept solo se anche i nuovi mancano). Non muta i todos,
+    non scrive.
     """
     if isinstance(now, _REAL_DATETIME):
         moment = now
@@ -114,7 +118,9 @@ def replan(
         moment = datetime(now.year, now.month, now.day)
     else:
         moment = datetime.now()
-    new_plan: DayPlan = Planner(todos, today=today, hours=hours).propose()
+    new_plan: DayPlan = Planner(
+        todos, today=today, hours=hours, factor=factor
+    ).propose()
     decisions = {
         d.todo_id: d for d in decide(new_plan, todos, sample_count=sample_count)
     }

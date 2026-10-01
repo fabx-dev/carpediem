@@ -279,6 +279,53 @@ def test_t7a_replan_condivide_factor_auto_calibrato():
     assert any(k == "plan_calibrated" for k, _p in by_id[1].reasons)
 
 
+def _calibrated_scenario():
+    """6 completati (stima 2, actual 4) + 3 attivi: factor auto 2.0 vivo."""
+    todos = [
+        make_todo(f"C{i}", todo_id=100 + i, stima_pomo=2, actual_pomo=4)
+        for i in range(6)
+    ]
+    for t in todos:
+        t.done = True
+    todos += [
+        make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2),
+        make_todo("B", todo_id=2, stima_pomo=1),
+        make_todo("C", todo_id=3, stima_pomo=3),
+    ]
+    assert calibration_factor(todos) == 2.0
+    return todos
+
+
+def test_t7b_replan_factor_default_uguale_a_omesso():
+    """Step 4b: factor=None esplicito riproduce T7a (default invariato)."""
+    todos = _calibrated_scenario()
+    avail = [_win(9, 0, 18, 0)]
+    assert replan(todos, TODAY, 6.0, avail, (), FROZEN_NOW, factor=None) == replan(
+        todos, TODAY, 6.0, avail, (), FROZEN_NOW
+    )
+
+
+def test_t7b_replan_factor_esplicito_uguale_a_costruzione_manuale():
+    """Step 4b: il seam inietta davvero — factor=1.0 dimezza le stime e la
+    proposta coincide con Planner(factor=1.0) + schedule costruiti a mano."""
+    todos = _calibrated_scenario()
+    avail = [_win(9, 0, 18, 0)]
+    default = replan(todos, TODAY, 6.0, avail, (), FROZEN_NOW)
+    explicit = replan(todos, TODAY, 6.0, avail, (), FROZEN_NOW, factor=1.0)
+    assert explicit != default  # il seam ha effetto osservabile
+    assert explicit.planned_pomo < default.planned_pomo
+    manual = Planner(todos, today=TODAY, hours=6.0, factor=1.0).propose()
+    assert explicit.planned_pomo == manual.planned_pomo
+    assert explicit.capacity_pomo == manual.capacity_pomo
+    # Stessi planned del motore con factor iniettato (nessuna selezione bis).
+    assert {it.todo_id for it in manual.planned} == {
+        m.todo_id for m in explicit.moves if m.kind in ("kept", "moved", "added")
+    }
+    # A dimezzato (2 -> 2/1.0… base 2, factor 1.0): stima consumata 2, non 4.
+    by_id = {it.todo_id: it for it in manual.planned}
+    assert by_id[1].estimate_pomo == 2
+
+
 # --- T9: compat wrapper + layout frozen --------------------------------------
 
 
