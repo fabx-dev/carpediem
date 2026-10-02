@@ -5,6 +5,8 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-02
+
 ### Added
 - Planner public API v1 (Phase 7, technical only, no behavior change):
   `PLANNER_CONTRACT_VERSION = 1`, frozen `PlanningRequest` /
