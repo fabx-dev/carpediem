@@ -44,7 +44,21 @@ Regole d'uso: `day` invalido = `ValueError` subito (mai piano spostato
 silenziosamente); `plan()` è pura e deterministica a parità di request;
 `scheduled` è `None` senza `availability` (decisione ≠ schedulazione).
 
-## 3. Policy di compatibilità
+## 3. Consumer in-repo dichiarati (P7-3)
+
+- Via `plan()`: `PlanProposalScreen` (Buongiorno), `scheduled_for_today()`,
+  Why-card (`plan_decisions()` in `views.py`).
+- Usi interni dichiarati (non promessi, corretti): `Planner.schedule()`
+  statico per ri-schedulare DayPlan esistenti a rendering
+  (`screens/plan.py`, la selezione confermata non va ri-proposta);
+  `diagnose()` per arricchire sub-DayPlan a rendering; `replan()` per
+  `ReplanPreviewScreen` + CLI (semantica non congelata, vedi §1);
+  `feedback()` per il briefing sera (osservazione).
+- `Planner.propose()` resta solo dentro `replan.py` + wrapper legacy
+  `src/plan.py` (zero consumer produzione, solo test): nessuna migrazione
+  richiesta, nessuna deprecazione in v1.
+
+## 4. Policy di compatibilità
 
 - Campi dataclass solo **aggiunti in coda con default**; mai rimossi o
   rinominati senza bump del contratto.
