@@ -1219,6 +1219,58 @@ def plan_context(
         return (), {}
 
 
+_NOSLOT_MERIT = {
+    "plan_overdue": "why_frag_m_overdue",
+    "plan_due_today": "why_frag_m_due_today",
+    "plan_due_tomorrow": "why_frag_m_tomorrow",
+    "plan_prio": "why_frag_m_prio",
+    "plan_stale": "why_frag_m_stale",
+    "plan_planned": "why_frag_m_planned",
+}
+
+_NOSLOT_CAUSE = {
+    "capacity": "why_frag_c_capacity",
+    "deadline": "why_frag_c_deadline",
+    "busy": "why_frag_c_busy",
+    "window": "why_frag_c_window",
+    "duration": "why_frag_c_duration",
+}
+
+
+def _noslot_sentence(decision, alt) -> str | None:
+    """Unica frase noslot (membro + merito + causa), o None se non componibile.
+
+    Unisce etichetta+story+blocco in un solo discorso; quando c'e', le tre
+    righe separate spariscono (sarebbero ripetizioni). None -> rendering
+    legacy invariato (mai inventare pezzi mancanti).
+    """
+    if alt is None:
+        return None
+    try:
+        primary = primary_reason(decision)
+        if primary is None:
+            return None
+        key, params = primary
+        mkey = _NOSLOT_MERIT.get(key)
+        if mkey is None:
+            return None
+        merit = T(mkey, **dict(params or {}))
+        blocked = str(getattr(alt, "blocked_by", "") or "")
+        ckey = _NOSLOT_CAUSE.get(blocked)
+        if ckey is None:
+            return None
+        detail = getattr(alt, "detail", None) or {}
+        if blocked == "deadline":
+            if not detail.get("deadline"):
+                return None
+            cause = T(ckey, d=detail["deadline"])
+        else:
+            cause = T(ckey)
+        return T("why_noslot_sentence", m=merit, c=cause)
+    except Exception:
+        return None
+
+
 def _blocked_line(alt) -> str | None:
     """Riga blocker Why-card (Phase 6): mapping 1:1 blocked_by -> chiave.
 
@@ -1370,6 +1422,7 @@ class DetailScreen(ModalScreen[str | None]):
             self.todo.state == "attivo"
         )
         proposed_only = decision.decision == SCHEDULED and not in_plan
+        sent = None
         if proposed_only:
             lines = [T("why_proposed")]
             try:
@@ -1377,30 +1430,43 @@ class DetailScreen(ModalScreen[str | None]):
             except Exception:
                 story = None
         else:
-            # Riga senza orario (Phase 6+1): confermato in piano ma senza
-            # slot — si capisce solo dalle alternatives (blocco osservato),
-            # mai inventato: senza voce, etichetta standard.
-            sched_label = T("why_scheduled")
-            if decision.decision == SCHEDULED:
-                try:
-                    alt = (self._alternatives or {}).get(self.todo.id)
-                    blocked = str(getattr(alt, "blocked_by", "") or "")
-                except Exception:
-                    blocked = ""
-                if blocked in ("window", "busy", "deadline", "duration"):
-                    sched_label = T("why_scheduled_noslot")
-            lines = [
-                {
-                    SCHEDULED: sched_label,
-                    NOT_SCHEDULED: T("why_not_scheduled"),
-                    DEFERRED: T("why_deferred"),
-                    CONSTRAINED: T("why_constrained"),
-                }.get(decision.decision, T("why_no_decision"))
-            ]
+            # Frase unica noslot (etichetta+story+blocco in un discorso):
+            # se componibile sostituisce le tre righe, altrimenti rendering
+            # legacy (etichetta noslot/standard + story + Blocco).
+            alt = None
             try:
-                story = explain_decision(decision)
+                alt = (self._alternatives or {}).get(self.todo.id)
             except Exception:
+                alt = None
+            sent = (
+                _noslot_sentence(decision, alt)
+                if decision.decision == SCHEDULED
+                else None
+            )
+            if sent is not None:
+                lines = [sent]
                 story = None
+            else:
+                sched_label = T("why_scheduled")
+                if decision.decision == SCHEDULED:
+                    try:
+                        blocked = str(getattr(alt, "blocked_by", "") or "")
+                    except Exception:
+                        blocked = ""
+                    if blocked in ("window", "busy", "deadline", "duration"):
+                        sched_label = T("why_scheduled_noslot")
+                lines = [
+                    {
+                        SCHEDULED: sched_label,
+                        NOT_SCHEDULED: T("why_not_scheduled"),
+                        DEFERRED: T("why_deferred"),
+                        CONSTRAINED: T("why_constrained"),
+                    }.get(decision.decision, T("why_no_decision"))
+                ]
+                try:
+                    story = explain_decision(decision)
+                except Exception:
+                    story = None
         if story is not None:
             key, params = story
             lines.append(T(key, **params))
@@ -1432,18 +1498,22 @@ class DetailScreen(ModalScreen[str | None]):
                 p=ev.get("planned_pomo", 0),
             )
         )
-        primary = primary_reason(decision)
-        if primary is not None:
-            key, params = primary
-            lines.append(T("why_primary", m=T(key, **params)))
+        # Con frase unica, motivo principale e Blocco sono gia' dentro:
+        # restano dettagli fattuali + confidenza.
+        if sent is None:
+            primary = primary_reason(decision)
+            if primary is not None:
+                key, params = primary
+                lines.append(T("why_primary", m=T(key, **params)))
         if decision.confidence is not None:
             lines.append(T("why_confidence", c=decision.confidence))
-        if decision.decision == DEFERRED:
-            lines.append(T("why_alt_deferred"))
-        else:
-            blocker = _blocked_line((self._alternatives or {}).get(self.todo.id))
-            if blocker is not None:
-                lines.append(blocker)
+        if sent is None:
+            if decision.decision == DEFERRED:
+                lines.append(T("why_alt_deferred"))
+            else:
+                blocker = _blocked_line((self._alternatives or {}).get(self.todo.id))
+                if blocker is not None:
+                    lines.append(blocker)
         return lines
 
     def compose(self) -> ComposeResult:

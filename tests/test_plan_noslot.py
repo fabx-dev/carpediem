@@ -58,9 +58,7 @@ def test_divisorio_etichettato_e_coda_senza_orario(tmp_files):
     run(t())
 
 
-def test_detail_coda_senza_orario_etichetta_distinta(tmp_files):
-    from tests.test_detail_why import _why_block_labels
-
+def test_detail_coda_frase_unica(tmp_files):
     async def t():
         app = make_app(_todos())
         app.config["day_window"] = _window()
@@ -73,16 +71,47 @@ def test_detail_coda_senza_orario_etichetta_distinta(tmp_files):
             await pilot.pause()
             assert type(app.screen).__name__ == "DetailScreen"
             txt = screen_texts(app.screen)
-            assert _T("why_scheduled_noslot") in txt
-            assert _T("why_scheduled") not in txt
-            # Invariante story intatta anche con l'etichetta diversa
-            # (B e' planned_for=oggi senza altri segnali: story fallback,
-            # l'agency sta nell'etichetta + nel motivo principale).
-            _why_block_labels(
-                app.screen, _T("why_scheduled_noslot"), _T("why_story_sched")
+            # Un unico discorso: membro + merito + causa, niente ripetizioni.
+            assert (
+                _T(
+                    "why_noslot_sentence",
+                    m=_T("why_frag_m_planned"),
+                    c=_T("why_frag_c_window"),
+                )
+                in txt
             )
+            assert _T("why_scheduled_noslot") not in txt  # assorbita nella frase
+            assert _T("why_scheduled") not in txt
+            assert _T("why_story_sched") not in txt  # assorbita
+            assert _T("why_primary") not in txt  # assorbito
+            assert _T("why_blocked_window") not in txt  # assorbito
+            assert _T("why_sec_details") in txt  # dettagli fattuali restano
 
     run(t())
+
+
+def test_noslot_sentence_fallback_senza_pezzi():
+    """_noslot_sentence pura: None se merito/causa ignoti (legacy invariato)."""
+    import src.planner.decisions as dec
+    from src.planner.models import PlanAlternative
+    from src.screens.views import _noslot_sentence
+
+    d = dec.PlanningDecision(1, dec.SCHEDULED, (("plan_x", {}),), {}, None)
+    assert _noslot_sentence(d, None) is None
+    assert (
+        _noslot_sentence(
+            d, PlanAlternative(1, dec.SCHEDULED, "window", {"needed_min": 5})
+        )
+        is None
+    )
+    d2 = dec.PlanningDecision(1, dec.SCHEDULED, (("plan_due_today", {}),), {}, None)
+    assert (
+        _noslot_sentence(d2, PlanAlternative(1, dec.SCHEDULED, "buco_nero", {})) is None
+    )
+    ok = _noslot_sentence(
+        d2, PlanAlternative(1, dec.SCHEDULED, "busy", {"needed_min": 5})
+    )
+    assert ok is not None and "Blocco" not in ok and "Nel piano" not in ok
 
 
 def test_detail_timed_non_contraddice_la_timeline(tmp_files):
