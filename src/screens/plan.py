@@ -827,15 +827,19 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             self.notify(T("n_plan_noop"), severity="warning")
             return
         # Import locale: evita dipendenze tra aree screen all'import.
-        from src.screens.views import DetailScreen, plan_decisions
+        from src.screens.views import DetailScreen, plan_context
 
+        _decisions, _alternatives = plan_context(
+            self.all_todos, self.today, self.hours, self.window
+        )
         self.app.push_screen(
             DetailScreen(
                 todo,
                 self.all_todos,
                 today=self.today,
                 hours=self.hours,
-                decisions=plan_decisions(self.all_todos, self.today, self.hours),
+                decisions=_decisions,
+                alternatives=_alternatives,
             ),
             lambda result: self._on_detail_result(tid, section, result),
         )

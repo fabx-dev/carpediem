@@ -1188,18 +1188,58 @@ def plan_decisions(
     loggato, non silenzioso: `()` renderebbe la card Why indistinguibile
     da "task non valutato" (lezione §7 radar loggato).
     """
+    decisions, _alts = plan_context(all_todos, today, hours)
+    return decisions
+
+
+def plan_context(
+    all_todos: list[TodoItem],
+    today: str | None,
+    hours: float,
+    window: dict | None = None,
+) -> tuple[tuple[PlanningDecision, ...], dict]:
+    """(decisions, {todo_id: PlanAlternative}) da un singolo plan() (Phase 6).
+
+    Stessi input/output di plan_decisions + alternative diagnostiche per la
+    Why-card. Un solo calcolo condiviso; fallimento loggato con vuoti.
+    window opzionale (dict day_window): senza, niente scheduling e quindi
+    niente blocker temporali (deadline/busy/window) — solo cut/skip.
+    """
     try:
         # Import locale: evita dipendenze tra aree screen all'import
         # (precedente plan.py -> views).
         from src.screens.plan import build_planning_request
 
         res = plan_request(
-            build_planning_request(list(all_todos or ()), today or "", hours)
+            build_planning_request(list(all_todos or ()), today or "", hours, window)
         )
-        return res.decisions
+        return res.decisions, {a.todo_id: a for a in res.alternatives}
     except Exception:
-        _log.exception("plan_decisions: plan() fallito")
-        return ()
+        _log.exception("plan_context: plan() fallito")
+        return (), {}
+
+
+def _blocked_line(alt) -> str | None:
+    """Riga blocker Why-card (Phase 6): mapping 1:1 blocked_by -> chiave.
+
+    Solo kind noti (chiavi why_blocked_* esistenti); DEFERRED mai qui
+    (ha why_alt_deferred); unknown/None -> nessuna riga, mai testo inventato.
+    """
+    if alt is None:
+        return None
+    try:
+        kind = str(getattr(alt, "blocked_by", "") or "")
+        detail = getattr(alt, "detail", None) or {}
+    except Exception:
+        return None
+    try:
+        if kind == "deadline":
+            return T("why_blocked_deadline", d=detail.get("deadline", "?"))
+        if kind in ("capacity", "busy", "window", "duration", "user_skip"):
+            return T(f"why_blocked_{kind}")
+    except Exception:
+        return None
+    return None
 
 
 class DetailScreen(ModalScreen[str | None]):
@@ -1252,6 +1292,7 @@ class DetailScreen(ModalScreen[str | None]):
         today: str | None = None,
         hours: float = 6.0,
         decisions: tuple[PlanningDecision, ...] | None = None,
+        alternatives: dict | None = None,
     ) -> None:
         super().__init__()
         self.todo = todo
@@ -1269,6 +1310,9 @@ class DetailScreen(ModalScreen[str | None]):
         # normale, niente ricalcoli in navigazione. None = fallback di
         # compatibilita' (ricalcolo on-demand, stessi input del chiamante).
         self._decisions = decisions
+        # Alternative diagnostiche (Phase 6, opzionali): None = riga blocker
+        # assente, rendering per il resto identico (fallback invariato).
+        self._alternatives = alternatives
 
     def _get_subtasks(self, parent_id: int | None) -> list[TodoItem]:
         return [t for t in self.all_todos if t.parent_id == parent_id]
@@ -1383,6 +1427,10 @@ class DetailScreen(ModalScreen[str | None]):
             lines.append(T("why_confidence", c=decision.confidence))
         if decision.decision == DEFERRED:
             lines.append(T("why_alt_deferred"))
+        else:
+            blocked = _blocked_line((self._alternatives or {}).get(self.todo.id))
+            if blocked is not None:
+                lines.append(blocked)
         return lines
 
     def compose(self) -> ComposeResult:

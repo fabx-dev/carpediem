@@ -514,3 +514,93 @@ def test_detail_usa_decisions_senza_ricalcolo(tmp_files, monkeypatch):
             assert len(calls) == n_calls
 
     run(inline())
+
+
+def test_why_blocker_capacity_in_coda(tmp_files):
+    """P6-4 UIf: voce tagliata con alternatives -> riga Blocco in coda,
+    invariante story intatta (una sola riga fra decisione e Dettagli)."""
+    from src.screens.views import plan_context
+
+    def t():
+        async def inner():
+            app = make_app([make_todo(f"T{i}", todo_id=i) for i in range(1, 8)])
+            decisions, alternatives = plan_context(app.todos, TODAY, 1.0)
+            cut = next(
+                t
+                for t in app.todos
+                if t.id in alternatives and alternatives[t.id].blocked_by == "capacity"
+            )
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                app.push_screen(
+                    DetailScreen(
+                        cut,
+                        app.todos,
+                        today=TODAY,
+                        hours=1.0,
+                        decisions=decisions,
+                        alternatives=alternatives,
+                    )
+                )
+                await pilot.pause()
+                await pilot.pause()
+                txt = screen_texts(app.screen)
+                assert T("why_blocked_capacity") in txt
+                assert T("why_not_scheduled") in txt
+                _why_block_labels(
+                    app.screen, T("why_not_scheduled"), T("why_story_cut")
+                )
+
+        return inner()
+
+    run(t())
+
+
+def test_why_blocker_deadline_con_window(tmp_files):
+    """P6-4 UIf: scadenza stretta + finestra -> riga Blocco con orario."""
+    from src.screens.views import plan_context
+
+    def t():
+        async def inner():
+            app = make_app(
+                [make_todo("A", todo_id=1, due=f"{TODAY} 09:30", stima_pomo=2)]
+            )
+            window = {"date": TODAY, "start": "09:00", "end": "18:00"}
+            decisions, alternatives = plan_context(app.todos, TODAY, 6.0, window)
+            assert alternatives[1].blocked_by == "deadline"
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                app.push_screen(
+                    DetailScreen(
+                        app.todos[0],
+                        app.todos,
+                        today=TODAY,
+                        hours=6.0,
+                        decisions=decisions,
+                        alternatives=alternatives,
+                    )
+                )
+                await pilot.pause()
+                await pilot.pause()
+                txt = screen_texts(app.screen)
+                assert T("why_blocked_deadline", d="09:30") in txt
+
+        return inner()
+
+    run(t())
+
+
+def test_why_senza_alternatives_nessuna_riga_blocco(tmp_files):
+    """P6-4 UIf fallback: senza alternatives, rendering odierno (nessun Blocco)."""
+
+    def t():
+        async def inner():
+            app = make_app([make_todo(f"T{i}", todo_id=i) for i in range(1, 8)])
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_detail(pilot, app, app.todos[2], hours=1.0)
+                assert "Blocco" not in screen_texts(app.screen)
+
+        return inner()
+
+    run(t())

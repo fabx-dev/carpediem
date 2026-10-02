@@ -88,7 +88,7 @@ from src.screens import (
     WeekScreen,
     WelcomeScreen,
     WorkflowScreen,
-    plan_decisions,
+    plan_context,
 )
 from src.screens._shared import _escape_markup
 from src.storage import (
@@ -1134,13 +1134,15 @@ class TodoApp(App):
                 self._commit_refresh("n_updated", t=_escape_markup(todo.title))
                 if reopen_detail:
                     today, hours = self._detail_context()
+                    _dec, _alt = plan_context(self.todos, today, hours)
                     self.push_screen(
                         DetailScreen(
                             todo,
                             self.todos,
                             today=today,
                             hours=hours,
-                            decisions=plan_decisions(self.todos, today, hours),
+                            decisions=_dec,
+                            alternatives=_alt,
                         ),
                         self._on_detail_closed,
                     )
@@ -1348,13 +1350,15 @@ class TodoApp(App):
                 self._open_edit_form(fresh, reopen_detail=True)
 
         today, hours = self._detail_context()
+        _decisions, _alternatives = plan_context(self.todos, today, hours)
         self.push_screen(
             DetailScreen(
                 todo,
                 self.todos,
                 today=today,
                 hours=hours,
-                decisions=plan_decisions(self.todos, today, hours),
+                decisions=_decisions,
+                alternatives=_alternatives,
             ),
             on_detail,
         )
