@@ -52,6 +52,7 @@ from src.planner.models import (
     ScheduledDayPlan,
     TimeWindow,
 )
+from src.planner.phrases import phrase_for
 from src.planner.replan import ADDED, DROPPED, KEPT, MOVED, replan
 from src.screens._shared import (
     CloseMixin,
@@ -1263,16 +1264,12 @@ class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
     def _section_lines(self, proposal) -> list[str]:
         by_id = {t.id: t for t in self.all_todos if t.id is not None}
         lines = []
-        for kind, key in (
-            (KEPT, "cli_replan_kept"),
-            (MOVED, "cli_replan_moved"),
-            (DROPPED, "cli_replan_dropped"),
-            (ADDED, "cli_replan_added"),
-        ):
+        for kind in (KEPT, MOVED, DROPPED, ADDED):
             rows = [m for m in proposal.moves if m.kind == kind]
             if not rows:
                 continue
-            lines.append(f"[b]{T(key)}[/b]")
+            ref = phrase_for(kind, "replan")
+            lines.append(f"[b]{T(ref.key, **ref.params)}[/b]")
             for m in rows:
                 todo = by_id.get(m.todo_id)
                 title = (

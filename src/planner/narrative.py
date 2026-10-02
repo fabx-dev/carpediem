@@ -11,7 +11,7 @@ davanti ai segnali temporali deboli: solo i task oggi in fallback cambiano
 frase. NOT_SCHEDULED distingue overflow (obbligatori oltre capacita') dal
 taglio in graduatoria; DEFERRED/CONSTRAINED hanno un template ciascuna.
 
-Ritorna (chiave_i18n, params) per T(chiave, **params) nella view, o None
+Ritorna PhraseRef per T(ref.key, **ref.params) nella view, o None
 con reasons vuote (il chiamante non deve inventare testo). Mai importare
 src.lang/src.screens/src.app (guardrail purezza): solo chiavi, mai testo.
 """
@@ -26,6 +26,7 @@ from src.planner.explain import (
     SKIPPED,
     STALE,
 )
+from src.planner.phrases import PhraseRef
 
 STORY_SCHED_OVERDUE = "why_story_sched_overdue"
 STORY_SCHED_DUE_TODAY = "why_story_sched_due_today"
@@ -80,7 +81,7 @@ def _sched_variant(
     tomorrow: str,
     stale: str,
     fallback: str,
-) -> tuple[str, dict]:
+) -> PhraseRef:
     """Variante SCHEDULED condivisa da pianificato e proposto (pura).
 
     Niente ramo planned: l'appartenenza al piano la dicono gia' etichetta
@@ -89,24 +90,24 @@ def _sched_variant(
     """
     keys = {k for k, _p in reasons}
     if OVERDUE in keys or bool(ev.get("overdue")):
-        return (overdue, {})
+        return PhraseRef(overdue, {}, "story")
     if DUE_TODAY in keys:
-        return (due_today, {})
+        return PhraseRef(due_today, {}, "story")
     if PRIO in keys or str(ev.get("priority") or "") == "alta":
-        return (prio, {})
+        return PhraseRef(prio, {}, "story")
     if DUE_TOMORROW in keys:
-        return (tomorrow, {})
+        return PhraseRef(tomorrow, {}, "story")
     if STALE in keys:
         try:
             params = dict(reasons).get(STALE, {}) or {}
             n = int(params.get("n", 0))
         except (ValueError, TypeError, AttributeError):
             n = 0
-        return (stale, {"n": n})
-    return (fallback, {})
+        return PhraseRef(stale, {"n": n}, "story")
+    return PhraseRef(fallback, {}, "story")
 
 
-def explain_decision(decision: _dec.PlanningDecision) -> tuple[str, dict] | None:
+def explain_decision(decision: _dec.PlanningDecision) -> PhraseRef | None:
     """Seleziona il template narrativo per una decisione (puro, totale).
 
     Solo lettura di decision/reasons/evidence: non ricalcola merito,
@@ -135,21 +136,21 @@ def explain_decision(decision: _dec.PlanningDecision) -> tuple[str, dict] | None
             )
         except (ValueError, TypeError):
             overflow = False
-        return (STORY_CUT_OVERFLOW if overflow else STORY_CUT, {})
+        return PhraseRef(STORY_CUT_OVERFLOW if overflow else STORY_CUT, {}, "story")
     if kind == _dec.DEFERRED:
-        return (STORY_DEFERRED, {})
+        return PhraseRef(STORY_DEFERRED, {}, "story")
     if kind == _dec.CONSTRAINED:
-        return (STORY_CONSTRAINED, {})
+        return PhraseRef(STORY_CONSTRAINED, {}, "story")
     # Decisione ignota: CUT/SKIPPED decidono da soli come in primary_reason.
     keys = {k for k, _p in reasons}
     if CUT in keys:
-        return (STORY_CUT, {})
+        return PhraseRef(STORY_CUT, {}, "story")
     if SKIPPED in keys:
-        return (STORY_DEFERRED, {})
+        return PhraseRef(STORY_DEFERRED, {}, "story")
     return None
 
 
-def explain_proposed(decision: _dec.PlanningDecision) -> tuple[str, dict] | None:
+def explain_proposed(decision: _dec.PlanningDecision) -> PhraseRef | None:
     """Story per SCHEDULED non confermato in piano (pura, totale).
 
     Stessa selezione di explain_decision ma con wording "proposto", mai

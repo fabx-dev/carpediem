@@ -50,6 +50,7 @@ from src.planner import (
 )
 from src.planner import plan as plan_request
 from src.planner.narrative import explain_decision, explain_proposed
+from src.planner.phrases import phrase_for
 from src.screens._shared import (
     CloseMixin,
     _agenda_due,
@@ -1228,14 +1229,6 @@ _NOSLOT_MERIT = {
     "plan_planned": "why_frag_m_planned",
 }
 
-_NOSLOT_CAUSE = {
-    "capacity": "why_frag_c_capacity",
-    "deadline": "why_frag_c_deadline",
-    "busy": "why_frag_c_busy",
-    "window": "why_frag_c_window",
-    "duration": "why_frag_c_duration",
-}
-
 
 def _busy_names(detail) -> str | None:
     """Nomi eventi bloccanti escapati per markup, o None se assenti."""
@@ -1265,24 +1258,26 @@ def _cause_text(blocked, detail, titles=None) -> str | None:
     """Causa in forma di frammento, o None se non componibile (mai inventata).
 
     Condivisa da frase unica e riga Blocco: stessa causa, due vesti.
-    `titles` ({id: titolo}) nomina gli altri task; senza, '#id'.
+    Mapping centrale via phrase_for; escaping/nomi restano qui in UI.
     """
     try:
-        if blocked == "deadline":
-            hhmm = (detail or {}).get("deadline") or ""
-            return T("why_frag_c_deadline", d=hhmm) if hhmm else None
+        detail = dict(detail or {})
         if blocked == "busy":
             names = _busy_names(detail)
             if names is not None:
-                return T("why_frag_c_busy_named", e=names)
-            return T("why_frag_c_busy")
+                detail["busy_titles"] = names
         if blocked == "tasks":
-            ids = (detail or {}).get("task_ids") or ()
+            ids = detail.get("task_ids") or ()
             if not ids:
                 return None
-            return T("why_frag_c_tasks", t=_titles_text(ids, titles))
-        ckey = _NOSLOT_CAUSE.get(blocked)
-        return T(ckey) if ckey else None
+            detail["task_names"] = _titles_text(ids, titles)
+        ref = phrase_for(blocked, "blocked-frag", detail)
+    except KeyError:
+        return None
+    except Exception:
+        return None
+    try:
+        return T(ref.key, **ref.params)
     except Exception:
         return None
 
@@ -1315,6 +1310,15 @@ def _noslot_sentence(decision, alt, titles=None) -> str | None:
         return None
 
 
+def _decision_label(kind: str) -> str:
+    """Etichetta decisione via mapping centrale (fallback legacy se ignoto)."""
+    try:
+        ref = phrase_for(kind, "decision")
+    except KeyError:
+        return T("why_no_decision")
+    return T(ref.key, **ref.params)
+
+
 def _blocked_line(alt, titles=None) -> str | None:
     """Riga blocker Why-card (Phase 6): mapping 1:1 blocked_by -> chiave.
 
@@ -1329,21 +1333,23 @@ def _blocked_line(alt, titles=None) -> str | None:
     except Exception:
         return None
     try:
-        if kind == "deadline":
-            hhmm = detail.get("deadline") or ""
-            return T("why_blocked_deadline", d=hhmm) if hhmm else None
+        detail = dict(detail or {})
         if kind == "busy":
             names = _busy_names(detail)
             if names is not None:
-                return T("why_blocked_busy_named", e=names)
-            return T("why_blocked_busy")
+                detail["busy_titles"] = names
         if kind == "tasks":
             ids = detail.get("task_ids") or ()
             if not ids:
                 return None
-            return T("why_blocked_tasks", t=_titles_text(ids, titles))
-        if kind in ("capacity", "window", "duration", "user_skip"):
-            return T(f"why_blocked_{kind}")
+            detail["task_names"] = _titles_text(ids, titles)
+        ref = phrase_for(kind, "blocked-line", detail)
+    except KeyError:
+        return None
+    except Exception:
+        return None
+    try:
+        return T(ref.key, **ref.params)
     except Exception:
         return None
     return None
@@ -1516,9 +1522,9 @@ class DetailScreen(ModalScreen[str | None]):
                 lines = [
                     {
                         SCHEDULED: sched_label,
-                        NOT_SCHEDULED: T("why_not_scheduled"),
-                        DEFERRED: T("why_deferred"),
-                        CONSTRAINED: T("why_constrained"),
+                        NOT_SCHEDULED: _decision_label("not_scheduled"),
+                        DEFERRED: _decision_label("deferred"),
+                        CONSTRAINED: _decision_label("constrained"),
                     }.get(decision.decision, T("why_no_decision"))
                 ]
                 try:
@@ -1526,8 +1532,7 @@ class DetailScreen(ModalScreen[str | None]):
                 except Exception:
                     story = None
         if story is not None:
-            key, params = story
-            lines.append(T(key, **params))
+            lines.append(T(story.key, **story.params))
         lines.append(T("why_sec_details"))
         ev = decision.evidence or {}
         if ev.get("due"):

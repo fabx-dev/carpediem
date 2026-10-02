@@ -16,6 +16,7 @@ from src.planner.explain import (
     SKIPPED,
 )
 from src.planner.narrative import explain_decision, explain_proposed, story_keys
+from src.planner.phrases import PhraseRef
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"
@@ -38,45 +39,42 @@ def test_sedici_template_distinti():
 
 def test_scheduled_overdue():
     d = _d(dec.SCHEDULED, [(OVERDUE, {})], _ev(overdue=True, mandatory=True))
-    assert explain_decision(d) == ("why_story_sched_overdue", {})
+    assert explain_decision(d) == PhraseRef("why_story_sched_overdue", {}, "story")
 
 
 def test_scheduled_overdue_da_sola_evidence():
     # mandatory senza reason overdue esplicita: l'evidence basta.
     d = _d(dec.SCHEDULED, [("plan_due_today", {})], _ev(overdue=True))
-    assert explain_decision(d) == ("why_story_sched_overdue", {})
+    assert explain_decision(d) == PhraseRef("why_story_sched_overdue", {}, "story")
 
 
 def test_scheduled_due_today():
     d = _d(dec.SCHEDULED, [(DUE_TODAY, {})], _ev())
-    assert explain_decision(d) == ("why_story_sched_due_today", {})
+    assert explain_decision(d) == PhraseRef("why_story_sched_due_today", {}, "story")
 
 
 def test_scheduled_prio():
     d = _d(dec.SCHEDULED, [(PRIO, {})], _ev(priority="alta"))
-    assert explain_decision(d) == ("why_story_sched_prio", {})
+    assert explain_decision(d) == PhraseRef("why_story_sched_prio", {}, "story")
 
 
 def test_scheduled_tomorrow_stale_planned():
-    assert explain_decision(_d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())) == (
-        "why_story_sched_tomorrow",
-        {},
-    )
-    assert explain_decision(_d(dec.SCHEDULED, [("plan_stale", {"n": 9})], _ev())) == (
-        "why_story_sched_stale",
-        {"n": 9},
-    )
+    assert explain_decision(
+        _d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())
+    ) == PhraseRef("why_story_sched_tomorrow", {}, "story")
+    assert explain_decision(
+        _d(dec.SCHEDULED, [("plan_stale", {"n": 9})], _ev())
+    ) == PhraseRef("why_story_sched_stale", {"n": 9}, "story")
     # planned-only: niente story dedicata (etichetta + motivo bastano,
     # altrimenti triplica il messaggio) -> fallback.
-    assert explain_decision(_d(dec.SCHEDULED, [("plan_planned", {})], _ev())) == (
-        "why_story_sched",
-        {},
-    )
+    assert explain_decision(
+        _d(dec.SCHEDULED, [("plan_planned", {})], _ev())
+    ) == PhraseRef("why_story_sched", {}, "story")
 
 
 def test_scheduled_fallback():
     d = _d(dec.SCHEDULED, [("plan_calibrated", {"f": "x2.0"})], _ev())
-    assert explain_decision(d) == ("why_story_sched", {})
+    assert explain_decision(d) == PhraseRef("why_story_sched", {}, "story")
 
 
 def test_prio_resta_davanti_ai_nuovi_segnali():
@@ -85,33 +83,32 @@ def test_prio_resta_davanti_ai_nuovi_segnali():
         [(PRIO, {}), ("plan_due_tomorrow", {}), ("plan_stale", {"n": 9})],
         _ev(priority="alta"),
     )
-    assert explain_decision(d) == ("why_story_sched_prio", {})
+    assert explain_decision(d) == PhraseRef("why_story_sched_prio", {}, "story")
 
 
 def test_not_scheduled_cut():
     d = _d(dec.NOT_SCHEDULED, [(CUT, {})], _ev())
-    assert explain_decision(d) == ("why_story_cut", {})
+    assert explain_decision(d) == PhraseRef("why_story_cut", {}, "story")
 
 
 def test_not_scheduled_cut_overflow():
     ev = dict(_ev(), **{"planned_pomo": 8, "capacity_pomo": 6.0})
     d = _d(dec.NOT_SCHEDULED, [(CUT, {})], ev)
-    assert explain_decision(d) == ("why_story_cut_overflow", {})
+    assert explain_decision(d) == PhraseRef("why_story_cut_overflow", {}, "story")
     ev2 = dict(_ev(), **{"planned_pomo": 6, "capacity_pomo": 6.0})
-    assert explain_decision(_d(dec.NOT_SCHEDULED, [(CUT, {})], ev2)) == (
-        "why_story_cut",
-        {},
+    assert explain_decision(_d(dec.NOT_SCHEDULED, [(CUT, {})], ev2)) == PhraseRef(
+        "why_story_cut", {}, "story"
     )
 
 
 def test_deferred():
     d = _d(dec.DEFERRED, [(SKIPPED, {})], _ev())
-    assert explain_decision(d) == ("why_story_deferred", {})
+    assert explain_decision(d) == PhraseRef("why_story_deferred", {}, "story")
 
 
 def test_constrained():
     d = _d(dec.CONSTRAINED, [(OVERDUE, {})], _ev(overdue=True, mandatory=True))
-    assert explain_decision(d) == ("why_story_constrained", {})
+    assert explain_decision(d) == PhraseRef("why_story_constrained", {}, "story")
 
 
 def test_reasons_vuote_niente_testo_inventato():
@@ -125,42 +122,39 @@ def test_deterministico():
 
 def test_priorita_overdue_su_due_today():
     d = _d(dec.SCHEDULED, [(OVERDUE, {}), (DUE_TODAY, {})], _ev(overdue=True))
-    assert explain_decision(d) == ("why_story_sched_overdue", {})
+    assert explain_decision(d) == PhraseRef("why_story_sched_overdue", {}, "story")
 
 
 def test_proposed_overdue():
     d = _d(dec.SCHEDULED, [(OVERDUE, {})], _ev(overdue=True, mandatory=True))
-    assert explain_proposed(d) == ("why_story_prop_overdue", {})
+    assert explain_proposed(d) == PhraseRef("why_story_prop_overdue", {}, "story")
 
 
 def test_proposed_due_today():
     d = _d(dec.SCHEDULED, [(DUE_TODAY, {})], _ev())
-    assert explain_proposed(d) == ("why_story_prop_due_today", {})
+    assert explain_proposed(d) == PhraseRef("why_story_prop_due_today", {}, "story")
 
 
 def test_proposed_prio():
     d = _d(dec.SCHEDULED, [(PRIO, {})], _ev(priority="alta"))
-    assert explain_proposed(d) == ("why_story_prop_prio", {})
+    assert explain_proposed(d) == PhraseRef("why_story_prop_prio", {}, "story")
 
 
 def test_proposed_tomorrow_stale_planned():
-    assert explain_proposed(_d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())) == (
-        "why_story_prop_tomorrow",
-        {},
-    )
-    assert explain_proposed(_d(dec.SCHEDULED, [("plan_stale", {"n": 4})], _ev())) == (
-        "why_story_prop_stale",
-        {"n": 4},
-    )
-    assert explain_proposed(_d(dec.SCHEDULED, [("plan_planned", {})], _ev())) == (
-        "why_story_prop_fallback",
-        {},
-    )
+    assert explain_proposed(
+        _d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())
+    ) == PhraseRef("why_story_prop_tomorrow", {}, "story")
+    assert explain_proposed(
+        _d(dec.SCHEDULED, [("plan_stale", {"n": 4})], _ev())
+    ) == PhraseRef("why_story_prop_stale", {"n": 4}, "story")
+    assert explain_proposed(
+        _d(dec.SCHEDULED, [("plan_planned", {})], _ev())
+    ) == PhraseRef("why_story_prop_fallback", {}, "story")
 
 
 def test_proposed_fallback():
     d = _d(dec.SCHEDULED, [("plan_calibrated", {"f": "x2.0"})], _ev())
-    assert explain_proposed(d) == ("why_story_prop_fallback", {})
+    assert explain_proposed(d) == PhraseRef("why_story_prop_fallback", {}, "story")
 
 
 def test_proposed_solo_scheduled():

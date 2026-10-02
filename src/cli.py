@@ -52,6 +52,7 @@ def _cli_replan(args, err) -> int:
     replan non applicato non modifica dati. Con --apply scrive solo i
     planned_for via store.commit()."""
     from src.planner.models import TimeWindow
+    from src.planner.phrases import phrase_for
     from src.planner.replan import ADDED, DROPPED, KEPT, MOVED, replan
     from src.storage import load_config
 
@@ -91,16 +92,12 @@ def _cli_replan(args, err) -> int:
     proposal = replan(todos, today, hours, avail, busy, now, current=sched)
     by_id = {t.id: t for t in todos}
     print(T("cli_replan_title", date=today, now=now.strftime("%H:%M")))
-    for kind, key in (
-        (KEPT, "cli_replan_kept"),
-        (MOVED, "cli_replan_moved"),
-        (DROPPED, "cli_replan_dropped"),
-        (ADDED, "cli_replan_added"),
-    ):
+    for kind in (KEPT, MOVED, DROPPED, ADDED):
         rows = [m for m in proposal.moves if m.kind == kind]
         if not rows:
             continue
-        print(T(key))
+        ref = phrase_for(kind, "replan")
+        print(T(ref.key, **ref.params))
         for m in rows:
             todo = by_id.get(m.todo_id)
             title = todo.title if todo is not None else f"#{m.todo_id}"
