@@ -11,6 +11,7 @@ from src.planner.decisions import (
     primary_reason,
     refine_with_schedule,
 )
+from src.planner.diagnostics import diagnose
 from src.planner.feedback import feedback
 from src.planner.models import (
     BLOCKED_BUSY,
@@ -91,6 +92,7 @@ __all__ = [
     "TimeWindow",
     "decide",
     "deadlines_for",
+    "diagnose",
     "events_to_busy",
     "explain_decision",
     "explain_proposed",

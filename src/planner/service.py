@@ -17,11 +17,12 @@ temporale/contrattuale). Tutti i caller di produzione passano valori
 espliciti; il fallback copre solo compat (plan_day, test, script ad-hoc).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 
 from src.planner import calibration, capacity, constraints, scheduler, scoring
 from src.planner.decisions import decide
+from src.planner.diagnostics import diagnose
 from src.planner.explain import CUT
 from src.planner.models import (
     DayPlan,
@@ -173,6 +174,8 @@ def plan(request: PlanningRequest) -> PlanningResult:
     - scheduled: None senza availability (decisione ≠ schedulazione).
     - decisions: via decide() con request.sample_count (confidence anche
       None — regola invariata).
+    - alternatives/diagnostics (Phase 6): osservabili additivi via
+      diagnose(), mai decisionali.
     Forma di lavoro instabile fino a Phase 7 (vedi PlanningRequest).
     """
     views = list(request.tasks)
@@ -194,9 +197,11 @@ def plan(request: PlanningRequest) -> PlanningResult:
         if request.availability
         else None
     )
-    return PlanningResult(
+    base = PlanningResult(
         request=request,
         plan=dayplan,
         scheduled=scheduled,
         decisions=decide(dayplan, views, sample_count=request.sample_count),
     )
+    alternatives, diagnostics = diagnose(base)
+    return replace(base, alternatives=alternatives, diagnostics=diagnostics)

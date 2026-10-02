@@ -139,6 +139,32 @@ def test_sano_niente_diagnostics_e_determinismo():
     assert diagnose(res) == diagnose(res2) == ((), ())
 
 
+def test_facade_popola_coerente_con_manuale():
+    """P6-3: plan() riempie alternatives/diagnostics come diagnose() manuale;
+    i campi vecchi restano identici (E1)."""
+    from src.planner import plan
+
+    todos = [
+        make_todo("A", todo_id=1, due=f"{TODAY_S} 09:30", stima_pomo=2),
+        make_todo("B", todo_id=2),
+    ]
+    req = PlanningRequest(
+        day=DAY, tasks=todos, capacity_pomo=12.0, availability=[_win(9, 0, 18, 0)]
+    )
+    res = plan(req)
+    assert res.alternatives, res.diagnostics
+    manual = diagnose(
+        PlanningResult(
+            request=req,
+            plan=res.plan,
+            scheduled=res.scheduled,
+            decisions=res.decisions,
+        )
+    )
+    assert (res.alternatives, res.diagnostics) == manual
+    assert [a.blocked_by for a in res.alternatives] == ["deadline"]
+
+
 def test_coerenza_probe_scheduler_e_totalita():
     """D2: per ogni unscheduled, il re-schedule single-item con vincoli pieni
     fallisce come lo scheduler reale; diagnose() mai solleva."""

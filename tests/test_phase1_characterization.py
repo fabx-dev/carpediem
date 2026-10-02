@@ -469,6 +469,7 @@ def test_t9_export_boundary_invariati():
         "TimeWindow",
         "decide",
         "deadlines_for",
+        "diagnose",
         "events_to_busy",
         "explain_decision",
         "explain_proposed",
