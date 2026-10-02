@@ -595,11 +595,22 @@ def test_why_senza_alternatives_nessuna_riga_blocco(tmp_files):
 
     def t():
         async def inner():
+            from src.lang import T as _T
+
             app = make_app([make_todo(f"T{i}", todo_id=i) for i in range(1, 8)])
             async with app.run_test(size=(120, 40)) as pilot:
                 await pilot.pause()
                 await _open_detail(pilot, app, app.todos[2], hours=1.0)
-                assert "Blocco" not in screen_texts(app.screen)
+                txt = screen_texts(app.screen)
+                for kind in (
+                    "capacity",
+                    "deadline",
+                    "busy",
+                    "window",
+                    "duration",
+                    "user_skip",
+                ):
+                    assert _T(f"why_blocked_{kind}") not in txt
 
         return inner()
 
