@@ -85,7 +85,7 @@ def _cli_replan(args, err) -> int:
             start, end, events, _allday = parts
             avail = [TimeWindow(start, end)]
             busy = events_to_busy(events)
-        sched, _ev, _al, _pl = scheduled_for_today(todos, today, hours, window)
+        sched, _ev, _al, _pl, _alts = scheduled_for_today(todos, today, hours, window)
     except Exception:
         pass
     proposal = replan(todos, today, hours, avail, busy, now, current=sched)

@@ -33,7 +33,14 @@ from src.models import (
     _pomo_label,
     _status,
 )
-from src.planner import Planner, capacity, deadlines_for, events_to_busy, explain
+from src.planner import (
+    Planner,
+    capacity,
+    deadlines_for,
+    diagnose,
+    events_to_busy,
+    explain,
+)
 from src.planner import feedback as planner_feedback
 from src.planner import plan as plan_request
 from src.planner.models import (
@@ -41,6 +48,7 @@ from src.planner.models import (
     FixedEvent,
     PlanItem,
     PlanningRequest,
+    PlanningResult,
     ScheduledDayPlan,
     TimeWindow,
 )
@@ -250,7 +258,14 @@ def scheduled_for_today(
     non colloca i non attivi per contratto (propose li esclude) e le loro
     righe esecutive derivano direttamente dal todo (slot None). Il
     completato-today e' individuato da completed_at (apply_state azzera
-    planned_for al completamento: comportamento esistente)."""
+    planned_for al completamento: comportamento esistente).
+
+    Quinto elemento `alternatives`: diagnostica Phase 6 calcolata su
+    QUESTO dayplan/sched (sottoinsieme confermati), non sul piano intero —
+    solo cosi' il Detail di una riga timed non contraddice la timeline
+    visibile (un task puo' avere slot qui ed essere fuori nel piano
+    completo per competizione con non-confermati). Senza finestra: (),
+    nessuna pretesa sui blocchi (come plan_context senza window)."""
     if include_done:
         planned = [
             t
@@ -261,7 +276,7 @@ def scheduled_for_today(
     else:
         planned = [t for t in todos if t.planned_for == today and t.state == "attivo"]
     if not planned:
-        return None, [], [], []
+        return None, [], [], [], ()
     plan = plan_request(build_planning_request(todos, today, hours, None)).plan
     items_by_id = {it.todo_id: it for it in plan.items}
     attivi = [t for t in planned if t.state == "attivo"]
@@ -283,7 +298,7 @@ def scheduled_for_today(
     )
     parts = day_window_parts(window, today)
     if parts is None:
-        return ScheduledDayPlan(dayplan), [], [], planned
+        return ScheduledDayPlan(dayplan), [], [], planned, ()
     start, end, events, allday = parts
     sched = Planner.schedule(
         dayplan,
@@ -291,7 +306,14 @@ def scheduled_for_today(
         busy=events_to_busy(events),
         deadlines=deadlines_for(todos),
     )
-    return sched, events, allday, planned
+    req = build_planning_request(todos, today, hours, window)
+    try:
+        alts, _diags = diagnose(
+            PlanningResult(request=req, plan=dayplan, scheduled=sched)
+        )
+    except Exception:
+        alts = ()
+    return sched, events, allday, planned, alts
 
 
 def _timeline_lines(
@@ -647,9 +669,12 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             )
             # Contesto esecutivo di oggi: UNICA costruzione condivisa col
             # Briefing (confermati -> merito Planner -> slot Scheduler).
-            sched, events, allday, planned = scheduled_for_today(
+            sched, events, allday, planned, dalts = scheduled_for_today(
                 self.all_todos, self.today, self.hours, self.window
             )
+            # Verita' slot della timeline visibile (per il Detail: etichetta
+            # noslot e Blocco coerenti con le righe, mai col piano intero).
+            self._diag_alts = {a.todo_id: a for a in dalts}
             due = self._due_today()
             overdue = self._overdue()
             upcoming = self._upcoming()
@@ -834,9 +859,14 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         # Import locale: evita dipendenze tra aree screen all'import.
         from src.screens.views import DetailScreen, plan_context
 
-        _decisions, _alternatives = plan_context(
+        _decisions, _plan_alts = plan_context(
             self.all_todos, self.today, self.hours, self.window
         )
+        # Le alternative della TIMELINE visibile vincono su quelle del piano
+        # intero: un task con slot qui non deve mai dirsi senza orario.
+        # (None = mai calcolate -> fallback; {} vuoto = nessun blocco.)
+        _dalts = getattr(self, "_diag_alts", None)
+        _alternatives = dict(_dalts) if _dalts is not None else _plan_alts
         self.app.push_screen(
             DetailScreen(
                 todo,
@@ -1217,7 +1247,7 @@ class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
             start, end, events, _allday = parts
             avail = [TimeWindow(start, end)]
             busy = events_to_busy(events)
-        sched, _ev, _al, _pl = scheduled_for_today(
+        sched, _ev, _al, _pl, _alts = scheduled_for_today(
             self.all_todos, self.today, self.hours, self.window
         )
         return replan(
@@ -1986,7 +2016,7 @@ class BriefingScreen(CloseMixin, ModalScreen[str | None]):
         (sessioni/actual/stato) sono gia' sui task, lo slot dallo
         Scheduler via scheduled_for_today (condivisa col piano giorno).
         Senza finestra: righe senza slot (slot None nel feedback)."""
-        sched, _events, _allday, planned = scheduled_for_today(
+        sched, _events, _allday, planned, _alts = scheduled_for_today(
             self.all_todos, self.today, self.hours, self.window, include_done=True
         )
         if sched is None:

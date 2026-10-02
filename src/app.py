@@ -1234,7 +1234,7 @@ class TodoApp(App):
                 if isinstance(cfg_window, dict) and cfg_window.get("date") == today
                 else None
             )
-            sched, _ev, _al, _pl = scheduled_for_today(
+            sched, _ev, _al, _pl, _alts = scheduled_for_today(
                 self.todos, today, hours, window, include_done=True
             )
             slot = None

@@ -87,7 +87,7 @@ def test_e2_scheduled_for_today_golden():
         make_todo("B", todo_id=2, planned_for=TODAY_S, stima_pomo=2),
         done,
     ]
-    sched, events, _allday, planned = scheduled_for_today(
+    sched, events, _allday, planned, _alts = scheduled_for_today(
         todos, TODAY_S, 6.0, _window()
     )
     slots = {s.item.todo_id: s for s in sched.scheduled}
@@ -101,7 +101,7 @@ def test_e2_scheduled_for_today_golden():
     assert [t.id for t in planned] == [1, 2]  # il completato resta fuori
     assert len(events) == 1 and events[0].title == "Pausa"
 
-    sched2, _ev, _al, planned2 = scheduled_for_today(
+    sched2, _ev, _al, planned2, _alts2 = scheduled_for_today(
         todos, TODAY_S, 6.0, _window(), include_done=True
     )
     assert [t.id for t in planned2] == [1, 2, 3]

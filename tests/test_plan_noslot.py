@@ -85,6 +85,44 @@ def test_detail_coda_senza_orario_etichetta_distinta(tmp_files):
     run(t())
 
 
+def test_detail_timed_non_contraddice_la_timeline(tmp_files):
+    """Regressione card reale: task con slot visibile non deve mai dirsi
+    senza orario — le alternative del Detail sono quelle della timeline
+    (confermati), non del piano intero (Z non confermata ruba lo slot lì)."""
+    from src.planner import plan as plan_request
+    from src.screens.plan import build_planning_request
+
+    async def t():
+        app = make_app(
+            [
+                make_todo("Z", todo_id=9, due=_day(-1)),  # alto merito, NON confermato
+                make_todo("A", todo_id=1, planned_for=_day(0)),
+            ]
+        )
+        window = {"date": _day(0), "start": "09:00", "end": "09:30", "events": []}
+        app.config["day_window"] = window
+        # Nel piano intero A perde lo slot contro Z (prova della divergenza).
+        full = plan_request(build_planning_request(app.todos, _day(0), 6.0, window))
+        full_alts = {a.todo_id: a for a in full.alternatives}
+        assert full_alts[1].blocked_by == "window"
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_plan(pilot, app)
+            txt = screen_texts(app.screen)
+            assert "09:00–09:30 A" in txt  # timeline: A HA lo slot
+            await _goto(pilot, app.screen, 1)
+            await pilot.press("enter")
+            await pilot.pause()
+            await pilot.pause()
+            assert type(app.screen).__name__ == "DetailScreen"
+            dtxt = screen_texts(app.screen)
+            assert _T("why_scheduled") in dtxt
+            assert _T("why_scheduled_noslot") not in dtxt
+            assert "Blocco:" not in dtxt
+
+    run(t())
+
+
 def test_detail_timed_etichetta_invariata(tmp_files):
     async def t():
         app = make_app(_todos())
