@@ -76,9 +76,10 @@ def test_detail_coda_senza_orario_etichetta_distinta(tmp_files):
             assert _T("why_scheduled_noslot") in txt
             assert _T("why_scheduled") not in txt
             # Invariante story intatta anche con l'etichetta diversa
-            # (B e' planned_for=oggi: story agency, non fallback).
+            # (B e' planned_for=oggi senza altri segnali: story fallback,
+            # l'agency sta nell'etichetta + nel motivo principale).
             _why_block_labels(
-                app.screen, _T("why_scheduled_noslot"), _T("why_story_sched_planned")
+                app.screen, _T("why_scheduled_noslot"), _T("why_story_sched")
             )
 
     run(t())

@@ -22,7 +22,6 @@ from src.planner.explain import (
     DUE_TODAY,
     DUE_TOMORROW,
     OVERDUE,
-    PLANNED,
     PRIO,
     SKIPPED,
     STALE,
@@ -33,14 +32,12 @@ STORY_SCHED_DUE_TODAY = "why_story_sched_due_today"
 STORY_SCHED_PRIO = "why_story_sched_prio"
 STORY_SCHED_TOMORROW = "why_story_sched_tomorrow"
 STORY_SCHED_STALE = "why_story_sched_stale"
-STORY_SCHED_PLANNED = "why_story_sched_planned"
 STORY_SCHED = "why_story_sched"
 STORY_PROP_OVERDUE = "why_story_prop_overdue"
 STORY_PROP_DUE_TODAY = "why_story_prop_due_today"
 STORY_PROP_PRIO = "why_story_prop_prio"
 STORY_PROP_TOMORROW = "why_story_prop_tomorrow"
 STORY_PROP_STALE = "why_story_prop_stale"
-STORY_PROP_PLANNED = "why_story_prop_planned"
 STORY_PROP = "why_story_prop_fallback"
 STORY_CUT = "why_story_cut"
 STORY_CUT_OVERFLOW = "why_story_cut_overflow"
@@ -54,14 +51,12 @@ _ALL_KEYS = frozenset(
         STORY_SCHED_PRIO,
         STORY_SCHED_TOMORROW,
         STORY_SCHED_STALE,
-        STORY_SCHED_PLANNED,
         STORY_SCHED,
         STORY_PROP_OVERDUE,
         STORY_PROP_DUE_TODAY,
         STORY_PROP_PRIO,
         STORY_PROP_TOMORROW,
         STORY_PROP_STALE,
-        STORY_PROP_PLANNED,
         STORY_PROP,
         STORY_CUT,
         STORY_CUT_OVERFLOW,
@@ -84,10 +79,14 @@ def _sched_variant(
     prio: str,
     tomorrow: str,
     stale: str,
-    planned: str,
     fallback: str,
 ) -> tuple[str, dict]:
-    """Variante SCHEDULED condivisa da pianificato e proposto (pura)."""
+    """Variante SCHEDULED condivisa da pianificato e proposto (pura).
+
+    Niente ramo planned: l'appartenenza al piano la dicono gia' etichetta
+    ("Nel piano di oggi" / noslot "Confermato...") e motivo principale
+    ("gia' in piano") — una story dedicata triplicherebbe il messaggio.
+    """
     keys = {k for k, _p in reasons}
     if OVERDUE in keys or bool(ev.get("overdue")):
         return (overdue, {})
@@ -104,8 +103,6 @@ def _sched_variant(
         except (ValueError, TypeError, AttributeError):
             n = 0
         return (stale, {"n": n})
-    if PLANNED in keys:
-        return (planned, {})
     return (fallback, {})
 
 
@@ -129,7 +126,6 @@ def explain_decision(decision: _dec.PlanningDecision) -> tuple[str, dict] | None
             STORY_SCHED_PRIO,
             STORY_SCHED_TOMORROW,
             STORY_SCHED_STALE,
-            STORY_SCHED_PLANNED,
             STORY_SCHED,
         )
     if kind == _dec.NOT_SCHEDULED:
@@ -171,6 +167,5 @@ def explain_proposed(decision: _dec.PlanningDecision) -> tuple[str, dict] | None
         STORY_PROP_PRIO,
         STORY_PROP_TOMORROW,
         STORY_PROP_STALE,
-        STORY_PROP_PLANNED,
         STORY_PROP,
     )

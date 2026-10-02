@@ -511,7 +511,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "why_story_sched_prio": "È entrato nel piano perché la priorità è alta e c'è capacità sufficiente per completarlo oggi.",
         "why_story_sched_tomorrow": "In piano perché scade domani: anticiparlo oggi libera la giornata di domani.",
         "why_story_sched_stale": "In piano perché il progetto è fermo da {n} giorni.",
-        "why_story_sched_planned": "Lo avevi messo nel piano: resta confermato per oggi.",
         "why_story_sched": "È entrato nel piano di oggi perché il planner lo considera più urgente delle alternative.",
         "why_story_cut": "Non è rientrato fra le attività selezionate per il piano di oggi.",
         "why_story_cut_overflow": "Tagliato perché le attività obbligatorie riempiono oltre la capacità di oggi.",
@@ -522,7 +521,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "why_story_prop_prio": "È stato proposto perché la priorità è alta e rientrerebbe nella capacità di oggi.",
         "why_story_prop_tomorrow": "Proposto perché scade domani: anticiparlo oggi libera la giornata di domani.",
         "why_story_prop_stale": "Proposto perché il progetto è fermo da {n} giorni.",
-        "why_story_prop_planned": "Lo avevi messo nel piano: resta proposto per oggi.",
         "why_story_prop_fallback": "È stato proposto perché il planner lo considera più urgente delle alternative.",
         "why_sec_details": "[b]Dettagli[/b]",
         # Giorno
@@ -1283,7 +1281,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "why_story_sched_prio": "It made the plan because its priority is high and there is enough capacity to finish it today.",
         "why_story_sched_tomorrow": "In the plan because it is due tomorrow: doing it today frees up tomorrow.",
         "why_story_sched_stale": "In the plan because the project has been stalled for {n} days.",
-        "why_story_sched_planned": "You had put it in the plan: it stays confirmed for today.",
         "why_story_sched": "It made today's plan because the planner ranks it ahead of the alternatives.",
         "why_story_cut": "It was not selected among the tasks in today's plan.",
         "why_story_cut_overflow": "Cut because mandatory activities fill beyond today's capacity.",
@@ -1294,7 +1291,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "why_story_prop_prio": "It was proposed because its priority is high and it would fit in today's capacity.",
         "why_story_prop_tomorrow": "Proposed because it is due tomorrow: doing it today frees up tomorrow.",
         "why_story_prop_stale": "Proposed because the project has been stalled for {n} days.",
-        "why_story_prop_planned": "You had put it in the plan: it stays proposed for today.",
         "why_story_prop_fallback": "It was proposed because the planner ranks it ahead of the alternatives.",
         "why_sec_details": "[b]Details[/b]",
         # Day

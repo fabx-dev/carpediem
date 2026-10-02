@@ -31,8 +31,8 @@ def _ev(**kw):
     return base
 
 
-def test_diciotto_template_distinti():
-    assert len(story_keys()) == 18
+def test_sedici_template_distinti():
+    assert len(story_keys()) == 16
     assert all(k.startswith("why_story_") for k in story_keys())
 
 
@@ -66,8 +66,10 @@ def test_scheduled_tomorrow_stale_planned():
         "why_story_sched_stale",
         {"n": 9},
     )
+    # planned-only: niente story dedicata (etichetta + motivo bastano,
+    # altrimenti triplica il messaggio) -> fallback.
     assert explain_decision(_d(dec.SCHEDULED, [("plan_planned", {})], _ev())) == (
-        "why_story_sched_planned",
+        "why_story_sched",
         {},
     )
 
@@ -151,7 +153,7 @@ def test_proposed_tomorrow_stale_planned():
         {"n": 4},
     )
     assert explain_proposed(_d(dec.SCHEDULED, [("plan_planned", {})], _ev())) == (
-        "why_story_prop_planned",
+        "why_story_prop_fallback",
         {},
     )
 
@@ -174,7 +176,6 @@ def test_proposed_mai_pianificato_nel_wording(italian_lang):
         "why_story_prop_prio",
         "why_story_prop_tomorrow",
         "why_story_prop_stale",
-        "why_story_prop_planned",
         "why_story_prop_fallback",
     ):
         assert "pianificato" not in lang.STRINGS["it"][key].lower()
