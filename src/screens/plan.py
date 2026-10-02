@@ -630,7 +630,12 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                     )
                 )
         if rows and tail_rows:
-            rows.append(ListItem(Label("  [dim]────────────[/]"), disabled=True))
+            rows.append(
+                ListItem(
+                    Label(f"  [dim]──── {T('plan_sec_noslot')} ────[/]"),
+                    disabled=True,
+                )
+            )
         rows.extend(tail_rows)
         return rows
 

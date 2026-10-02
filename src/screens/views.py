@@ -1376,9 +1376,21 @@ class DetailScreen(ModalScreen[str | None]):
             except Exception:
                 story = None
         else:
+            # Riga senza orario (Phase 6+1): confermato in piano ma senza
+            # slot — si capisce solo dalle alternatives (blocco osservato),
+            # mai inventato: senza voce, etichetta standard.
+            sched_label = T("why_scheduled")
+            if decision.decision == SCHEDULED:
+                try:
+                    alt = (self._alternatives or {}).get(self.todo.id)
+                    blocked = str(getattr(alt, "blocked_by", "") or "")
+                except Exception:
+                    blocked = ""
+                if blocked in ("window", "busy", "deadline", "duration"):
+                    sched_label = T("why_scheduled_noslot")
             lines = [
                 {
-                    SCHEDULED: T("why_scheduled"),
+                    SCHEDULED: sched_label,
                     NOT_SCHEDULED: T("why_not_scheduled"),
                     DEFERRED: T("why_deferred"),
                     CONSTRAINED: T("why_constrained"),
@@ -1428,9 +1440,9 @@ class DetailScreen(ModalScreen[str | None]):
         if decision.decision == DEFERRED:
             lines.append(T("why_alt_deferred"))
         else:
-            blocked = _blocked_line((self._alternatives or {}).get(self.todo.id))
-            if blocked is not None:
-                lines.append(blocked)
+            blocker = _blocked_line((self._alternatives or {}).get(self.todo.id))
+            if blocker is not None:
+                lines.append(blocker)
         return lines
 
     def compose(self) -> ComposeResult:

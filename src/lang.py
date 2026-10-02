@@ -483,6 +483,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "cockpit_ear_row": "Tu: {tu} · CarpeDiem: {cd} · Reale: {re}",
         # Why (M3: sezione spiegazioni da PlanningDecision, mai logica in UI)
         "why_scheduled": "Nel piano di oggi.",
+        "why_scheduled_noslot": "Confermato nel piano di oggi, ma senza orario: la disponibilità non è bastata.",
         "why_proposed": "Proposto per oggi (non ancora in piano).",
         "why_not_scheduled": "Non pianificato.",
         "why_deferred": "Rimandato.",
@@ -533,6 +534,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "plan_title": "Il mio piano - {date}",
         "plan_sec_planned": "[b]Pianificati per oggi (x rimuove){win}{load}:[/b]",
         "plan_sec_window": " — Timeline {window}",
+        "plan_sec_noslot": "Senza orario",
         "plan_sec_due": "[b]Scadono oggi (aggiungi con [cyan]+[/]):[/b]",
         "plan_sec_overdue": "[b][red]In ritardo (aggiungi con [cyan]+[/]):[/red][/b]",
         "plan_sec_upcoming": "[b]Prossimi (aggiungi con [cyan]+[/]):[/b]",
@@ -1253,6 +1255,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "cockpit_ear_row": "You: {tu} · CarpeDiem: {cd} · Actual: {re}",
         # Why (M3: explanation section from PlanningDecision, never logic in UI)
         "why_scheduled": "In today's plan.",
+        "why_scheduled_noslot": "Confirmed in today's plan, but with no time slot: the availability was not enough.",
         "why_proposed": "Proposed for today (not in plan yet).",
         "why_not_scheduled": "Not scheduled.",
         "why_deferred": "Deferred.",
@@ -1303,6 +1306,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "plan_title": "My plan - {date}",
         "plan_sec_planned": "[b]Planned for today (x removes){win}{load}:[/b]",
         "plan_sec_window": " — Timeline {window}",
+        "plan_sec_noslot": "Unscheduled",
         "plan_sec_due": "[b]Due today (add with [cyan]+[/]):[/b]",
         "plan_sec_overdue": "[b][red]Overdue (add with [cyan]+[/]):[/red][/b]",
         "plan_sec_upcoming": "[b]Upcoming (add with [cyan]+[/]):[/b]",
