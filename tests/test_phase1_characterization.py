@@ -454,6 +454,7 @@ def test_t9_export_boundary_invariati():
         "KEPT",
         "MOVED",
         "NOT_SCHEDULED",
+        "PLANNER_CONTRACT_VERSION",  # Phase 7 P7-1: unico nome aggiunto, deliberato
         "PlanAlternative",
         "PlanDiagnostic",
         "PlanItem",

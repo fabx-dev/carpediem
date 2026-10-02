@@ -5,6 +5,14 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Added
+- Planner public API v1 (Phase 7, technical only, no behavior change):
+  `PLANNER_CONTRACT_VERSION = 1`, frozen `PlanningRequest` /
+  `PlanningResult` / `plan()` contract with compatibility policy in
+  `docs/planner-api.md`, freeze test `tests/test_planner_api.py`
+  (version, promised surface, fields, kwargs construction, frozen
+  classes, fail-fast day), declared in-repo consumers.
+
 ## [0.18.4] - 2026-09-30
 
 ### Added

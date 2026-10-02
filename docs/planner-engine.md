@@ -553,8 +553,10 @@ alternative / diagnostic (§12).
 
 ### Phase 7 — Public Planner API
 
-**`TARGET`**: stabilize `PlanningRequest`, `PlanningResult`, `Planner`;
-define compatibility and versioning (§13).
+**`CURRENT`** (2026-10-02): `PlanningRequest`, `PlanningResult`, `plan()`
+stabilized as contract v1 (`PLANNER_CONTRACT_VERSION = 1`,
+`docs/planner-api.md`, freeze test `tests/test_planner_api.py`);
+compatibility and versioning defined (§13).
 
 ### Phase 8 — External Consumers
 
