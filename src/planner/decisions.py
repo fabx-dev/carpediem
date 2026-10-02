@@ -4,6 +4,7 @@ PlanningDecision rende esplicito cio' che prima era implicito nelle tre
 tuple di DayPlan: NON e' un secondo motore decisionale. Pipeline:
 
     Task -> Planner -> DayPlan -> Scheduler -> PlanningDecision -> UI
+    (Phase 6: + diagnose(result) -> alternatives/diagnostics, osservativi)
 
 - decide() e' una lettura/proiezione del DayPlan: planned -> SCHEDULED,
   cut -> NOT_SCHEDULED, skipped -> DEFERRED. Non riesegue scoring, non

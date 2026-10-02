@@ -234,6 +234,31 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
             )
 
 
+def test_phase6_diagnose_unica_costruttrice():
+    """G5: alternative/diagnostics nascono solo in diagnostics.diagnose().
+    Ammessi: il modulo stesso + il test di forma D1 (costruzioni fittizie
+    per frozen/field-shape, mai logica)."""
+    allowed = {
+        "src/planner/diagnostics.py",
+        "tests/test_phase6_types.py",
+    }
+    exempt = {"tests/test_arch.py"}  # questo guard cita i nomi nel suo codice
+    for path in sorted(pathlib.Path("src").rglob("*.py")) + sorted(
+        pathlib.Path("tests").glob("test_*.py")
+    ):
+        if str(path) in exempt:
+            continue
+        try:
+            src = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if "PlanAlternative(" in src or "PlanDiagnostic(" in src:
+            assert str(path) in allowed, (
+                f"{path}: costruisce alternative/diagnostics fuori da diagnose(). "
+                "Unico costruttore consentito (docs/planner-phase6-plan.md §5)."
+            )
+
+
 def test_phase5_planner_senza_domain():
     """G4: direzione unica app -> core. Niente in src/planner/ importa
     src.domain (dal P5-1 la matematica vive in planner.estimation e domain
