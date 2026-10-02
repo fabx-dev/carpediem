@@ -33,7 +33,7 @@ def test_d1_liste_campi_esatte():
 
 def test_d1_vocabolari_chiusi():
     assert m.BLOCKED_KINDS == frozenset(
-        {"user_skip", "capacity", "deadline", "busy", "window", "duration"}
+        {"user_skip", "capacity", "deadline", "busy", "window", "duration", "tasks"}
     )
     assert m.DIAG_KINDS == frozenset(
         {"overflow", "constrained_mandatory", "empty_availability"}
@@ -43,6 +43,7 @@ def test_d1_vocabolari_chiusi():
             "needed_min",
             "deadline",
             "busy_titles",
+            "task_ids",
             "estimate_pomo",
             "capacity_pomo",
             "planned_pomo",

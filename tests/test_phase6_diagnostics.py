@@ -79,7 +79,7 @@ def test_deadline_e_busy_e_window():
         _result(todos_b, avail=[_win(9, 0, 18, 0)], busy=[_win(9, 0, 18, 0)])
     )
     assert [(a.blocked_by) for a in alts_b] == ["busy"]
-    # Window: gara persa ma entrerebbe da solo.
+    # Gara persa: entra da solo ma altri task occupano il suo slot.
     c = PlanItem(1, 30, (), 2, False)
     d = PlanItem(2, 10, (), 2, False)
     plan = DayPlan(day=DAY, planned=(c, d))
@@ -87,8 +87,16 @@ def test_deadline_e_busy_e_window():
     sched = Planner.schedule(plan, [_win(9, 0, 10, 0)], ())
     alts_c, _ = diagnose(PlanningResult(request=req, plan=plan, scheduled=sched))
     assert [(a.todo_id, a.decision, a.blocked_by) for a in alts_c] == [
-        (2, "scheduled", "window")
+        (2, "scheduled", "tasks")
     ]
+    assert alts_c[0].detail == {"task_ids": (1,)}
+    # Window assoluta: finestra troppo piccola anche da solo.
+    e = PlanItem(3, 10, (), 4, False)  # 2h in 1h di finestra
+    plan_e = DayPlan(day=DAY, planned=(e,))
+    sched_e = Planner.schedule(plan_e, [_win(9, 0, 10, 0)], ())
+    assert [it.todo_id for it in sched_e.unscheduled] == [3]
+    alts_e, _ = diagnose(PlanningResult(request=req, plan=plan_e, scheduled=sched_e))
+    assert [(a.todo_id, a.blocked_by) for a in alts_e] == [(3, "window")]
 
 
 def test_multi_blocco_ordine_documentato():
@@ -98,6 +106,19 @@ def test_multi_blocco_ordine_documentato():
         _result(todos, avail=[_win(9, 0, 18, 0)], busy=[_win(9, 0, 12, 0)])
     )
     assert [a.blocked_by for a in alts] == ["deadline"]
+
+
+def test_gara_vince_su_deadline_e_busy():
+    """La competizione precede deadline/busy: se lo slot esisterebbe, il
+    blocco sono gli altri task — anche con scadenza o busy presenti."""
+    todos = [
+        make_todo("Prima", todo_id=1, due=f"{TODAY_S} 09:30", stima_pomo=1),
+        make_todo("Stretta", todo_id=2, due=f"{TODAY_S} 10:00", stima_pomo=1),
+    ]
+    alts, _ = diagnose(_result(todos, avail=[_win(9, 0, 9, 30)]))
+    by_id = {a.todo_id: a for a in alts}
+    assert by_id[2].blocked_by == "tasks"
+    assert by_id[2].detail["task_ids"] == (1,)
 
 
 def test_overflow_e_availability_vuota():

@@ -319,6 +319,7 @@ BLOCKED_DEADLINE = "deadline"
 BLOCKED_BUSY = "busy"
 BLOCKED_WINDOW = "window"
 BLOCKED_DURATION = "duration"
+BLOCKED_TASKS = "tasks"
 
 BLOCKED_KINDS = frozenset(
     {
@@ -328,6 +329,7 @@ BLOCKED_KINDS = frozenset(
         BLOCKED_BUSY,
         BLOCKED_WINDOW,
         BLOCKED_DURATION,
+        BLOCKED_TASKS,
     }
 )
 
@@ -345,6 +347,7 @@ DETAIL_KEYS = frozenset(
         "needed_min",
         "deadline",
         "busy_titles",
+        "task_ids",
         "estimate_pomo",
         "capacity_pomo",
         "planned_pomo",

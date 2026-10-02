@@ -71,12 +71,12 @@ def test_detail_coda_frase_unica(tmp_files):
             await pilot.pause()
             assert type(app.screen).__name__ == "DetailScreen"
             txt = screen_texts(app.screen)
-            # Un unico discorso: membro + merito + causa, niente ripetizioni.
+            # Un unico discorso: membro + merito + causa (A occupa lo slot).
             assert (
                 _T(
                     "why_noslot_sentence",
                     m=_T("why_frag_m_planned"),
-                    c=_T("why_frag_c_window"),
+                    c=_T("why_frag_c_tasks", t="A"),
                 )
                 in txt
             )
@@ -104,6 +104,20 @@ def test_noslot_sentence_nomina_eventi_con_escape():
     assert sent is not None and r"Pranzo \[x]" in sent
     alt2 = PlanAlternative(1, dec.SCHEDULED, "busy", {"needed_min": 30})
     assert _noslot_sentence(d, alt2) is not None
+
+
+def test_noslot_sentence_nomina_altri_task():
+    """La causa tasks nomina i titoli (fallback #id), con escape markup."""
+    import src.planner.decisions as dec
+    from src.planner.models import PlanAlternative
+    from src.screens.views import _noslot_sentence
+
+    d = dec.PlanningDecision(1, dec.SCHEDULED, (("plan_due_today", {}),), {}, None)
+    alt = PlanAlternative(1, dec.SCHEDULED, "tasks", {"task_ids": (2, 9)})
+    sent = _noslot_sentence(d, alt, {2: "Grosso [x]"})
+    assert sent is not None and "Grosso" in sent and "#9" in sent
+    assert "[x]" not in sent.replace("\\[x]", "")
+    assert _noslot_sentence(d, alt) is not None  # senza titoli: #id
 
 
 def test_noslot_sentence_fallback_senza_pezzi():
@@ -146,10 +160,12 @@ def test_detail_timed_non_contraddice_la_timeline(tmp_files):
         )
         window = {"date": _day(0), "start": "09:00", "end": "09:30", "events": []}
         app.config["day_window"] = window
-        # Nel piano intero A perde lo slot contro Z (prova della divergenza).
+        # Nel piano intero A perde lo slot contro Z (prova della divergenza:
+        # ora la causa nomina il rivale, non la finestra generica).
         full = plan_request(build_planning_request(app.todos, _day(0), 6.0, window))
         full_alts = {a.todo_id: a for a in full.alternatives}
-        assert full_alts[1].blocked_by == "window"
+        assert full_alts[1].blocked_by == "tasks"
+        assert full_alts[1].detail["task_ids"] == (9,)
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await _open_plan(pilot, app)

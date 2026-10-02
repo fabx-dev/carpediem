@@ -437,6 +437,7 @@ def test_t9_export_boundary_invariati():
         "BLOCKED_DEADLINE",
         "BLOCKED_DURATION",
         "BLOCKED_KINDS",
+        "BLOCKED_TASKS",
         "BLOCKED_USER_SKIP",
         "BLOCKED_WINDOW",
         "CONSTRAINED",

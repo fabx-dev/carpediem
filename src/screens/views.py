@@ -1247,10 +1247,25 @@ def _busy_names(detail) -> str | None:
     return shown or None
 
 
-def _cause_text(blocked, detail) -> str | None:
+def _titles_text(ids, titles) -> str:
+    """Nomi task escapati per markup ('#id' se titolo ignoto), max 3 + …."""
+    shown = []
+    for tid in ids or ():
+        try:
+            name = (titles or {}).get(tid)
+            shown.append(_escape_markup(str(name)) if name else f"#{tid}")
+        except Exception:
+            shown.append(f"#{tid}")
+    if len(shown) > 3:
+        return ", ".join(shown[:3]) + "…"
+    return ", ".join(shown)
+
+
+def _cause_text(blocked, detail, titles=None) -> str | None:
     """Causa in forma di frammento, o None se non componibile (mai inventata).
 
     Condivisa da frase unica e riga Blocco: stessa causa, due vesti.
+    `titles` ({id: titolo}) nomina gli altri task; senza, '#id'.
     """
     try:
         if blocked == "deadline":
@@ -1261,13 +1276,18 @@ def _cause_text(blocked, detail) -> str | None:
             if names is not None:
                 return T("why_frag_c_busy_named", e=names)
             return T("why_frag_c_busy")
+        if blocked == "tasks":
+            ids = (detail or {}).get("task_ids") or ()
+            if not ids:
+                return None
+            return T("why_frag_c_tasks", t=_titles_text(ids, titles))
         ckey = _NOSLOT_CAUSE.get(blocked)
         return T(ckey) if ckey else None
     except Exception:
         return None
 
 
-def _noslot_sentence(decision, alt) -> str | None:
+def _noslot_sentence(decision, alt, titles=None) -> str | None:
     """Unica frase noslot (membro + merito + causa), o None se non componibile.
 
     Unisce etichetta+story+blocco in un solo discorso; quando c'e', le tre
@@ -1287,7 +1307,7 @@ def _noslot_sentence(decision, alt) -> str | None:
         merit = T(mkey, **dict(params or {}))
         blocked = str(getattr(alt, "blocked_by", "") or "")
         detail = getattr(alt, "detail", None) or {}
-        cause = _cause_text(blocked, detail)
+        cause = _cause_text(blocked, detail, titles)
         if cause is None:
             return None
         return T("why_noslot_sentence", m=merit, c=cause)
@@ -1295,7 +1315,7 @@ def _noslot_sentence(decision, alt) -> str | None:
         return None
 
 
-def _blocked_line(alt) -> str | None:
+def _blocked_line(alt, titles=None) -> str | None:
     """Riga blocker Why-card (Phase 6): mapping 1:1 blocked_by -> chiave.
 
     Solo kind noti (chiavi why_blocked_* esistenti); DEFERRED mai qui
@@ -1317,6 +1337,11 @@ def _blocked_line(alt) -> str | None:
             if names is not None:
                 return T("why_blocked_busy_named", e=names)
             return T("why_blocked_busy")
+        if kind == "tasks":
+            ids = detail.get("task_ids") or ()
+            if not ids:
+                return None
+            return T("why_blocked_tasks", t=_titles_text(ids, titles))
         if kind in ("capacity", "window", "duration", "user_skip"):
             return T(f"why_blocked_{kind}")
     except Exception:
@@ -1452,6 +1477,10 @@ class DetailScreen(ModalScreen[str | None]):
         )
         proposed_only = decision.decision == SCHEDULED and not in_plan
         sent = None
+        try:
+            titles = {t.id: t.title for t in self.all_todos if t.id is not None}
+        except Exception:
+            titles = None
         if proposed_only:
             lines = [T("why_proposed")]
             try:
@@ -1468,7 +1497,7 @@ class DetailScreen(ModalScreen[str | None]):
             except Exception:
                 alt = None
             sent = (
-                _noslot_sentence(decision, alt)
+                _noslot_sentence(decision, alt, titles)
                 if decision.decision == SCHEDULED
                 else None
             )
@@ -1540,7 +1569,9 @@ class DetailScreen(ModalScreen[str | None]):
             if decision.decision == DEFERRED:
                 lines.append(T("why_alt_deferred"))
             else:
-                blocker = _blocked_line((self._alternatives or {}).get(self.todo.id))
+                blocker = _blocked_line(
+                    (self._alternatives or {}).get(self.todo.id), titles
+                )
                 if blocker is not None:
                     lines.append(blocker)
         return lines

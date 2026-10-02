@@ -5,10 +5,12 @@ NON ridecide, NON rischedula, NON ottimizza. Riusa solo scheduler.schedule
 esistente su voci singole (probe deterministiche, economiche).
 
 Semantica vincolante (piano revisionato): `blocked_by` = PRIMO blocco
-deterministico osservato nell'ordine duration → deadline → busy → window,
-MAI "unica causa possibile". Invariante: una probe non produce mai un esito
-diverso dallo scheduler reale (divergenza = difetto qui, non dello
-scheduler, unica autorita' decisionale).
+deterministico osservato nell'ordine duration → tasks → deadline → busy →
+window, MAI "unica causa possibile". `tasks` = la voce entrerebbe da sola
+ma altri task schedulati occupano il suo slot (gara first-fit persa).
+Invariante: una probe non produce mai un esito diverso dallo scheduler
+reale (divergenza = difetto qui, non dello scheduler, unica autorita'
+decisionale).
 """
 
 from datetime import datetime, timedelta
@@ -20,6 +22,7 @@ from src.planner.models import (
     BLOCKED_CAPACITY,
     BLOCKED_DEADLINE,
     BLOCKED_DURATION,
+    BLOCKED_TASKS,
     BLOCKED_USER_SKIP,
     BLOCKED_WINDOW,
     DIAG_CONSTRAINED,
@@ -32,8 +35,15 @@ from src.planner.models import (
 )
 from src.planner.scheduler import _deadline, deadlines_for, schedule
 
-# Ordine probe documentato (primo-match deterministico, mai causa unica).
-_PROBE_ORDER = (BLOCKED_DURATION, BLOCKED_DEADLINE, BLOCKED_BUSY, BLOCKED_WINDOW)
+# Ordine probe documentato (primo-match deterministico, mai causa unica):
+# oltre la giornata, gara persa con altri task, scadenza, impegni, finestra.
+_PROBE_ORDER = (
+    BLOCKED_DURATION,
+    BLOCKED_TASKS,
+    BLOCKED_DEADLINE,
+    BLOCKED_BUSY,
+    BLOCKED_WINDOW,
+)
 
 
 def _solo(item, day) -> DayPlan:
@@ -71,12 +81,29 @@ def _blocking_titles(events, slot) -> tuple:
     return tuple(names)
 
 
-def _probe_unscheduled(item, day, avail, busy, deadlines, events=()) -> PlanAlternative:
+def _overlapping_ids(scheduled, slot, exclude) -> tuple:
+    """Id schedulati che intersecano lo slot, in ordine di collocazione."""
+    out = []
+    for s in scheduled or ():
+        try:
+            tid = s.item.todo_id
+        except AttributeError:
+            continue
+        if tid != exclude and s.start < slot.end and slot.start < s.end:
+            out.append(tid)
+    return tuple(out)
+
+
+def _probe_unscheduled(
+    item, day, avail, busy, deadlines, events=(), scheduled=()
+) -> PlanAlternative:
     """Primo blocco osservato per una voce unscheduled (ordine documentato).
 
     Coerenza garantita per costruzione: ogni probe riusa schedule() reale,
     quindi nessun esito inventato. decision rispecchia refine_with_schedule
-    (mandatory senza slot -> CONSTRAINED).
+    (mandatory senza slot -> CONSTRAINED). Se la voce entrerebbe da sola ma
+    altri task schedulati occupano il suo slot, il blocco sono LORO
+    (competizione first-fit persa), non la finestra.
     """
     decision = CONSTRAINED if item.mandatory else SCHEDULED
     needed = pomo_minutes(item.estimate_pomo)
@@ -84,6 +111,17 @@ def _probe_unscheduled(item, day, avail, busy, deadlines, events=()) -> PlanAlte
         return PlanAlternative(
             item.todo_id, decision, BLOCKED_DURATION, {"needed_min": needed}
         )
+    own = (deadlines or {}).get(item.todo_id, ("", ""))
+    own_map = {item.todo_id: own} if own != ("", "") else None
+    alone = _first_fit(item, day, avail, busy, own_map)
+    if alone is not None:
+        rivals = _overlapping_ids(scheduled, alone, item.todo_id)
+        # Solo con rivali veri: senza nomi la causa tasks sarebbe vacua
+        # (si prosegue con l'analisi assoluta: deadline/busy/window).
+        if rivals:
+            return PlanAlternative(
+                item.todo_id, decision, BLOCKED_TASKS, {"task_ids": rivals}
+            )
     # Stessa applicabilita' dello scheduler (due-date == day + orario valido):
     # mai due definizioni di "scadenza" (bug: date-only passava il check tupla
     # e produceva "scadenza alle ." vuota). HH:MM sempre presente da limit.
@@ -95,17 +133,10 @@ def _probe_unscheduled(item, day, avail, busy, deadlines, events=()) -> PlanAlte
             BLOCKED_DEADLINE,
             {"needed_min": needed, "deadline": limit.strftime("%H:%M")},
         )
-    own = (deadlines or {}).get(item.todo_id, ("", ""))
     # Solo se esiste busy da togliere: a busy vuoto la probe sarebbe vacua.
     # I nomi degli eventi che bloccano davvero lo slot ritrovato (di che
     # impegni si parla, mai generico quando si sa).
-    freed = (
-        _first_fit(
-            item, day, avail, (), {item.todo_id: own} if own != ("", "") else None
-        )
-        if (busy or ())
-        else None
-    )
+    freed = _first_fit(item, day, avail, (), own_map) if (busy or ()) else None
     if freed is not None:
         detail: dict = {"needed_min": needed}
         names = _blocking_titles(events, freed)
@@ -164,9 +195,12 @@ def diagnose(result, events=()) -> tuple[tuple, tuple]:
         else:
             unscheduled = [it for it in sched.unscheduled]
             avail, busy = sched.availability, sched.busy
+        placed = sched.scheduled if sched is not None else ()
         for item in unscheduled:
             alternatives.append(
-                _probe_unscheduled(item, plan.day, avail, busy, deadlines, events)
+                _probe_unscheduled(
+                    item, plan.day, avail, busy, deadlines, events, placed
+                )
             )
     except Exception:
         return tuple(alternatives), ()

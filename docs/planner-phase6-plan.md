@@ -126,7 +126,8 @@ riga (coperta da `why_alt_deferred` esistente). Narrative invariata
 | unscheduled oltre-giornata (50🍅 in 8h) | (…, duration, {needed_min}) |
 | unscheduled per scadenza (P3-2 golden) | (…, deadline, {deadline, needed_min}) |
 | unscheduled per busy (buco dopo mai) | (…, busy, {needed_min}) |
-| unscheduled per gara persa (entra da solo) | (SCHEDULED, window, {needed_min}) |
+| unscheduled per gara persa (entra da solo, rivali sullo slot) | (SCHEDULED, tasks, {task_ids}) — nomi risolti in UI |
+| unscheduled per finestra corta assoluta (neanche da solo) | (SCHEDULED, window, {needed_min}) |
 | overflow (mandatory sforano) | diagnostic overflow {planned, capacity, over} |
 | mandatory senza slot | diagnostic constrained_mandatory {count, ids} |
 | scheduling tentato con availability vuota | diagnostic empty_availability (+ window a testa, + constrained se mandatory) |
