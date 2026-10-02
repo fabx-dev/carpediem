@@ -31,8 +31,8 @@ def _ev(**kw):
     return base
 
 
-def test_undici_template_distinti():
-    assert len(story_keys()) == 11
+def test_diciotto_template_distinti():
+    assert len(story_keys()) == 18
     assert all(k.startswith("why_story_") for k in story_keys())
 
 
@@ -57,14 +57,49 @@ def test_scheduled_prio():
     assert explain_decision(d) == ("why_story_sched_prio", {})
 
 
+def test_scheduled_tomorrow_stale_planned():
+    assert explain_decision(_d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())) == (
+        "why_story_sched_tomorrow",
+        {},
+    )
+    assert explain_decision(_d(dec.SCHEDULED, [("plan_stale", {"n": 9})], _ev())) == (
+        "why_story_sched_stale",
+        {"n": 9},
+    )
+    assert explain_decision(_d(dec.SCHEDULED, [("plan_planned", {})], _ev())) == (
+        "why_story_sched_planned",
+        {},
+    )
+
+
 def test_scheduled_fallback():
-    d = _d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())
+    d = _d(dec.SCHEDULED, [("plan_calibrated", {"f": "x2.0"})], _ev())
     assert explain_decision(d) == ("why_story_sched", {})
+
+
+def test_prio_resta_davanti_ai_nuovi_segnali():
+    d = _d(
+        dec.SCHEDULED,
+        [(PRIO, {}), ("plan_due_tomorrow", {}), ("plan_stale", {"n": 9})],
+        _ev(priority="alta"),
+    )
+    assert explain_decision(d) == ("why_story_sched_prio", {})
 
 
 def test_not_scheduled_cut():
     d = _d(dec.NOT_SCHEDULED, [(CUT, {})], _ev())
     assert explain_decision(d) == ("why_story_cut", {})
+
+
+def test_not_scheduled_cut_overflow():
+    ev = dict(_ev(), **{"planned_pomo": 8, "capacity_pomo": 6.0})
+    d = _d(dec.NOT_SCHEDULED, [(CUT, {})], ev)
+    assert explain_decision(d) == ("why_story_cut_overflow", {})
+    ev2 = dict(_ev(), **{"planned_pomo": 6, "capacity_pomo": 6.0})
+    assert explain_decision(_d(dec.NOT_SCHEDULED, [(CUT, {})], ev2)) == (
+        "why_story_cut",
+        {},
+    )
 
 
 def test_deferred():
@@ -106,8 +141,23 @@ def test_proposed_prio():
     assert explain_proposed(d) == ("why_story_prop_prio", {})
 
 
+def test_proposed_tomorrow_stale_planned():
+    assert explain_proposed(_d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())) == (
+        "why_story_prop_tomorrow",
+        {},
+    )
+    assert explain_proposed(_d(dec.SCHEDULED, [("plan_stale", {"n": 4})], _ev())) == (
+        "why_story_prop_stale",
+        {"n": 4},
+    )
+    assert explain_proposed(_d(dec.SCHEDULED, [("plan_planned", {})], _ev())) == (
+        "why_story_prop_planned",
+        {},
+    )
+
+
 def test_proposed_fallback():
-    d = _d(dec.SCHEDULED, [("plan_due_tomorrow", {})], _ev())
+    d = _d(dec.SCHEDULED, [("plan_calibrated", {"f": "x2.0"})], _ev())
     assert explain_proposed(d) == ("why_story_prop_fallback", {})
 
 
@@ -122,6 +172,9 @@ def test_proposed_mai_pianificato_nel_wording(italian_lang):
         "why_story_prop_overdue",
         "why_story_prop_due_today",
         "why_story_prop_prio",
+        "why_story_prop_tomorrow",
+        "why_story_prop_stale",
+        "why_story_prop_planned",
         "why_story_prop_fallback",
     ):
         assert "pianificato" not in lang.STRINGS["it"][key].lower()
