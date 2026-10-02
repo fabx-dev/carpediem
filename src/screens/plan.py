@@ -1480,8 +1480,18 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             return
         self.events, self.events_bad = parse_event_lines(self.events_text, self.today)
         self.window_start, self.window_end = start, end
+        # La preview segue le X: solo i selezionati si schedulano (riallineati
+        # sui buchi liberati); deselezionare tutto = nessuno slot, onesto.
+        shown = self._shown_ids()
+        items = [it for it in self.plan.items if it.todo_id in shown]
+        sub = DayPlan(
+            day=self.plan.day,
+            planned=tuple(items),
+            capacity_pomo=self.plan.capacity_pomo,
+            factor=self.plan.factor,
+        )
         self.sched = Planner.schedule(
-            self.plan,
+            sub,
             [TimeWindow(start, end)],
             busy=events_to_busy(self.events),
             deadlines=deadlines_for(self.all_todos),
@@ -1520,7 +1530,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             return T(self.slot_error)
         if self.sched is None:
             return T("planp_slots_none")
-        shown = {it.todo_id for it in self.rows}
+        shown = self._shown_ids()
         lines = _timeline_lines(
             self.sched,
             self.events,
@@ -1550,6 +1560,27 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         try:
             self.events_text = self.query_one("#planp-events", TextArea).text
         except Exception:
+            return
+        self._update_slots()
+
+    def _shown_ids(self) -> set:
+        """Id selezionati (preview segue le X); pre-mount = preselezionati."""
+        try:
+            return set(self.query_one("#planp-list", SelectionList).selected)
+        except Exception:
+            pass
+        try:
+            return {it.todo_id for it in self.rows if self._preselected(it.reasons)}
+        except Exception:
+            return set()
+
+    def on_selection_list_selected_changed(
+        self, event: SelectionList.SelectedChanged
+    ) -> None:
+        try:
+            if event.selection_list.id != "planp-list":
+                return
+        except AttributeError:
             return
         self._update_slots()
 

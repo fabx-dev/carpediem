@@ -298,3 +298,36 @@ def test_apertura_in_cima_focus_lista(tmp_files):
                 ), size
 
     asyncio.run(t())
+
+
+def test_toggle_x_riallinea_slot(tmp_files):
+    """Regressione: togliere una X riallinea la timeline (slot ricalcolati
+    sui soli selezionati), non solo filtra le righe."""
+    from textual.widgets import SelectionList
+
+    async def t():
+        app = make_app(_todos())
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.press("P")
+            await pilot.pause()
+            await pilot.pause()
+            screen = app.screen
+            await _set_times(pilot, screen, start="09:00", end="18:00")
+            before = screen_texts(screen)
+            assert "09:00–09:30" in before  # A-ritardo apre la timeline
+            assert "A-ritardo" in before
+            sl = screen.query_one("#planp-list", SelectionList)
+            sl.toggle(1)  # via la X ad A-ritardo
+            await pilot.pause()
+            await pilot.pause()
+            after = screen_texts(screen)
+            assert "A-ritardo" not in after
+            assert "09:00–10:00" in after  # B-oggi risalita a riempire il buco
+            sl.toggle(1)  # X rimessa
+            await pilot.pause()
+            await pilot.pause()
+            again = screen_texts(screen)
+            assert "09:00–09:30" in again and "A-ritardo" in again
+
+    asyncio.run(t())
