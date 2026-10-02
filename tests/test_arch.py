@@ -246,14 +246,16 @@ def test_phase6_diagnose_unica_costruttrice():
     for path in sorted(pathlib.Path("src").rglob("*.py")) + sorted(
         pathlib.Path("tests").glob("test_*.py")
     ):
-        if str(path) in exempt:
+        # as_posix: su Windows str(path) usa backslash (lezione CI P6).
+        posix = path.as_posix()
+        if posix in exempt:
             continue
         try:
             src = path.read_text(encoding="utf-8")
         except OSError:
             continue
         if "PlanAlternative(" in src or "PlanDiagnostic(" in src:
-            assert str(path) in allowed, (
+            assert posix in allowed, (
                 f"{path}: costruisce alternative/diagnostics fuori da diagnose(). "
                 "Unico costruttore consentito (docs/planner-phase6-plan.md §5)."
             )
