@@ -179,3 +179,42 @@ def test_coerenza_probe_scheduler_e_totalita():
     assert schedule(solo, [_win(9, 0, 18, 0)], (), deadlines_for(todos)).scheduled == ()
     assert diagnose(object()) == ((), ())
     assert diagnose(None) == ((), ())
+
+
+def test_scaduto_senza_orario_mai_deadline():
+    """Regressione card reale: task scaduto con due solo-data non deve mai
+    produrre blocked_by=deadline (né 'scadenza alle .' vuota) — la deadline
+    vale solo per due-date == day + orario, come lo scheduler."""
+    todos = [make_todo("A", todo_id=1, due="2026-09-01", stima_pomo=4)]
+    res = _result(todos, avail=[_win(9, 0, 10, 0)])
+    (alt,) = diagnose(res)[0]
+    assert alt.blocked_by != "deadline"
+    assert "deadline" not in (alt.detail or {})
+    from src.screens.views import _blocked_line
+
+    line = _blocked_line(alt)
+    assert line is None or "alle ." not in line
+
+
+def test_deadline_sempre_con_orario():
+    todos = [make_todo("A", todo_id=1, due=f"{TODAY_S} 09:30", stima_pomo=2)]
+    res = _result(todos, avail=[_win(9, 0, 18, 0)])
+    (alt,) = diagnose(res)[0]
+    assert alt.blocked_by == "deadline"
+    assert (alt.detail or {}).get("deadline") == "09:30"
+
+
+def test_blocked_line_senza_orario_non_rende():
+    """Difesa in profondità: deadline senza HH:MM = nessuna riga, mai testo rotto."""
+    from src.planner.models import PlanAlternative
+    from src.screens.views import _blocked_line
+
+    assert _blocked_line(None) is None
+    assert _blocked_line(PlanAlternative(1, "scheduled", "deadline", {})) is None
+    assert (
+        _blocked_line(PlanAlternative(1, "scheduled", "deadline", {"deadline": ""}))
+        is None
+    )
+    assert "09:30" in _blocked_line(
+        PlanAlternative(1, "scheduled", "deadline", {"deadline": "09:30"})
+    )

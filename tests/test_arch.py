@@ -241,6 +241,8 @@ def test_phase6_diagnose_unica_costruttrice():
     allowed = {
         "src/planner/diagnostics.py",
         "tests/test_phase6_types.py",
+        # Double fittizi per _blocked_line (mai logica): solo None/edge.
+        "tests/test_phase6_diagnostics.py",
     }
     exempt = {"tests/test_arch.py"}  # questo guard cita i nomi nel suo codice
     for path in sorted(pathlib.Path("src").rglob("*.py")) + sorted(

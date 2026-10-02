@@ -30,7 +30,7 @@ from src.planner.models import (
     PlanDiagnostic,
     TimeWindow,
 )
-from src.planner.scheduler import deadlines_for, schedule
+from src.planner.scheduler import _deadline, deadlines_for, schedule
 
 # Ordine probe documentato (primo-match deterministico, mai causa unica).
 _PROBE_ORDER = (BLOCKED_DURATION, BLOCKED_DEADLINE, BLOCKED_BUSY, BLOCKED_WINDOW)
@@ -64,14 +64,18 @@ def _probe_unscheduled(item, day, avail, busy, deadlines) -> PlanAlternative:
         return PlanAlternative(
             item.todo_id, decision, BLOCKED_DURATION, {"needed_min": needed}
         )
-    own = (deadlines or {}).get(item.todo_id, ("", ""))
-    if own != ("", "") and _fits(item, day, avail, busy, None):
+    # Stessa applicabilita' dello scheduler (due-date == day + orario valido):
+    # mai due definizioni di "scadenza" (bug: date-only passava il check tupla
+    # e produceva "scadenza alle ." vuota). HH:MM sempre presente da limit.
+    limit = _deadline(deadlines, item.todo_id, day)
+    if limit is not None and _fits(item, day, avail, busy, None):
         return PlanAlternative(
             item.todo_id,
             decision,
             BLOCKED_DEADLINE,
-            {"needed_min": needed, "deadline": own[1]},
+            {"needed_min": needed, "deadline": limit.strftime("%H:%M")},
         )
+    own = (deadlines or {}).get(item.todo_id, ("", ""))
     # Solo se esiste busy da togliere: a busy vuoto la probe sarebbe vacua.
     if (busy or ()) and _fits(
         item, day, avail, (), {item.todo_id: own} if own != ("", "") else None

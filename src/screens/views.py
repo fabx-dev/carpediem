@@ -1234,7 +1234,8 @@ def _blocked_line(alt) -> str | None:
         return None
     try:
         if kind == "deadline":
-            return T("why_blocked_deadline", d=detail.get("deadline", "?"))
+            hhmm = detail.get("deadline") or ""
+            return T("why_blocked_deadline", d=hhmm) if hhmm else None
         if kind in ("capacity", "busy", "window", "duration", "user_skip"):
             return T(f"why_blocked_{kind}")
     except Exception:
