@@ -176,7 +176,8 @@ def plan(request: PlanningRequest) -> PlanningResult:
       None — regola invariata).
     - alternatives/diagnostics (Phase 6): osservabili additivi via
       diagnose(), mai decisionali.
-    Forma di lavoro instabile fino a Phase 7 (vedi PlanningRequest).
+    Contratto stabile v1 (docs/planner-api.md): pura e deterministica
+    a parita' di request.
     """
     views = list(request.tasks)
     calib = capacity.normalize_factor(request.factor)

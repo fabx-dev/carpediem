@@ -1,0 +1,57 @@
+# Planner API v1 — superficie promessa e policy di compatibilità
+
+> Stato: contratto stabile da Phase 7 (`PLANNER_CONTRACT_VERSION = 1`,
+> vedi `docs/planner-phase7-plan.md`). Questa pagina è vincolante: ogni
+> cambio al contratto deve rispettarla o aggiornarla con bump deliberato.
+
+## 1. Superficie promessa
+
+Solo questi nomi sono stabili. Tutto il resto di `src/planner/` è
+interno non versionato (usabile in-repo, mai promesso):
+
+```text
+plan(request) -> PlanningResult
+PlanningRequest / PlanningResult
+TaskView, DayPlan, PlanItem, ScheduledDayPlan, ScheduledItem,
+TimeWindow, FixedEvent, PlanningDecision, PlanAlternative,
+PlanDiagnostic, ExecutionFeedback
+BLOCKED_* / BLOCKED_KINDS, DIAG_* / DIAG_KINDS, DETAIL_KEYS,
+SCHEDULED / NOT_SCHEDULED / DEFERRED / CONSTRAINED,
+PLANNER_CONTRACT_VERSION
+```
+
+Esplicitamente fuori: `Planner.propose()` (legacy), `replan()`,
+`feedback()`, `observe_*`, `explain.*`, `todo_to_task`, scoring /
+capacity / scheduler interni. `replan()` resta entry supportata ma con
+semantica non congelata.
+
+## 2. Uso minimo
+
+```python
+from datetime import date
+from src.planner import PlanningRequest, plan
+
+req = PlanningRequest(day=date(2026, 10, 2), tasks=todos, capacity_pomo=12.0)
+res = plan(req)
+res.plan.planned        # tuple[PlanItem, ...]
+res.scheduled           # ScheduledDayPlan | None (None senza availability)
+res.decisions           # tuple[PlanningDecision, ...]
+res.alternatives        # tuple[PlanAlternative, ...] (solo blocchi osservati)
+res.diagnostics         # tuple[PlanDiagnostic, ...] (solo fatti veri)
+```
+
+Regole d'uso: `day` invalido = `ValueError` subito (mai piano spostato
+silenziosamente); `plan()` è pura e deterministica a parità di request;
+`scheduled` è `None` senza `availability` (decisione ≠ schedulazione).
+
+## 3. Policy di compatibilità
+
+- Campi dataclass solo **aggiunti in coda con default**; mai rimossi o
+  rinominati senza bump del contratto.
+- Classi restano `frozen=True`; campi pubblici `tuple`, mai `list`.
+- Costruzione sempre possibile da kwargs con soli obbligatori
+  (`day` per Request; `request` + `plan` per Result).
+- Nuovi `kind` nei vocabolari chiusi = compatibile; i consumer devono
+  gestire gli ignoti con fallback (come fa la UI via `phrase_for`).
+- Bump di `PLANNER_CONTRACT_VERSION` solo su cambio breaking deliberato,
+  mai silenzioso; indipendente dalla versione package.

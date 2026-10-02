@@ -20,6 +20,11 @@ modello di dominio futuro — vedi docstring di TaskView/todo_to_task.
 from dataclasses import dataclass
 from datetime import date, datetime
 
+# Versione del contratto pubblico (Phase 7, stabile da v1).
+# Indipendente dalla versione package: evolve solo su cambio breaking
+# deliberato del contratto (mai silenzioso). Vedi docs/planner-api.md.
+PLANNER_CONTRACT_VERSION = 1
+
 
 @dataclass(frozen=True)
 class TaskView:
@@ -270,9 +275,10 @@ class PlanningRequest:
     now per il clipping replan, contesto calibrazione per decisions.
     Niente constraints/preferences/timezone (Phase 4+).
 
-    Status vincolante (docs/planner-phase2-plan.md §1): INSTABILE fino
-    alla Phase 7 — forma di lavoro, non promessa di stabilita', non
-    versionata. La Phase 7 puo' rinominare e ricomporre liberamente.
+    Status vincolante (docs/planner-api.md): STABILE v1
+    (PLANNER_CONTRACT_VERSION = 1) — forma promessa, evolve solo per
+    aggiunte compatibili o bump deliberato. La Phase 7 l'ha congelata
+    dalla forma di lavoro Phase 2 (vedi docs/planner-phase7-plan.md).
     Differenza voluta vs legacy tollerante: day invalido = ValueError
     subito, mai piano silenziosamente spostato.
     """
@@ -394,7 +400,7 @@ class PlanningResult:
     (None senza availability: decisione ≠ schedulazione), decisions sempre
     presenti (confidence da request.sample_count, anche None).
     alternatives/diagnostics (Phase 6): osservabili additivi, mai decisionali.
-    Stesso status instabile del Request (vedi sopra).
+    Stabile v1 come il Request (vedi sopra, docs/planner-api.md).
     """
 
     request: PlanningRequest
