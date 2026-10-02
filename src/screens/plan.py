@@ -309,7 +309,7 @@ def scheduled_for_today(
     req = build_planning_request(todos, today, hours, window)
     try:
         alts, _diags = diagnose(
-            PlanningResult(request=req, plan=dayplan, scheduled=sched)
+            PlanningResult(request=req, plan=dayplan, scheduled=sched), events
         )
     except Exception:
         alts = ()

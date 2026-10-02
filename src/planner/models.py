@@ -344,6 +344,7 @@ DETAIL_KEYS = frozenset(
     {
         "needed_min",
         "deadline",
+        "busy_titles",
         "estimate_pomo",
         "capacity_pomo",
         "planned_pomo",

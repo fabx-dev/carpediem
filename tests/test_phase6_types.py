@@ -42,6 +42,7 @@ def test_d1_vocabolari_chiusi():
         {
             "needed_min",
             "deadline",
+            "busy_titles",
             "estimate_pomo",
             "capacity_pomo",
             "planned_pomo",

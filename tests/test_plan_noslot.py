@@ -90,6 +90,22 @@ def test_detail_coda_frase_unica(tmp_files):
     run(t())
 
 
+def test_noslot_sentence_nomina_eventi_con_escape():
+    """La causa busy nomina gli eventi (escaping markup) nella frase unica."""
+    import src.planner.decisions as dec
+    from src.planner.models import PlanAlternative
+    from src.screens.views import _noslot_sentence
+
+    d = dec.PlanningDecision(1, dec.SCHEDULED, (("plan_due_today", {}),), {}, None)
+    alt = PlanAlternative(
+        1, dec.SCHEDULED, "busy", {"needed_min": 30, "busy_titles": ("Pranzo [x]",)}
+    )
+    sent = _noslot_sentence(d, alt)
+    assert sent is not None and r"Pranzo \[x]" in sent
+    alt2 = PlanAlternative(1, dec.SCHEDULED, "busy", {"needed_min": 30})
+    assert _noslot_sentence(d, alt2) is not None
+
+
 def test_noslot_sentence_fallback_senza_pezzi():
     """_noslot_sentence pura: None se merito/causa ignoti (legacy invariato)."""
     import src.planner.decisions as dec

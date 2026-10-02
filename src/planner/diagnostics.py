@@ -46,12 +46,32 @@ def _full_day(day) -> tuple:
     return (TimeWindow(start, start + timedelta(days=1)),)
 
 
+def _first_fit(item, day, avail, busy, deadlines):
+    """Primo slot libero per la voce sola, o None (osservazione pura)."""
+    sched = schedule(_solo(item, day), avail, busy, deadlines)
+    return sched.scheduled[0] if sched.scheduled else None
+
+
 def _fits(item, day, avail, busy, deadlines) -> bool:
     """La voce entrerebbe da sola in queste condizioni (osservazione)."""
-    return bool(schedule(_solo(item, day), avail, busy, deadlines).scheduled)
+    return _first_fit(item, day, avail, busy, deadlines) is not None
 
 
-def _probe_unscheduled(item, day, avail, busy, deadlines) -> PlanAlternative:
+def _blocking_titles(events, slot) -> tuple:
+    """Titoli degli eventi che intersecano lo slot (nomi per il Blocco)."""
+    names = []
+    for e in events or ():
+        try:
+            start, end = e.start, e.end
+            title = str(e.title or "").strip()
+        except AttributeError:
+            continue
+        if title and start < slot.end and slot.start < end:
+            names.append(title)
+    return tuple(names)
+
+
+def _probe_unscheduled(item, day, avail, busy, deadlines, events=()) -> PlanAlternative:
     """Primo blocco osservato per una voce unscheduled (ordine documentato).
 
     Coerenza garantita per costruzione: ogni probe riusa schedule() reale,
@@ -77,23 +97,34 @@ def _probe_unscheduled(item, day, avail, busy, deadlines) -> PlanAlternative:
         )
     own = (deadlines or {}).get(item.todo_id, ("", ""))
     # Solo se esiste busy da togliere: a busy vuoto la probe sarebbe vacua.
-    if (busy or ()) and _fits(
-        item, day, avail, (), {item.todo_id: own} if own != ("", "") else None
-    ):
-        return PlanAlternative(
-            item.todo_id, decision, BLOCKED_BUSY, {"needed_min": needed}
+    # I nomi degli eventi che bloccano davvero lo slot ritrovato (di che
+    # impegni si parla, mai generico quando si sa).
+    freed = (
+        _first_fit(
+            item, day, avail, (), {item.todo_id: own} if own != ("", "") else None
         )
+        if (busy or ())
+        else None
+    )
+    if freed is not None:
+        detail: dict = {"needed_min": needed}
+        names = _blocking_titles(events, freed)
+        if names:
+            detail["busy_titles"] = names
+        return PlanAlternative(item.todo_id, decision, BLOCKED_BUSY, detail)
     return PlanAlternative(
         item.todo_id, decision, BLOCKED_WINDOW, {"needed_min": needed}
     )
 
 
-def diagnose(result) -> tuple[tuple, tuple]:
+def diagnose(result, events=()) -> tuple[tuple, tuple]:
     """(alternatives, diagnostics) da un PlanningResult (puro, totale).
 
     Cut -> capacity, skipped -> user_skip, unscheduled -> probe; scheduled ->
     niente. Diagnostica di piano solo se vera (overflow, mandatory senza
-    slot, availability vuota con planned). Mai eccezioni verso il chiamante.
+    slot, availability vuota con planned). `events` (FixedEvent, opzionale)
+    nomina gli impegni che bloccano davvero; senza, causa busy generica.
+    Mai eccezioni verso il chiamante.
     """
     try:
         plan = result.plan
@@ -135,7 +166,7 @@ def diagnose(result) -> tuple[tuple, tuple]:
             avail, busy = sched.availability, sched.busy
         for item in unscheduled:
             alternatives.append(
-                _probe_unscheduled(item, plan.day, avail, busy, deadlines)
+                _probe_unscheduled(item, plan.day, avail, busy, deadlines, events)
             )
     except Exception:
         return tuple(alternatives), ()

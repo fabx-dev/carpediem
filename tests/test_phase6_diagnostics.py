@@ -218,3 +218,24 @@ def test_blocked_line_senza_orario_non_rende():
     assert "09:30" in _blocked_line(
         PlanAlternative(1, "scheduled", "deadline", {"deadline": "09:30"})
     )
+
+
+def test_busy_nomina_gli_eventi():
+    """Blocco busy con eventi noti: i titoli finiscono nel detail (di che
+    impegni si parla); senza eventi, causa generica come prima."""
+    from src.planner.diagnostics import diagnose
+    from src.planner.models import FixedEvent, PlanningRequest, PlanningResult
+
+    big = [make_todo("B", todo_id=2, stima_pomo=6)]  # 3h: in 16-18 non entra
+    plan2 = Planner(big, today=TODAY_S, hours=6.0).propose()
+    sched2 = Planner.schedule(plan2, [_win(9, 0, 18, 0)], [_win(9, 0, 16, 0)])
+    assert [it.todo_id for it in sched2.unscheduled] == [2]
+    ev = FixedEvent("Pranzo", datetime(2026, 9, 10, 9, 0), datetime(2026, 9, 10, 16, 0))
+    req2 = PlanningRequest(day=DAY, tasks=big, capacity_pomo=12.0)
+    alts, _ = diagnose(PlanningResult(request=req2, plan=plan2, scheduled=sched2), [ev])
+    assert [(a.blocked_by, (a.detail or {}).get("busy_titles")) for a in alts] == [
+        ("busy", ("Pranzo",))
+    ]
+    alts_gen, _ = diagnose(PlanningResult(request=req2, plan=plan2, scheduled=sched2))
+    assert (alts_gen[0].detail or {}).get("busy_titles") is None
+    assert alts_gen[0].blocked_by == "busy"

@@ -1237,6 +1237,36 @@ _NOSLOT_CAUSE = {
 }
 
 
+def _busy_names(detail) -> str | None:
+    """Nomi eventi bloccanti escapati per markup, o None se assenti."""
+    try:
+        names = (detail or {}).get("busy_titles") or ()
+        shown = ", ".join(_escape_markup(str(n)) for n in names if str(n).strip())
+    except Exception:
+        return None
+    return shown or None
+
+
+def _cause_text(blocked, detail) -> str | None:
+    """Causa in forma di frammento, o None se non componibile (mai inventata).
+
+    Condivisa da frase unica e riga Blocco: stessa causa, due vesti.
+    """
+    try:
+        if blocked == "deadline":
+            hhmm = (detail or {}).get("deadline") or ""
+            return T("why_frag_c_deadline", d=hhmm) if hhmm else None
+        if blocked == "busy":
+            names = _busy_names(detail)
+            if names is not None:
+                return T("why_frag_c_busy_named", e=names)
+            return T("why_frag_c_busy")
+        ckey = _NOSLOT_CAUSE.get(blocked)
+        return T(ckey) if ckey else None
+    except Exception:
+        return None
+
+
 def _noslot_sentence(decision, alt) -> str | None:
     """Unica frase noslot (membro + merito + causa), o None se non componibile.
 
@@ -1256,16 +1286,10 @@ def _noslot_sentence(decision, alt) -> str | None:
             return None
         merit = T(mkey, **dict(params or {}))
         blocked = str(getattr(alt, "blocked_by", "") or "")
-        ckey = _NOSLOT_CAUSE.get(blocked)
-        if ckey is None:
-            return None
         detail = getattr(alt, "detail", None) or {}
-        if blocked == "deadline":
-            if not detail.get("deadline"):
-                return None
-            cause = T(ckey, d=detail["deadline"])
-        else:
-            cause = T(ckey)
+        cause = _cause_text(blocked, detail)
+        if cause is None:
+            return None
         return T("why_noslot_sentence", m=merit, c=cause)
     except Exception:
         return None
@@ -1288,7 +1312,12 @@ def _blocked_line(alt) -> str | None:
         if kind == "deadline":
             hhmm = detail.get("deadline") or ""
             return T("why_blocked_deadline", d=hhmm) if hhmm else None
-        if kind in ("capacity", "busy", "window", "duration", "user_skip"):
+        if kind == "busy":
+            names = _busy_names(detail)
+            if names is not None:
+                return T("why_blocked_busy_named", e=names)
+            return T("why_blocked_busy")
+        if kind in ("capacity", "window", "duration", "user_skip"):
             return T(f"why_blocked_{kind}")
     except Exception:
         return None
