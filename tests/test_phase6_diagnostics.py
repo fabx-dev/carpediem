@@ -99,6 +99,21 @@ def test_deadline_e_busy_e_window():
     assert [(a.todo_id, a.blocked_by) for a in alts_e] == [(3, "window")]
 
 
+def test_gara_nomina_tutti_gli_occupanti():
+    """Non solo il primo: la voce fallisce in ogni gap, gli occupanti sono
+    tutti quelli che coprono gap fattibili (mai 'quel task blocca tutti'
+    per sineddoche)."""
+    todos = [
+        make_todo("X", todo_id=1, due="2026-09-01", stima_pomo=4),
+        make_todo("Y", todo_id=2, due="2026-09-02", stima_pomo=4),
+        make_todo("W", todo_id=3, stima_pomo=2),
+    ]
+    alts, _ = diagnose(_result(todos, avail=[_win(9, 0, 13, 0)]))
+    by_id = {a.todo_id: a for a in alts}
+    assert by_id[3].blocked_by == "tasks"
+    assert by_id[3].detail["task_ids"] == (1, 2)
+
+
 def test_multi_blocco_ordine_documentato():
     """Deadline + busy insieme: vince deadline (primo in ordine), mai causa unica."""
     todos = [make_todo("A", todo_id=1, due=f"{TODAY_S} 10:00")]

@@ -118,6 +118,10 @@ def test_noslot_sentence_nomina_altri_task():
     assert sent is not None and "Grosso" in sent and "#9" in sent
     assert "[x]" not in sent.replace("\\[x]", "")
     assert _noslot_sentence(d, alt) is not None  # senza titoli: #id
+    many = PlanAlternative(1, dec.SCHEDULED, "tasks", {"task_ids": (1, 2, 3, 4)})
+    many_sent = _noslot_sentence(d, many, {1: "A", 2: "B", 3: "C", 4: "D"})
+    assert many_sent is not None and many_sent.count(",") == 3
+    assert many_sent.endswith("…) occupano la fascia.")
 
 
 def test_noslot_sentence_fallback_senza_pezzi():

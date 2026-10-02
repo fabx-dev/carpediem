@@ -33,7 +33,7 @@ from src.planner.models import (
     PlanDiagnostic,
     TimeWindow,
 )
-from src.planner.scheduler import _deadline, deadlines_for, schedule
+from src.planner.scheduler import _deadline, _subtract, deadlines_for, schedule
 
 # Ordine probe documentato (primo-match deterministico, mai causa unica):
 # oltre la giornata, gara persa con altri task, scadenza, impegni, finestra.
@@ -94,6 +94,21 @@ def _overlapping_ids(scheduled, slot, exclude) -> tuple:
     return tuple(out)
 
 
+def _feasible_gaps(avail, busy, limit, need) -> list:
+    """Intervalli liberi che basterebbero alla voce da sola (senza gara).
+
+    Stessa aritmetica del fit scheduler (inizio + durata <= fine clippata):
+    se nessuno basta, il problema e' assoluto (deadline/busy/window), non
+    la competizione.
+    """
+    gaps = []
+    for w in _subtract(list(avail or ()), list(busy or ())):
+        end = w.end if limit is None else min(w.end, limit)
+        if w.start + need <= end:
+            gaps.append(TimeWindow(w.start, end))
+    return gaps
+
+
 def _probe_unscheduled(
     item, day, avail, busy, deadlines, events=(), scheduled=()
 ) -> PlanAlternative:
@@ -113,19 +128,22 @@ def _probe_unscheduled(
         )
     own = (deadlines or {}).get(item.todo_id, ("", ""))
     own_map = {item.todo_id: own} if own != ("", "") else None
-    alone = _first_fit(item, day, avail, busy, own_map)
-    if alone is not None:
-        rivals = _overlapping_ids(scheduled, alone, item.todo_id)
-        # Solo con rivali veri: senza nomi la causa tasks sarebbe vacua
-        # (si prosegue con l'analisi assoluta: deadline/busy/window).
-        if rivals:
-            return PlanAlternative(
-                item.todo_id, decision, BLOCKED_TASKS, {"task_ids": rivals}
-            )
+    limit = _deadline(deadlines, item.todo_id, day)
+    need_td = timedelta(minutes=needed)
+    rivals = []
+    for gap in _feasible_gaps(avail, busy, limit, need_td):
+        for tid in _overlapping_ids(scheduled, gap, item.todo_id):
+            if tid not in rivals:
+                rivals.append(tid)
+    # Solo con rivali veri: la gara persa si nomina, altrimenti analisi
+    # assoluta (deadline/busy/window). Senza nomi la causa tasks e' vacua.
+    if rivals:
+        return PlanAlternative(
+            item.todo_id, decision, BLOCKED_TASKS, {"task_ids": tuple(rivals)}
+        )
     # Stessa applicabilita' dello scheduler (due-date == day + orario valido):
     # mai due definizioni di "scadenza" (bug: date-only passava il check tupla
     # e produceva "scadenza alle ." vuota). HH:MM sempre presente da limit.
-    limit = _deadline(deadlines, item.todo_id, day)
     if limit is not None and _fits(item, day, avail, busy, None):
         return PlanAlternative(
             item.todo_id,
