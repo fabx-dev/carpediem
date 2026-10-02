@@ -483,7 +483,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "cockpit_ear_row": "Tu: {tu} · CarpeDiem: {cd} · Reale: {re}",
         # Why (M3: sezione spiegazioni da PlanningDecision, mai logica in UI)
         "why_scheduled": "Nel piano di oggi.",
-        "why_scheduled_noslot": "Confermato nel piano di oggi, ma senza orario: la disponibilità non è bastata.",
+        "why_scheduled_noslot": "Confermato nel piano di oggi, ma senza orario assegnato.",
         "why_proposed": "Proposto per oggi (non ancora in piano).",
         "why_not_scheduled": "Non pianificato.",
         "why_deferred": "Rimandato.",
@@ -1253,7 +1253,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "cockpit_ear_row": "You: {tu} · CarpeDiem: {cd} · Actual: {re}",
         # Why (M3: explanation section from PlanningDecision, never logic in UI)
         "why_scheduled": "In today's plan.",
-        "why_scheduled_noslot": "Confirmed in today's plan, but with no time slot: the availability was not enough.",
+        "why_scheduled_noslot": "Confirmed in today's plan, but with no time slot assigned.",
         "why_proposed": "Proposed for today (not in plan yet).",
         "why_not_scheduled": "Not scheduled.",
         "why_deferred": "Deferred.",
