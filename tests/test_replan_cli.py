@@ -102,3 +102,20 @@ class _FakeDateTime:
 
     def strptime(self, *a, **k):
         return self._real.strptime(*a, **k)
+
+
+def test_b2_now_oltre_fine_riga_senza_orario(tmp_files, capsys, monkeypatch):
+    """B2: finestra esaurita -> MOVED resi espliciti senza orario,
+    mai come cambi di slot. Planner invariato (solo rendering)."""
+    from datetime import datetime
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    _seed(today)
+    monkeypatch.setattr("src.cli.datetime", _FakeDateTime(today, 20, 0))
+    before = _hashes()
+    assert _cli_main(["replan", "--now", "20:00"]) == 0
+    assert _hashes() == before  # zero scritture
+    out = capsys.readouterr().out
+    assert T("cli_replan_moved") in out
+    assert T("cli_replan_row_noslot", t="A") in out
+    assert T("cli_replan_row_noslot", t="B") in out

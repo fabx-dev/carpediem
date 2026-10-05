@@ -111,6 +111,19 @@ def _cli_replan(args, err) -> int:
                         t=title,
                     )
                 )
+            elif kind == MOVED and m.new_start is None and m.old_start is not None:
+                if m.primary is not None:
+                    key_p, params = m.primary
+                    print(
+                        "  "
+                        + T(
+                            "cli_replan_row_noslot_m",
+                            t=title,
+                            m=T(key_p, **params),
+                        )
+                    )
+                else:
+                    print("  " + T("cli_replan_row_noslot", t=title))
             elif m.primary is not None:
                 key_p, params = m.primary
                 print("  " + T("cli_replan_row", t=title, m=T(key_p, **params)))
