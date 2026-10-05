@@ -295,8 +295,12 @@ def _seed_executions(n=3, actual=2):
     from src.models import TaskExecution
 
     recs = [
-        TaskExecution(task_id=i, ended_at=f"2026-09-{10 + i:02d}", estimate_pomo=1,
-                      actual_minutes=60 * actual)
+        TaskExecution(
+            task_id=i,
+            ended_at=f"2026-09-{10 + i:02d}",
+            estimate_pomo=1,
+            actual_minutes=60 * actual,
+        )
         for i in range(1, n + 1)
     ]
     for r in recs:
@@ -319,16 +323,24 @@ def test_b1_executions_sopravvivono_a_enable_change_disable(tmp_files):
             await pilot.pause()
             assert [e.task_id for e in st.load_executions()] == [1, 2, 3]
             st.append_execution(
-                {"task_id": 4, "ended_at": "2026-09-14", "estimate_pomo": 1,
-                 "actual_minutes": 120}
+                {
+                    "task_id": 4,
+                    "ended_at": "2026-09-14",
+                    "estimate_pomo": 1,
+                    "actual_minutes": 120,
+                }
             )
             assert len(st.load_executions()) == 4
             app._sec_change(["nuova1234", "altra1234", "altra1234"])
             await pilot.pause()
             assert [e.task_id for e in st.load_executions()] == [1, 2, 3, 4]
             st.append_execution(
-                {"task_id": 5, "ended_at": "2026-09-15", "estimate_pomo": 1,
-                 "actual_minutes": 120}
+                {
+                    "task_id": 5,
+                    "ended_at": "2026-09-15",
+                    "estimate_pomo": 1,
+                    "actual_minutes": 120,
+                }
             )
             app._sec_disable(["altra1234"])
             await pilot.pause()
@@ -378,9 +390,7 @@ def test_b1_calibration_stessa_prima_e_dopo(tmp_files):
             t.stima_pomo = 1
             t.actual_pomo = 2
             hist.append(t)
-        st._save_todos_plain(
-            [TodoItem(todo_id=1, title="A")] + hist
-        )
+        st._save_todos_plain([TodoItem(todo_id=1, title="A")] + hist)
         before = calibration_factor(hist)
         assert before == 2.0
         app = make_app([TodoItem(todo_id=1, title="A")] + hist)
@@ -394,3 +404,22 @@ def test_b1_calibration_stessa_prima_e_dopo(tmp_files):
             assert after == before == 2.0
 
     run(t())
+
+
+def test_t1_save_config_fallita_ritorna_false(tmp_files, monkeypatch):
+    """T1: errore config mai silenzioso (toast + False, niente successo)."""
+    import src.app as app_module
+    import src.storage as storage_mod
+    from tests.conftest import make_app
+
+    app = make_app([])
+    real_save_config = storage_mod.save_config
+
+    def _boom(cfg):
+        raise OSError("disco pieno simulato")
+
+    monkeypatch.setattr(app_module, "save_config", _boom)
+    assert app._save_config() is False
+    # Percorso felice invariato.
+    monkeypatch.setattr(app_module, "save_config", real_save_config)
+    assert app._save_config() is True

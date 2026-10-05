@@ -658,11 +658,18 @@ class TodoApp(App):
         except Exception:
             pass
 
-    def _save_config(self) -> None:
+    def _save_config(self) -> bool:
+        """Scrive la config; False + toast errore se fallisce (T1: mai
+        perdita silenziosa di preferenze dopo un toast di successo)."""
         try:
             save_config(self.config)
         except Exception:
-            pass
+            try:
+                self.notify(T("n_save_fail"), severity="error")
+            except Exception:
+                pass
+            return False
+        return True
 
     def compose(self) -> ComposeResult:
         yield Header()
