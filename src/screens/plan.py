@@ -285,11 +285,10 @@ def scheduled_for_today(
     ordered_ids = {it.todo_id for it in ordered}
     for t in attivi:  # ripiego per attivi senza PlanItem (id orfani)
         if t.id is not None and t.id not in ordered_ids:
-            try:
-                est = int(t.stima_pomo or 0) or 1
-            except (ValueError, TypeError):
-                est = 1
-            ordered.append(PlanItem(t.id, 0, (), est, False))
+            # Stessa policy del DayPlan (B4): stima calibrata, mai duplicata.
+            ordered.append(
+                PlanItem(t.id, 0, (), capacity.estimate(t, plan.factor), False)
+            )
             ordered_ids.add(t.id)
     dayplan = DayPlan(
         plan.day,

@@ -110,3 +110,29 @@ def test_e2_scheduled_for_today_golden():
     }
     assert 3 not in in_plan  # non-attivi mai schedulati, slot None
     assert sched2 is not None and sched2.plan is not None
+
+
+def test_b4_orfano_stessa_policy_del_dayplan():
+    """B4: attivo senza PlanItem (id orfano) usa capacity.estimate col
+    factor del piano, mai il grezzo non calibrato. Con factor=None invariato."""
+    from src.screens.plan import scheduled_for_today
+
+    hist = []
+    for i in range(5):
+        t = make_todo(f"H{i}", todo_id=100 + i, stima_pomo=1, actual_pomo=2)
+        t.done = True
+        hist.append(t)
+    todos = hist + [
+        make_todo("A", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
+        make_todo("B-orfano", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
+    ]
+    sched, _ev, _conf, _planned, _alts = scheduled_for_today(todos, TODAY_S, 6.0, None)
+    ests = sorted(i.estimate_pomo for i in sched.plan.planned)
+    assert ests == [4, 4], ests  # calibrati entrambi (factor 2.0)
+    # Senza storici (factor None): fallback 1:1 invariato.
+    plain = [
+        make_todo("A", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
+        make_todo("B-orfano", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
+    ]
+    sched2, _e, _c, _p2, _a = scheduled_for_today(plain, TODAY_S, 6.0, None)
+    assert sorted(i.estimate_pomo for i in sched2.plan.planned) == [2, 2]
