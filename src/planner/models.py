@@ -111,10 +111,16 @@ def _valid_hhmm(part: str) -> bool:
 
 def _due_time_part(value) -> str:
     """Orario di un due con eventuale HH:MM (forma di models._due_time_part
-    + validazione range: garbage -> "", mai vincoli inventati)."""
+    + validazione range: garbage -> "", mai vincoli inventati).
+    Accetta anche H:MM a una cifra (pad a HH:MM, come models._normalize_due):
+    il boundary planner non deve perdere vincoli che lo storage canonizza."""
     parts = str(value or "").strip().split()
-    if len(parts) >= 2 and _valid_hhmm(parts[1]):
-        return parts[1]
+    if len(parts) >= 2:
+        time_part = parts[1]
+        if len(time_part) == 4 and time_part[1] == ":":
+            time_part = f"0{time_part}"
+        if _valid_hhmm(time_part):
+            return time_part
     return ""
 
 

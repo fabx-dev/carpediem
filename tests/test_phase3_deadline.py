@@ -163,3 +163,17 @@ def test_e_date_only_identico_con_e_senza_mappa():
     plan = Planner(todos, today=TODAY_S, hours=6.0).propose()
     avail = [_win(9, 0, 18, 0)]
     assert schedule(plan, avail, ()) == schedule(plan, avail, (), deadlines_for(todos))
+
+
+def test_b3_una_cifra_padded_come_storage():
+    """B3: H:MM al boundary planner come models._normalize_due (pad),
+    mai vincolo orario perso. Grammatica non allargata oltre."""
+    from src.planner.models import _due_time_part
+
+    assert _due_time_part("2026-09-10 9:00") == "09:00"
+    assert _due_time_part("2026-09-10 09:00") == "09:00"
+    assert _due_time_part("2026-09-10 1:2") == ""
+    assert _due_time_part("2026-09-10 24:00") == ""
+    assert _due_time_part("2026-09-10 10:00:00") == ""
+    v = todo_to_task(make_todo("T", todo_id=99, due="2026-09-10 9:00"))
+    assert (v.due, v.due_time) == ("2026-09-10", "09:00")
