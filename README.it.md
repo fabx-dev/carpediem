@@ -178,7 +178,7 @@ python -m pytest tests/ -q
 python -m ruff check src/ tests/
 ```
 
-Vedi [CONTRIBUTING.md](CONTRIBUTING.md). Progetto hobbistico, italiano-first: issue in italiano o inglese benvenute.
+Vedi [CONTRIBUTING.md](https://github.com/fabx-dev/carpediem/blob/main/CONTRIBUTING.md). CarpeDiem è un progetto open-source indipendente. Contributi, feedback e issue sono benvenuti in inglese o italiano.
 
 ## Licenza
 
