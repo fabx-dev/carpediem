@@ -193,3 +193,27 @@ def test_t6_confidence_esplicita_vince_e_default_delega(monkeypatch):
     assert got[1].confidence == "MEDIUM"
     assert seen == [12]
     assert dec.decide(plan2, calibrated, sample_count="xx")[0].confidence is None
+
+
+def test_evidence_overdue_allineato_a_scoring():
+    """B12: garbage due mai phantom overdue (parse_day come scoring)."""
+    from datetime import date
+
+    import src.planner.models as pmod
+
+    day = date(2026, 9, 10)
+    for due, expected in [
+        ("2026-09-01", True),
+        ("2026-09-10", False),
+        ("2026-09-11", False),
+        ("", False),
+        ("xx", False),
+        ("202", False),
+        ("0000", False),
+        ("2026-13-99", False),
+    ]:
+        item = pmod.PlanItem(1, 10, (), 1, False)
+        plan = pmod.DayPlan(day=day, planned=(item,), capacity_pomo=12.0)
+        todo = make_todo("G", todo_id=1, due=due)
+        got = dec.decide(plan, [todo])[0].evidence["overdue"]
+        assert got is expected, due

@@ -33,6 +33,7 @@ from src.planner.capacity import pomo_minutes
 from src.planner.estimation import execution_confidence
 from src.planner.explain import CALIBRATED, CUT, SKIPPED
 from src.planner.models import DayPlan, ScheduledDayPlan
+from src.planner.scoring import parse_day
 
 SCHEDULED = "scheduled"
 NOT_SCHEDULED = "not_scheduled"
@@ -67,10 +68,12 @@ def _evidence(item, todo, day_s: str, rank: int, rank_of: int, plan: DayPlan) ->
         priority = str(getattr(raw_prio, "value", raw_prio) or "")
     except Exception:
         priority = ""
+    due_day = parse_day(due)
+    overdue = due_day is not None and due_day.isoformat() < day_s
     return {
         "due": due,
         "priority": priority,
-        "overdue": bool(due and due[:10] < day_s),
+        "overdue": overdue,
         "score": item.score,
         "rank": rank,
         "rank_of": rank_of,
