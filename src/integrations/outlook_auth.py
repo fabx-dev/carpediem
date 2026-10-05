@@ -110,6 +110,7 @@ class LoopbackListener:
             raise OutlookError("loopback_bind_failed", str(exc)[:120])
         self._server.auth_result = None
         self._server.got_result = threading.Event()
+        self._aborted = False
         self.port = self._server.server_address[1]
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
@@ -120,11 +121,14 @@ class LoopbackListener:
         return f"http://{LOOPBACK_HOST}:{self.port}{LOOPBACK_PATH}"
 
     def wait(self, timeout: float = LOOPBACK_TIMEOUT) -> str:
-        """Blocca fino al callback; ritorna il code (o solleva codificato)."""
+        """Blocca fino al callback; ritorna il code (o solleva codificato).
+        abort() sveglia subito l'attesa (Esc): mai 180s di thread orfano."""
         try:
             ok = self._server.got_result.wait(timeout)
         finally:
             self.close()
+        if self._aborted:
+            raise OutlookError("authcode_denied", "cancelled")
         if not ok:
             raise OutlookError("loopback_timeout")
         res = self._server.auth_result or {}
@@ -145,6 +149,16 @@ class LoopbackListener:
             self._server.server_close()
         except Exception:
             pass
+
+    def abort(self) -> None:
+        """Esc durante wait(): sveglia subito l'attesa e chiude tutto.
+        Il wait in corso solleva authcode_denied/cancelled (mai timeout)."""
+        self._aborted = True
+        try:
+            self._server.got_result.set()
+        except Exception:
+            pass
+        self.close()
 
 
 class OutlookClient:
@@ -299,7 +313,8 @@ class OutlookClient:
         return result["access_token"], username
 
     def cancel_authcode(self, handle) -> None:
-        """Chiude il listener (Esc in setup): niente thread/socket orfani."""
+        """Annulla l'attesa browser (Esc in setup): sveglia il wait e chiude
+        listener, niente thread/socket orfani."""
         try:
             listener = handle.get("listener") if isinstance(handle, dict) else None
         except Exception:
@@ -307,7 +322,7 @@ class OutlookClient:
         if listener is None:
             return
         try:
-            listener.close()
+            listener.abort()
         except Exception:
             pass
 

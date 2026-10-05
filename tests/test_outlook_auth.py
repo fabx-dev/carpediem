@@ -78,6 +78,10 @@ class FakeListener:
     def close(self):
         self.closed.append(True)
 
+    def abort(self):
+        self.closed.append("aborted")
+        self.close()
+
 
 def _acc(username):
     return {"username": username}
@@ -251,7 +255,7 @@ def test_cancel_authcode_chiude_listener(tmp_files):
     c = _client()
     handle = {"flow": {}, "listener": FakeListener(closed=closed)}
     c.cancel_authcode(handle)
-    assert closed == [True]
+    assert closed == ["aborted", True]  # abort sveglia il wait, poi chiude
     c.cancel_authcode(None)
     c.cancel_authcode({})
 
@@ -439,3 +443,32 @@ def test_fetch_day_nextlink_self_loop_si_ferma(tmp_files):
     events, _, _ = c.fetch_day("AT", DAY)
     assert len(calls) == 1
     assert [e.title for e in events] == ["E00"]
+
+
+def test_abort_sveglia_wait_reale(tmp_files):
+    """C5: Esc durante wait() non lascia 180s di attesa orfana."""
+    import threading
+    import time
+
+    from src.integrations.outlook_auth import LoopbackListener
+
+    lst = LoopbackListener()
+    outcome = {}
+
+    def _wait():
+        try:
+            lst.wait(timeout=180)
+            outcome["ok"] = True
+        except Exception as exc:  # noqa: BLE001 - il codice errore e' l'assert
+            outcome["err"] = getattr(exc, "code", type(exc).__name__)
+
+    th = threading.Thread(target=_wait, daemon=True)
+    th.start()
+    time.sleep(0.3)
+    t0 = time.monotonic()
+    lst.abort()
+    th.join(timeout=10)
+    dt = time.monotonic() - t0
+    assert not th.is_alive()
+    assert dt < 5, dt
+    assert outcome.get("err") == "authcode_denied"
