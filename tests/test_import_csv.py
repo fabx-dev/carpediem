@@ -106,3 +106,34 @@ def test_import_bom_strippato(tmp_path):
     t = store.all()[0]
     assert t.title == "BOM" and not t.title.startswith("\ufeff")
     assert store.by_external("todoist", "b1") is t
+
+
+def test_f5_import_save_failure_niente_falso_salvato(tmp_files, monkeypatch):
+    """F5: commit fallito dopo import -> errore, memoria riallineata."""
+    import src.app as app_module
+    from src.store import TodoStore
+    from tests.conftest import make_app, run
+
+    # Guida pilot completa: apri import, clicca il file, commit che fallisce.
+    async def t2():
+        (tmp_files / "CarpeDiem_screenshots").mkdir(parents=True, exist_ok=True)
+        csv_path = tmp_files / "CarpeDiem_screenshots" / "imp.csv"
+        csv_path.write_text("id,titolo\n1,Importato\n", encoding="utf-8")
+        app = make_app([])
+
+        def _boom():
+            raise OSError("disco pieno simulato")
+
+        monkeypatch.setattr(TodoStore, "commit", lambda self, **kw: _boom())
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app.action_import_csv()
+            await pilot.pause()
+            await pilot.click("#impcsv-0")
+            await pilot.pause()
+            await pilot.pause()
+            assert [t.title for t in app.store.all()] == []
+            assert TodoStore.load().all() == []
+
+    monkeypatch.setattr(app_module, "_home", lambda: tmp_files)
+    run(t2())

@@ -2915,7 +2915,18 @@ class TodoApp(App):
                 )
                 return
             if imported:
-                self._save_data()
+                try:
+                    self._save_data()
+                except Exception:
+                    # F5: disco intatto per fail-closed; riallinea la memoria
+                    # (le righe importate non risultano salvate) e avvisa.
+                    try:
+                        self.store.reload()
+                    except Exception:
+                        pass
+                    self._populate_table()
+                    self.notify(T("n_save_fail"), severity="error")
+                    return
                 self._populate_table()
             msg = T("n_imp_ok", n=imported, f=Path(path).name)
             if skipped:
