@@ -397,7 +397,10 @@ def _item(i):
     return {
         "subject": f"E{i:02d}",
         "start": {"dateTime": f"{DAY}T{h:02d}:{m}:00", "timeZone": ROM},
-        "end": {"dateTime": f"{DAY}T{h:02d}:{30 if m == '00' else '45'}:00", "timeZone": ROM},
+        "end": {
+            "dateTime": f"{DAY}T{h:02d}:{30 if m == '00' else '45'}:00",
+            "timeZone": ROM,
+        },
         "showAs": "busy",
     }
 
@@ -421,17 +424,18 @@ def test_fetch_day_segue_nextlink_fino_a_esaurimento(tmp_files):
     assert len(skipped) == 40  # eccedenza contata, mai silenziosa
 
 
-def test_fetch_day_nextlink_ripetuto_si_ferma(tmp_files):
-    p = _page([_item(0)], "https://graph/x?$skip=0")
+def test_fetch_day_nextlink_self_loop_si_ferma(tmp_files):
+    # Server patologico: ogni pagina punta a se stessa. Un solo fetch,
+    # nessun duplicato, nessun loop.
     calls = []
 
     def fake_http(url, token, tz):
         calls.append(url)
-        return p
+        return {"value": [_item(0)], "@odata.nextLink": url}
 
     c = OutlookClient(
         dict(CFG), client=FakeClient(), cache=FakeCache(), http_get=fake_http
     )
     events, _, _ = c.fetch_day("AT", DAY)
-    assert len(calls) == 2  # iniziale + nextLink una volta sola, poi stop
+    assert len(calls) == 1
     assert [e.title for e in events] == ["E00"]

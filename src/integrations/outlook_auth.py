@@ -354,7 +354,10 @@ class OutlookClient:
                     raise OutlookError("bad_payload")
                 values.extend(payload["value"])
                 nxt = payload.get("@odata.nextLink")
-                url = nxt if isinstance(nxt, str) and nxt else None
+                # nextLink gia' visto = loop patologico del server: stop.
+                # Mai limite arbitrario di pagine: a URL distinti si segue
+                # fino a esaurimento (ogni URL viene richiesto una sola volta).
+                url = nxt if isinstance(nxt, str) and nxt and nxt not in seen else None
         except OutlookError:
             raise
         except Exception as exc:
