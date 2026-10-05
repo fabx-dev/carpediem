@@ -1517,7 +1517,7 @@ class DetailScreen(ModalScreen[str | None]):
                         blocked = str(getattr(alt, "blocked_by", "") or "")
                     except Exception:
                         blocked = ""
-                    if blocked in ("window", "busy", "deadline", "duration"):
+                    if blocked in ("window", "busy", "deadline", "duration", "tasks"):
                         sched_label = T("why_scheduled_noslot")
                 lines = [
                     {
