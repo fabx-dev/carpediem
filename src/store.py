@@ -182,16 +182,19 @@ class TodoStore:
 
     # -- persistenza (unico punto di scrittura) -------------------------
 
-    def commit(self) -> None:
+    def commit(self, *, force_rewrite: bool = False) -> None:
         """Merge three-way col disco sotto lock e scrittura atomica.
 
         Dopo il commit la memoria rispecchia il merged (eventuali item
         aggiunti o modificati da altri processi compaiono; i conflitti
         sullo stesso id si risolvono a nostro favore, vedi
         `merge_todo_dicts`).
+        force_rewrite=True SOLO per il cambio password (_rewrite_all_state):
+        memoria autorevole con chiave appena verificata. I save normali
+        falliscono (StorageUnreadable) su disco illeggibile/corrotto.
         """
         current = [t.to_dict() for t in self._todos]
-        merged = save_todos_synced(current, self._base)
+        merged = save_todos_synced(current, self._base, force_rewrite=force_rewrite)
         live = {t.id: t for t in self._todos if t.id is not None}
         seen: set[int | None] = set()
         reconciled: list[TodoItem] = []

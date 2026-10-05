@@ -609,21 +609,30 @@ class TodoApp(App):
     def next_id(self, value: int) -> None:
         self.store.next_id = value
 
-    def _save_data(self) -> None:
-        self.store.commit()
+    def _save_data(self, *, force_rewrite: bool = False) -> None:
+        self.store.commit(force_rewrite=force_rewrite)
 
     def _commit_refresh(self, notify_key: str | None = None, **params) -> None:
         """Salva su disco, riaggiorna la tabella e (opzionale) notifica.
 
-        Pattern standard delle action: muta -> commit -> refresh -> notify."""
-        self._save_data()
+        Pattern standard delle action: muta -> commit -> refresh -> notify.
+        Su storage illeggibile/corrotto: toast d'errore, nessun crash."""
+        try:
+            self._save_data()
+        except OSError:
+            self.notify(T("n_save_fail"), severity="error")
+            return
         self._populate_table()
         if notify_key is not None:
             self.notify(T(notify_key, **params))
 
     def _on_plan_changed(self) -> None:
         """Callback delle screen di pianificazione: salva e aggiorna la tabella."""
-        self._save_data()
+        try:
+            self._save_data()
+        except OSError:
+            self.notify(T("n_save_fail"), severity="error")
+            return
         self._populate_table()
         self._refresh_open_plans()
 
@@ -2130,7 +2139,7 @@ class TodoApp(App):
         self._populate_table()
         self.notify(T("n_dur_set", m=minutes))
 
-    def _save_pomodoro(self) -> None:
+    def _save_pomodoro(self, *, force_rewrite: bool = False) -> None:
         if self.focus_task_id is None:
             session = None
         else:
@@ -2141,16 +2150,25 @@ class TodoApp(App):
                 "end": self.focus_end.isoformat() if self.focus_end else None,
                 "paused_secs": self.focus_paused_secs,
             }
-        save_pomodoro(
-            {
-                "default_minutes": self.POMODORO_MIN,
-                "short_minutes": self.POMO_SHORT_MIN,
-                "long_minutes": self.POMO_LONG_MIN,
-                "long_every": self.POMO_LONG_EVERY,
-                "cycle": self.pomo_cycle,
-                "session": session,
-            }
-        )
+        try:
+            save_pomodoro(
+                {
+                    "default_minutes": self.POMODORO_MIN,
+                    "short_minutes": self.POMO_SHORT_MIN,
+                    "long_minutes": self.POMO_LONG_MIN,
+                    "long_every": self.POMO_LONG_EVERY,
+                    "cycle": self.pomo_cycle,
+                    "session": session,
+                },
+                force_rewrite=force_rewrite,
+            )
+        except OSError:
+            if force_rewrite:
+                raise
+            try:
+                self.notify(T("n_save_fail"), severity="error")
+            except Exception:
+                pass
 
     def _clear_pomodoro_state(self) -> None:
         self.focus_task_id = None
@@ -2518,7 +2536,11 @@ class TodoApp(App):
                     continue
                 self.store.add(t)
                 restored += 1
-            save_archive([])
+            try:
+                save_archive([])
+            except OSError:
+                self.notify(T("n_save_fail"), severity="error")
+                return
             self._commit_refresh("n_arc_emptied", n=restored)
             return
         if action == "one":
@@ -2535,7 +2557,12 @@ class TodoApp(App):
                 return
             self.store.add(t)
             del archive[idx]
-            save_archive(archive)
+            try:
+                save_archive(archive)
+            except OSError:
+                self.store.remove_ids({t.id})  # rollback memoria: move non avvenuto
+                self.notify(T("n_save_fail"), severity="error")
+                return
             self._commit_refresh("n_arc_one", t=t.title)
             self.action_view_archive()
 
@@ -2546,7 +2573,13 @@ class TodoApp(App):
         self.push_screen(TemplateScreen(self.templates), self._on_template_action)
 
     def _persist_templates(self) -> None:
-        save_templates(self.templates)
+        try:
+            save_templates(self.templates)
+        except OSError:
+            try:
+                self.notify(T("n_save_fail"), severity="error")
+            except Exception:
+                pass
 
     def _on_template_action(self, result: tuple | None) -> None:
         if not result:
@@ -3092,12 +3125,17 @@ class TodoApp(App):
         # E2: logica in src/security_validation.py, qui solo delega.
         return _sec_validation.valid_disable(values, self._sec_current_ok)
 
-    def _rewrite_all_state(self) -> None:
-        self._save_data()
-        save_templates(self.templates)
-        self._save_pomodoro()
+    def _rewrite_all_state(self, archive_items: list | None = None) -> None:
+        # Unico path con memoria autorevole + chiave appena verificata:
+        # riscrive anche dischi UNREADABLE (vecchia chiave). L'archivio va
+        # fotografato PRIMA della rotazione chiave (dal chiamante): dopo,
+        # il disco sarebbe illeggibile e load darebbe [] (wipe).
+        self._save_data(force_rewrite=True)
+        save_templates(self.templates, force_rewrite=True)
+        self._save_pomodoro(force_rewrite=True)
         try:
-            save_archive(load_archive())
+            items = archive_items if archive_items is not None else load_archive()
+            save_archive(items, force_rewrite=True)
         except Exception:
             pass
 
@@ -3116,9 +3154,10 @@ class TodoApp(App):
         except Exception as exc:
             self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
+        arch = load_archive()  # PRIMA della rotazione chiave (dopo: illeggibile)
         _crypto.set_key(_crypto.encode_password(new))
         try:
-            self._rewrite_all_state()
+            self._rewrite_all_state(arch)
         except Exception as exc:
             _crypto.set_key(None)
             self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
@@ -3150,9 +3189,10 @@ class TodoApp(App):
         if new != repeat:
             self.notify(T("n_sec_mismatch"), severity="error")
             return
+        arch = load_archive()  # PRIMA della rotazione chiave (dopo: illeggibile)
         _crypto.set_key(_crypto.encode_password(new))
         try:
-            self._rewrite_all_state()
+            self._rewrite_all_state(arch)
         except Exception as exc:
             self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
@@ -3165,9 +3205,10 @@ class TodoApp(App):
         if not self._sec_current_ok(values[0]):
             self.notify(T("n_sec_badcurrent"), severity="error")
             return
+        arch = load_archive()  # PRIMA della rotazione chiave (dopo: illeggibile)
         _crypto.set_key(None)
         try:
-            self._rewrite_all_state()
+            self._rewrite_all_state(arch)
         except Exception as exc:
             self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return

@@ -41,6 +41,62 @@ class StorageLocked(OSError):
     """Altro processo detiene il lock oltre il timeout."""
 
 
+class StorageUnreadable(OSError):
+    """Il file esiste ma non e' leggibile/valido (cifrato senza chiave
+    decifrabile, malformato o schema errato): i writer fail-closed
+    sollevano questa invece di sovrascriverlo. Sottoclasse di OSError
+    per compatibilita' con gli handler esistenti."""
+
+
+def _disk_state(path: Path, expect: str = "list") -> str:
+    """Stato del file persistito: MISSING / VALID / UNREADABLE / CORRUPT.
+
+    expect: "list" (todos/archive/executions), "dict" (templates/pomodoro/
+    config), "any" (solo leggibilita', mai shape).
+    - MISSING: assente o 0-byte (mai scritto, scrivibile).
+    - VALID: leggibile e con shape attesa.
+    - UNREADABLE: envelope non decifrabile (chiave assente/errata).
+      Mai .corrotto: non e' evidenza di corruzione.
+    - CORRUPT: testo non JSON, o JSON con shape diversa dall'attesa.
+    Letture restano tolleranti; solo i writer usano questo per rifiutare.
+    """
+    if not path.exists():
+        return "MISSING"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return "CORRUPT"
+    if not text.strip():
+        return "MISSING"  # 0-byte: mai scritto, nessun dato da proteggere
+    try:
+        is_env = _crypto.is_envelope(text)
+    except Exception:
+        return "CORRUPT"
+    if is_env:
+        try:
+            obj, _ = _crypto.unprotect_text(text)
+        except Exception:
+            return "UNREADABLE"
+    else:
+        try:
+            obj = json.loads(text)
+        except ValueError:
+            return "CORRUPT"
+    if expect == "list" and not isinstance(obj, list):
+        return "CORRUPT"
+    if expect == "dict" and not isinstance(obj, dict):
+        return "CORRUPT"
+    return "VALID"
+
+
+def _ensure_writable(path: Path, expect: str = "list") -> None:
+    """Fail-closed per i writer: solleva StorageUnreadable su disco
+    esistente ma non leggibile/valido. MISSING e VALID passano."""
+    state = _disk_state(path, expect)
+    if state in ("UNREADABLE", "CORRUPT"):
+        raise StorageUnreadable(f"File non leggibile, scrittura rifiutata: {path.name}")
+
+
 LOCK_TIMEOUT = 10.0
 
 
@@ -132,15 +188,29 @@ def _write_locked(path: Path, text: str, with_bak: bool = False) -> None:
             pass
     if with_bak and path.exists():
         try:
-            shutil.copy2(path, path.with_suffix(".bak.json"))
+            bak = path.with_suffix(".bak.json")
+            bak1 = path.with_suffix(".bak.1.json")
+            if bak.exists():
+                bak.replace(bak1)
+            shutil.copy2(path, bak)
         except OSError:
             pass
     tmp.replace(path)
 
 
-def _write_atomic(path: Path, text: str, with_bak: bool = False) -> None:
-    """Scrittura atomica sotto lock esclusivo."""
+def _write_atomic(
+    path: Path,
+    text: str,
+    with_bak: bool = False,
+    guard: str | None = None,
+    force_rewrite: bool = False,
+) -> None:
+    """Scrittura atomica sotto lock esclusivo. Con guard ("list"/"dict"),
+    rifiuta (StorageUnreadable) se il disco esistente non e' leggibile/valido,
+    salvo force_rewrite (solo cambio password: memoria autorevole)."""
     with _locked(path):
+        if guard is not None and not force_rewrite:
+            _ensure_writable(path, guard)
         _write_locked(path, text, with_bak=with_bak)
 
 
@@ -181,21 +251,43 @@ def _is_crypto_unreadable(path: Path) -> bool:
     return False
 
 
+def _backup_corrupt(path: Path) -> None:
+    """Copia byte-identica in .corrotto.json (recupero manuale).
+
+    Solo con evidenza di corruzione: mai su envelope non decifrabile
+    (chiave errata/assente non e' corruzione)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+        if _crypto.is_envelope(text):
+            return
+        path.with_suffix(".corrotto.json").write_bytes(path.read_bytes())
+    except OSError:
+        pass
+
+
 def _read_dict_list(path: Path) -> list[dict]:
-    """Dict grezzi dal file. Mancante -> []. Corrotto -> backup .corrotto + [].
-    Bloccato (cifrato senza chiave) -> [] SENZA backup: non e' corrotto."""
+    """Dict grezzi dal file. Mancante -> []. Corrotto (testo non JSON) ->
+    backup .corrotto + []. Envelope non decifrabile -> [] SENZA backup:
+    chiave errata/assente non e' evidenza di corruzione. Non-lista -> []
+    (tollerante in lettura; i writer rifiutano via _ensure_writable)."""
     if not path.exists():
         return []
     try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        text = ""
+    if not text.strip():
+        return []  # 0-byte: mai scritto, niente backup
+    try:
         data = _read_state_file(path)
     except (json.JSONDecodeError, OSError, ValueError):
-        if _is_locked_no_key(path):
-            return []
-        backup = path.with_suffix(".corrotto.json")
         try:
-            backup.write_bytes(path.read_bytes())
-        except OSError:
-            pass
+            is_env = _crypto.is_envelope(path.read_text(encoding="utf-8"))
+        except Exception:
+            is_env = False
+        if is_env:
+            return []
+        _backup_corrupt(path)
         return []
     if not isinstance(data, list):
         return []
@@ -348,14 +440,29 @@ def merge_todo_dicts(
     return out
 
 
-def save_todos_synced(current: list[dict], base: list[dict]) -> list[dict]:
+def save_todos_synced(
+    current: list[dict], base: list[dict], *, force_rewrite: bool = False
+) -> list[dict]:
     """Merge three-way sotto lock unico (lettura+merge+scrittura atomici).
 
-    Ritorna i dict effettivamente scritti (merged). Se il disco e' cifrato
-    ma non decifrabile con la chiave corrente (es. cambio password in
-    corso), la memoria e' l'unica fonte di verita': si riscrive com'e',
-    senza merge (l'eventuale file precedente resta in `.bak.json`)."""
+    Fail-closed: disco UNREADABLE (envelope non decifrabile) o CORRUPT
+    (malformato/shape errata) -> StorageUnreadable, nessuna scrittura.
+    Opt-in force_rewrite=True SOLO per il cambio password (_rewrite_all_state):
+    memoria autorevole con chiave appena verificata; bypassa UNREADABLE
+    (mai CORRUPT: con disco corrotto la memoria non e' autorevole).
+    Se il disco e' cifrato ma non decifrabile con la chiave corrente (es. cambio
+    password in corso), la memoria e' l'unica fonte di verita': si riscrive
+    com'e', senza merge (l'eventuale file precedente resta in `.bak.json`)."""
     with _locked(DATA_FILE):
+        state = _disk_state(DATA_FILE)
+        if state == "UNREADABLE" and not force_rewrite:
+            raise StorageUnreadable(
+                f"File non leggibile, scrittura rifiutata: {DATA_FILE.name}"
+            )
+        if state == "CORRUPT":
+            raise StorageUnreadable(
+                f"File non valido, scrittura rifiutata: {DATA_FILE.name}"
+            )
         if _is_crypto_unreadable(DATA_FILE):
             merged = current
         else:
@@ -421,8 +528,11 @@ def load_templates() -> dict[str, list[dict]]:
     if not TEMPLATE_FILE.exists():
         return _default_templates()
     try:
+        if not TEMPLATE_FILE.read_text(encoding="utf-8").strip():
+            return _default_templates()  # 0-byte: mai scritto, niente backup
         data = _read_state_file(TEMPLATE_FILE)
     except (json.JSONDecodeError, OSError, ValueError):
+        _backup_corrupt(TEMPLATE_FILE)
         return _default_templates()
     if not isinstance(data, dict):
         return _default_templates()
@@ -442,7 +552,9 @@ def load_templates() -> dict[str, list[dict]]:
     return out or _default_templates()
 
 
-def save_templates(templates: dict[str, list[dict]]) -> None:
+def save_templates(
+    templates: dict[str, list[dict]], *, force_rewrite: bool = False
+) -> None:
     serializable = {
         name: [
             {
@@ -455,7 +567,12 @@ def save_templates(templates: dict[str, list[dict]]) -> None:
         ]
         for name, items in templates.items()
     }
-    _write_atomic(TEMPLATE_FILE, _dump_state_text(serializable))
+    _write_atomic(
+        TEMPLATE_FILE,
+        _dump_state_text(serializable),
+        guard="dict",
+        force_rewrite=force_rewrite,
+    )
 
 
 CONFIG_FILE = _home() / ".todo_config.json"
@@ -693,7 +810,9 @@ def save_config(cfg: dict) -> None:
         if str(cfg.get("lang", "auto")).lower() in ("auto", "it", "en")
         else "auto",
     }
-    _write_atomic(CONFIG_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
+    _write_atomic(
+        CONFIG_FILE, json.dumps(payload, indent=2, ensure_ascii=False), guard="dict"
+    )
 
 
 OUTLOOK_TOKEN_FILE = _home() / ".todo_outlook_token.json"
@@ -746,14 +865,22 @@ def load_archive() -> list[dict]:
     if not ARCHIVE_FILE.exists():
         return []
     try:
+        if not ARCHIVE_FILE.read_text(encoding="utf-8").strip():
+            return []  # 0-byte: mai scritto, niente backup
         data = _read_state_file(ARCHIVE_FILE)
     except (json.JSONDecodeError, OSError, ValueError):
+        _backup_corrupt(ARCHIVE_FILE)
         return []
     return [d for d in data] if isinstance(data, list) else []
 
 
-def save_archive(items: list[dict]) -> None:
-    _write_atomic(ARCHIVE_FILE, _dump_state_text(items))
+def save_archive(items: list[dict], *, force_rewrite: bool = False) -> None:
+    _write_atomic(
+        ARCHIVE_FILE,
+        _dump_state_text(items),
+        guard="list",
+        force_rewrite=force_rewrite,
+    )
 
 
 BACKUP_DIR = _home() / "Tasko_backups"
@@ -979,8 +1106,11 @@ def load_pomodoro() -> dict:
     if not POMODORO_FILE.exists():
         return cfg
     try:
+        if not POMODORO_FILE.read_text(encoding="utf-8").strip():
+            return cfg  # 0-byte: mai scritto, niente backup
         data = _read_state_file(POMODORO_FILE)
     except (json.JSONDecodeError, OSError, ValueError):
+        _backup_corrupt(POMODORO_FILE)
         return cfg
     if not isinstance(data, dict):
         return cfg
@@ -997,7 +1127,7 @@ def load_pomodoro() -> dict:
     return cfg
 
 
-def save_pomodoro(state: dict) -> None:
+def save_pomodoro(state: dict, *, force_rewrite: bool = False) -> None:
     payload = {
         "default_minutes": _clamp_int(state.get("default_minutes", 25), 25, 1, 180),
         "short_minutes": _clamp_int(state.get("short_minutes", 5), 5, 1, 60),
@@ -1008,7 +1138,12 @@ def save_pomodoro(state: dict) -> None:
         if isinstance(state.get("session"), dict)
         else None,
     }
-    _write_atomic(POMODORO_FILE, _dump_state_text(payload))
+    _write_atomic(
+        POMODORO_FILE,
+        _dump_state_text(payload),
+        guard="dict",
+        force_rewrite=force_rewrite,
+    )
 
 
 EXECUTIONS_FILE = _home() / ".todo_executions.json"
@@ -1039,6 +1174,7 @@ def append_execution(exec: TaskExecution | dict) -> TaskExecution:
         else TaskExecution.from_dict(exec if isinstance(exec, dict) else {})
     )
     with _locked(EXECUTIONS_FILE):
+        _ensure_writable(EXECUTIONS_FILE)
         items = [TaskExecution.from_dict(d) for d in _read_dict_list(EXECUTIONS_FILE)]
         if item.task_id is not None and item.ended_at:
             for known in items:

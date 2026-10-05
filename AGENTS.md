@@ -170,6 +170,16 @@ Regole dure:
   `TASKO_HOME` nel MEDesimo comando, verificato con `echo` prima dei run sensibili;
   (b) dopo un debug sospetto, controllare mtime/dimensione di `~/.todo_app.json`
   PRIMA di continuare (un wipe e' un file non-envelope o un envelope minuscolo).
+  **Chiusura strutturale 2026-10-02 (Phase 1 fail-closed)**: i writer ora
+  sollevano `StorageUnreadable` su disco UNREADABLE/CORRUPT invece di
+  sovrascriverlo (`_disk_state`/`_ensure_writable` sotto lock, letture
+  tolleranti invariate); opt-in `force_rewrite=True` solo per
+  `_rewrite_all_state` (cambio password, archivio fotografato PRIMA della
+  rotazione chiave); rotazione `.bak.json` -> `.bak.1.json`; chiave
+  errata/assente non crea mai `.corrotto` (solo corruzione vera);
+  regression suite `tests/test_storage_failclosed.py` con invariante
+  byte-for-byte. Un debug non isolato oggi fallisce rumorosamente invece
+  di wipare.
 - Screenshot SVG per cambi visivi: script con `TASKO_HOME` **fresca per run** (il restore del
   pomodoro altera i run successivi!), estrazione testo via regex `<text>` + `html.unescape`
   (gli spazi sono `&#160;`: normalizzare prima di cercare), verifica sopra+SOTTO il fold

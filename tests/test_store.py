@@ -150,7 +150,7 @@ def test_commit_skipped_visibile_e_non_perde_validi(tmp_files, monkeypatch):
     monkeypatch.setattr(
         store_module,
         "save_todos_synced",
-        lambda current, base: reali + ["spazzatura", {"id": 2, "title": "B"}],
+        lambda current, base, **kw: reali + ["spazzatura", {"id": 2, "title": "B"}],
     )
     s.commit()
     assert s.last_skipped == 1

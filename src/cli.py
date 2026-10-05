@@ -162,6 +162,15 @@ def _cli_main(argv: list[str]) -> int:
     def err(msg: str) -> None:
         print(f"carpediem: {msg}", file=sys.stderr)
 
+    try:
+        return _cli_dispatch(args, err)
+    except OSError as exc:
+        err(str(exc))
+        return 1
+
+
+def _cli_dispatch(args, err) -> int:
+    """Dispatch comandi (separato per gestire OSError I/O con exit 1 pulito)."""
     if args.cmd == "add":
         classic = bool(
             args.project or args.due or args.tags or args.priority != "media"

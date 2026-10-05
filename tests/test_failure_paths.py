@@ -20,13 +20,17 @@ def unlocked():
 
 def test_store_su_file_corrotto(tmp_files):
     m.DATA_FILE.write_text("{{{rotto")
+    prima = m.DATA_FILE.read_bytes()
     s = TodoStore.load()
     assert s.all() == []
     assert m.DATA_FILE.with_suffix(".corrotto.json").exists()
-    # commit dopo load corrotto scrive solo la memoria, senza crash
+    # fail-closed: commit su disco corrotto solleva, primary intatto
+    import src.storage as st
+
     s.add(make_todo("Nuovo", todo_id=None))
-    s.commit()
-    assert [t.title for t in TodoStore.load().all()] == ["Nuovo"]
+    with pytest.raises(st.StorageUnreadable):
+        s.commit()
+    assert m.DATA_FILE.read_bytes() == prima
 
 
 def test_envelope_bloccato_niente_backup(tmp_files, unlocked):
@@ -37,12 +41,13 @@ def test_envelope_bloccato_niente_backup(tmp_files, unlocked):
     assert not m.DATA_FILE.with_suffix(".corrotto.json").exists()
 
 
-def test_envelope_chiave_errata_backup(tmp_files, unlocked):
+def test_envelope_chiave_errata_niente_backup(tmp_files, unlocked):
+    # Decisione Phase 1: decrypt failure non e' evidenza di corruzione.
     crypto_mod.set_key(crypto_mod.encode_password("segreta12"))
     m._save_todos_plain([make_todo("Segreto", todo_id=1)])
     crypto_mod.set_key(crypto_mod.encode_password("sbagliata"))
     assert m.load_todos() == []
-    assert m.DATA_FILE.with_suffix(".corrotto.json").exists()
+    assert not m.DATA_FILE.with_suffix(".corrotto.json").exists()
 
 
 def _zip_snapshot(path, entries: dict):
@@ -111,10 +116,14 @@ def test_snapshot_con_todos_corrotto(tmp_files):
 
 
 def test_merge_con_disco_corrotto(tmp_files):
+    import src.storage as st
+
     m.DATA_FILE.write_text("{{{")
+    prima = m.DATA_FILE.read_bytes()
     s = TodoStore([make_todo("Mio", todo_id=None)])
-    s.commit()  # disco trattato come vuoto, nessun crash
-    assert [t.title for t in TodoStore.load().all()] == ["Mio"]
+    with pytest.raises(st.StorageUnreadable):
+        s.commit()  # disco corrotto: mai trattato come vuoto
+    assert m.DATA_FILE.read_bytes() == prima
 
 
 def test_voci_non_dict_ignorate(tmp_files):

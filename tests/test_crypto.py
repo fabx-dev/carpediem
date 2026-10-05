@@ -59,9 +59,9 @@ def test_cambio_chiave_commit_non_perde_item(tmp_files, locked_down):
     m._save_todos_plain([make_todo("A", todo_id=1)])
     s = TodoStore.load()  # chiave corrente ok -> base e memoria = [A]
     crypto_mod.set_key(crypto_mod.encode_password("nuova"))
-    # Il disco e' ora illeggibile: il commit deve riscrivere la memoria
-    # autorevole senza merge, non trattarla come "tutto cancellato".
-    s.commit()
+    # Il disco e' ora illeggibile: solo il path cambio-password (memoria
+    # autorevole, force_rewrite) puo' riscriverlo, mai il commit normale.
+    s.commit(force_rewrite=True)
     assert [t.title for t in m.load_todos()] == ["A"]
     crypto_mod.set_key(None)
     # senza chiave il file resta un envelope (non e' stato toccato in chiaro)
