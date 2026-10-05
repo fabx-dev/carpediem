@@ -95,7 +95,6 @@ from src.screens._shared import _escape_markup
 from src.storage import (
     FILTER_STATES,
     MAX_SMART_LISTS,
-    OUTLOOK_TOKEN_FILE,
     POMO_PHASE_PRESETS,
     POMO_PHASES,
     _backup_sources,
@@ -1590,7 +1589,7 @@ class TodoApp(App):
         """Config validata + presenza token (per il bottone Buongiorno)."""
         return {
             "config": _validate_outlook(self.config.get("outlook")),
-            "has_token": OUTLOOK_TOKEN_FILE.exists(),
+            "has_token": _storage.OUTLOOK_TOKEN_FILE.exists(),
         }
 
     def _outlook_fetch_sync(self) -> dict:
@@ -3165,18 +3164,15 @@ class TodoApp(App):
         self._save_data(force_rewrite=True)
         save_templates(self.templates, force_rewrite=True)
         self._save_pomodoro(force_rewrite=True)
-        try:
-            items = archive_items if archive_items is not None else load_archive()
-            save_archive(items, force_rewrite=True)
-        except Exception:
-            pass
-        try:
-            if executions is not None:
-                save_executions(executions, force_rewrite=True)
-            if token is not None:
-                save_outlook_token(token)
-        except Exception:
-            pass
+        # Niente swallow qui: un fallimento I/O deve raggiungere il chiamante
+        # (toast d'errore, mai successo bugiardo). Il backup pre-rotation
+        # creato dai flussi sec_* e' la via di recupero documentata.
+        items = archive_items if archive_items is not None else load_archive()
+        save_archive(items, force_rewrite=True)
+        if executions is not None:
+            save_executions(executions, force_rewrite=True)
+        if token is not None:
+            save_outlook_token(token)
 
     def _sec_enable(self, values: list[str] | None) -> None:
         if not values:
@@ -3233,6 +3229,11 @@ class TodoApp(App):
         if new != repeat:
             self.notify(T("n_sec_mismatch"), severity="error")
             return
+        try:
+            create_backup()
+        except Exception as exc:
+            self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
+            return
         arch = load_archive()  # PRIMA della rotazione chiave (dopo: illeggibile)
         execs = load_executions()
         tok = load_outlook_token()
@@ -3250,6 +3251,11 @@ class TodoApp(App):
             return
         if not self._sec_current_ok(values[0]):
             self.notify(T("n_sec_badcurrent"), severity="error")
+            return
+        try:
+            create_backup()
+        except Exception as exc:
+            self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
         arch = load_archive()  # PRIMA della rotazione chiave (dopo: illeggibile)
         execs = load_executions()
@@ -3289,8 +3295,8 @@ class TodoApp(App):
                 )
                 return
             self.config["theme"] = choice
-            self._save_config()
-            self.notify(T("n_theme", c=choice))
+            if self._save_config():
+                self.notify(T("n_theme", c=choice))
 
         self.push_screen(ThemeListScreen(themes, self.theme), on_pick)
 

@@ -423,3 +423,33 @@ def test_t1_save_config_fallita_ritorna_false(tmp_files, monkeypatch):
     # Percorso felice invariato.
     monkeypatch.setattr(app_module, "save_config", real_save_config)
     assert app._save_config() is True
+
+
+def test_b1_rotation_failure_niente_successo_bugiardo(tmp_files, monkeypatch):
+    """P1 review: I/O a meta' rotation -> errore (mai successo),
+    backup pre-change creato, file non toccati dal passo fallito."""
+    import src.app as app_module
+    import src.storage as storage_mod
+    from tests.conftest import make_app, run
+
+    async def t():
+        st._save_todos_plain([TodoItem(todo_id=1, title="A")])
+        st.save_templates({"t": []})
+        templates_before = st.TEMPLATE_FILE.read_bytes()
+        app = make_app([TodoItem(todo_id=1, title="A")])
+
+        def _boom(*a, **k):
+            raise OSError("disco pieno simulato")
+
+        monkeypatch.setattr(storage_mod, "save_templates", _boom)
+        monkeypatch.setattr(app_module, "save_templates", _boom)
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause()
+            app._sec_enable(["nuova1234", "nuova1234"])
+            await pilot.pause()
+            # Fallito prima della rewrite: chiave ripristinata, disco intatto.
+            assert not crypto_mod.is_unlocked()
+            assert st.TEMPLATE_FILE.read_bytes() == templates_before
+            assert st.list_snapshots() != []
+
+    run(t())
