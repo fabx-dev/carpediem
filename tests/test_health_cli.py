@@ -213,3 +213,15 @@ def test_cli_unreadable_esce_1(tmp_files, capsys):
     assert _cli_main(["done", "1"]) == 1
     assert _cli_main(["add", "X"]) == 1
     assert _cli_main(["replan"]) == 1
+
+
+def test_cli_priority_invalida_exit_2(tmp_files, capsys):
+    """C1: --priority ignota rifiutata come --due/--state, mai fallback."""
+    from src.cli import _cli_main
+    from src.store import TodoStore
+
+    assert _cli_main(["add", "X", "--priority", "pippo"]) == 2
+    assert "carpediem:" in capsys.readouterr().err
+    assert TodoStore.load().all() == []
+    for ok in ("alta", "high", "h", "media", "m", "bassa", "low", "l"):
+        assert _cli_main(["add", f"T-{ok}", "--priority", ok]) == 0

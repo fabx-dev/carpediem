@@ -12,7 +12,7 @@ from src.storage import append_execution, load_todos
 from src.store import TodoStore
 
 
-def _cli_parse_priority(value: str | None) -> Priority:
+def _cli_parse_priority(value: str | None) -> Priority | None:
     v = (value or "media").strip().lower()
     mapping = {
         "alta": Priority.HIGH,
@@ -25,7 +25,7 @@ def _cli_parse_priority(value: str | None) -> Priority:
         "low": Priority.LOW,
         "l": Priority.LOW,
     }
-    return mapping.get(v, Priority.MEDIUM)
+    return mapping.get(v)
 
 
 def _cli_state_filter(value: str | None) -> str | None:
@@ -212,9 +212,13 @@ def _cli_dispatch(args, err) -> int:
             if args.due and not _is_valid_date(due):
                 err(T("cli_bad_date", d=args.due))
                 return 2
+            prio = _cli_parse_priority(args.priority)
+            if prio is None:
+                err(T("cli_bad_priority", p=args.priority))
+                return 2
             todo = TodoItem(
                 title=title,
-                priority=_cli_parse_priority(args.priority),
+                priority=prio,
                 due=due,
                 project=(args.project or "").strip().lower(),
                 tags=[
