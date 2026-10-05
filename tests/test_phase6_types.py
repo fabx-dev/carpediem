@@ -63,3 +63,18 @@ def test_d1_frozen_e_default():
     d = m.PlanDiagnostic("overflow", {"over_pomo": 3})
     with pytest.raises(dataclasses.FrozenInstanceError):
         d.kind = "x"  # type: ignore[misc]
+
+
+def test_b11_probe_order_documentato():
+    """B11: _PROBE_ORDER e docstring PlanAlternative allineati (tasks incluso)."""
+    import src.planner.diagnostics as dg
+    import src.planner.models as m
+
+    assert dg._PROBE_ORDER == (
+        m.BLOCKED_DURATION,
+        m.BLOCKED_TASKS,
+        m.BLOCKED_DEADLINE,
+        m.BLOCKED_BUSY,
+        m.BLOCKED_WINDOW,
+    )
+    assert "tasks" in m.PlanAlternative.__doc__

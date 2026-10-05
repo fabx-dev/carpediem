@@ -379,7 +379,7 @@ class PlanAlternative:
     NON e' un piano alternativo ne' un'alternativa completa: non evolve in
     un modello di alternative-planning senza decisione architetturale
     esplicita. `blocked_by` = primo blocco deterministico osservato con le
-    regole esistenti (ordine duration → deadline → busy → window), mai
+    regole esistenti (ordine duration → tasks → deadline → busy → window), mai
     "unica causa possibile". `detail` solo chiavi DETAIL_KEYS.
     """
 
