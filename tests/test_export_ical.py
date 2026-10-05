@@ -55,3 +55,35 @@ def test_event_lines_contenuto():
     )
     assert "DTSTART;VALUE=DATE:20260103" in allday
     assert "DTEND;VALUE=DATE:20260104" in allday
+
+
+def test_uid_fallback_deterministico_cross_seed():
+    """C1: task senza id -> UID stabile tra processi (sha1, mai hash())."""
+    import subprocess
+    import sys
+
+    code = (
+        "from src.export_ical import ical_event_lines;"
+        "from tests.conftest import make_todo;"
+        "t = make_todo('X', todo_id=None, due='2026-01-02 09:30');"
+        "print([l for l in ical_event_lines(t, '2026-01-02', '09:30', 'S') if l.startswith('UID:')][0])"
+    )
+    uids = set()
+    for seed in ("0", "1", "42"):
+        import os
+
+        env = dict(os.environ, PYTHONHASHSEED=seed)
+        out = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, env=env
+        )
+        assert out.returncode == 0, out.stderr
+        uids.add(out.stdout.strip())
+    assert len(uids) == 1, uids
+    assert uids.pop().startswith("UID:carpediem-noid-")
+
+
+def test_uid_con_id_invariato():
+    """C1: ramo id = identita' canonica, intatto."""
+    t = make_todo("X", todo_id=7, due="2026-01-02 09:30")
+    lines = ei.ical_event_lines(t, "2026-01-02", "09:30", "S")
+    assert "UID:carpediem-7@carpediem.local" in lines

@@ -5,6 +5,7 @@ file .ics resta nella action (unico punto di I/O). Comportamento identico
 all'originale: stesso UID, stessi escape, stesso DTSTART/DTEND.
 """
 
+import hashlib
 from datetime import datetime, timedelta
 
 from src.lang import prio_disp
@@ -21,10 +22,22 @@ def ical_escape(value: str) -> str:
     )
 
 
+def _fallback_uid(title: str, due: str) -> str:
+    """UID best-effort per task senza id (mai in produzione: lo store
+    assegna sempre un id). Deterministico cross-process (sha1, non hash()
+    che e' salato per PYTHONHASHSEED), ma NON identita' canonica: un edit
+    a titolo/scadenza cambia l'UID. Solo per non duplicare a ogni export."""
+    digest = hashlib.sha1(f"{title}\x00{due}".encode("utf-8")).hexdigest()[:16]
+    return f"carpediem-noid-{digest}@carpediem.local"
+
+
 def ical_event_lines(
     todo: TodoItem, date_part: str, time_part: str, stamp: str
 ) -> list[str]:
-    uid = f"carpediem-{todo.id or abs(hash((todo.title, todo.due)))}@carpediem.local"
+    if todo.id:
+        uid = f"carpediem-{todo.id}@carpediem.local"
+    else:
+        uid = _fallback_uid(todo.title, todo.due)
     desc_bits = []
     if todo.project:
         desc_bits.append(f"Progetto: {todo.project}")
