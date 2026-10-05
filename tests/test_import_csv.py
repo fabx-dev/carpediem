@@ -92,3 +92,17 @@ def _write_external(path):
         "id,titolo,source,external_id\n7,Sette,todoist,x1\n", encoding="utf-8"
     )
     return str(path)
+
+
+def test_import_bom_strippato(tmp_path):
+    """G10: BOM Excel non inquina titolo ne' identità esterna."""
+    path = tmp_path / "bom.csv"
+    path.write_text(
+        "\ufeffid,titolo,source,external_id\n1,BOM,todoist,b1\n", encoding="utf-8"
+    )
+    storage.DATA_FILE.unlink(missing_ok=True)
+    store = TodoStore.load()
+    assert csv_mod.import_csv_file(str(path), store) == (1, 0)
+    t = store.all()[0]
+    assert t.title == "BOM" and not t.title.startswith("\ufeff")
+    assert store.by_external("todoist", "b1") is t
