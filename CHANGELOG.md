@@ -5,6 +5,30 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-05
+
+### Added
+- Planner phrases contract: `Planner` emits `PhraseRef`/kind, UI renders
+  via `T(ref.key)` (central mapping, no dynamic keys); guide in
+  `docs/planner-phrases.md`.
+- Fail-closed persistence (Phase 1): writers raise `StorageUnreadable`
+  on unreadable/corrupt disk instead of overwriting (byte-for-byte
+  regression suite); `force_rewrite` opt-in only for password rotation;
+  `.bak` rotation to `.bak.1`; wrong/missing key never creates `.corrotto`.
+- Planner reliability (Phase 2): raw estimate preserved for calibration,
+  honest noslot/unscheduled labels, infeasible durations never crash,
+  single-digit `H:MM` deadlines kept, overnight/strictness policies kept.
+- Integration reliability (Phase 3): deterministic iCal UID fallback,
+  `DTEND` + RFC folding, CSV `source`/`external_id` round-trip, Outlook
+  `nextLink` pagination with counted truncation, Esc-abortable login,
+  dependency sync test, `tag==version` publish gate.
+- Pre-release hardening: executions + token preserved across password
+  rotation (with failure propagation and pre-rotation backup); CLI
+  rejects invalid priority, reports unreadable storage, and never
+  applies degraded replan previews; config/import save failures notify
+  instead of false success; README documents Outlook, replan CLI,
+  keys, offline scope, and backup-vs-export semantics.
+
 ## [0.19.0] - 2026-10-02
 
 ### Added
