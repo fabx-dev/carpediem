@@ -127,3 +127,19 @@ def test_package_layout_matches_build():
     # Il Dockerfile e il build includono ./src: l'entry-point deve esistere.
     assert (ROOT / "src" / "main.py").exists()
     assert (ROOT / "src" / "__init__.py").exists()
+
+
+def test_sdist_contiene_integrations():
+    """C6: lo smoke CI importa 5 moduli ma mai integrations: se la sdist
+    perdesse outlook_auth lo si scoprirebbe solo all'uso. Skip senza dist."""
+    import tarfile
+
+    dists = sorted((ROOT / "dist").glob("*.tar.gz"))
+    if not dists:
+        import pytest
+
+        pytest.skip("nessuna sdist in dist/")
+    with tarfile.open(dists[-1]) as tf:
+        names = tf.getnames()
+    assert any(n.endswith("src/integrations/outlook_auth.py") for n in names)
+    assert any(n.endswith("src/integrations/outlook.py") for n in names)

@@ -65,7 +65,9 @@ jobs:
       - run: /tmp/smoke-venv/bin/pip install dist/*.whl
       - run: /tmp/smoke-venv/bin/carpediem --help
       # cd /tmp: l'import deve risolversi dalla wheel installata, mai dal checkout.
-      - run: cd /tmp && /tmp/smoke-venv/bin/python -c "import src.main, src.planner, src.storage, src.crypto, src.domain; print('smoke import ok')"
+      - run: cd /tmp && /tmp/smoke-venv/bin/python -c "import src.main, src.planner, src.storage, src.crypto, src.domain, src.screens.plan, src.integrations.outlook_auth, src.import_csv, src.export_ical; print('smoke import ok')"
+      # CLI reale su HOME isolata: oltre --help, add/list scrivono e leggono davvero.
+      - run: export TASKO_HOME=$(mktemp -d) && /tmp/smoke-venv/bin/carpediem add "smoke test" && /tmp/smoke-venv/bin/carpediem list --porcelain
       - uses: actions/upload-artifact@v7
         with:
           name: dist
