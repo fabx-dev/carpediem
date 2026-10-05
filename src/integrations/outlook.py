@@ -122,6 +122,7 @@ def parse_graph_events(
     events: list[FixedEvent] = []
     allday: list[str] = []
     skipped: list[str] = []
+    valid: list[FixedEvent] = []
     for item in raw_items:
         if not isinstance(item, dict):
             continue
@@ -152,8 +153,12 @@ def parse_graph_events(
             continue
         if end <= lo or start >= hi:
             continue  # fuori dal giorno: non e' uno scarto, e' un altro giorno
-        events.append(FixedEvent(title, start, end))
-        if len(events) >= MAX_OUTLOOK_EVENTS:
-            break
-    events.sort(key=lambda e: (e.start, e.end, e.title))
+        valid.append(FixedEvent(title, start, end))
+    # Cap DOPO il sort (C5): tengono i primi cronologici, l'eccedenza e'
+    # contata in skipped (mai silenziosa), come gia' per gli allday.
+    valid.sort(key=lambda e: (e.start, e.end, e.title))
+    for ev in valid[:MAX_OUTLOOK_EVENTS]:
+        events.append(ev)
+    for ev in valid[MAX_OUTLOOK_EVENTS:]:
+        skipped.append(ev.title or "(senza titolo)")
     return events, allday, skipped

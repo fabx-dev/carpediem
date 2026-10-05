@@ -339,18 +339,28 @@ class OutlookClient:
             }
         )
         url = f"{GRAPH_BASE_URL}/me/calendarview?{query}"
+        # Paginazione fino a esaurimento (C5): nextLink ripetuto/patologico
+        # interrompe il loop (seen), mai limite arbitrario di pagine.
+        values: list = []
+        seen: set = set()
+        tz = str(self.cfg.get("tz") or "Europe/Rome")
         try:
-            payload = self._http_get(
-                url, token, str(self.cfg.get("tz") or "Europe/Rome")
-            )
+            while url and url not in seen:
+                seen.add(url)
+                payload = self._http_get(url, token, tz)
+                if not isinstance(payload, dict) or not isinstance(
+                    payload.get("value"), list
+                ):
+                    raise OutlookError("bad_payload")
+                values.extend(payload["value"])
+                nxt = payload.get("@odata.nextLink")
+                url = nxt if isinstance(nxt, str) and nxt else None
         except OutlookError:
             raise
         except Exception as exc:
             raise OutlookError("network", str(exc)[:120])
-        if not isinstance(payload, dict) or not isinstance(payload.get("value"), list):
-            raise OutlookError("bad_payload")
         return parse_graph_events(
-            payload, day_s, tz=str(self.cfg.get("tz") or "Europe/Rome")
+            {"value": values}, day_s, tz=str(self.cfg.get("tz") or "Europe/Rome")
         )
 
     @staticmethod

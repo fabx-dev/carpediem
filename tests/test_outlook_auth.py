@@ -379,3 +379,59 @@ def test_screen_mai_import_outlook_auth():
     for path in sorted(pathlib.Path("src/screens").glob("*.py")):
         src = path.read_text(encoding="utf-8")
         assert not pat.search(src), f"{path}: le screen non toccano rete/auth"
+
+
+def _page(items, nxt=None):
+    p = {"value": items}
+    if nxt is not None:
+        p["@odata.nextLink"] = nxt
+    return p
+
+
+ROM = "W. Europe Standard Time"
+
+
+def _item(i):
+    h = 9 + (i // 2)
+    m = "00" if i % 2 == 0 else "30"
+    return {
+        "subject": f"E{i:02d}",
+        "start": {"dateTime": f"{DAY}T{h:02d}:{m}:00", "timeZone": ROM},
+        "end": {"dateTime": f"{DAY}T{h:02d}:{30 if m == '00' else '45'}:00", "timeZone": ROM},
+        "showAs": "busy",
+    }
+
+
+def test_fetch_day_segue_nextlink_fino_a_esaurimento(tmp_files):
+    p1 = _page([_item(i) for i in range(50)], "https://graph/x?$skip=50")
+    p2 = _page([_item(50 + i) for i in range(20)])
+    calls = []
+
+    def fake_http(url, token, tz):
+        calls.append(url)
+        return p2 if "$skip=50" in url else p1
+
+    c = OutlookClient(
+        dict(CFG), client=FakeClient(), cache=FakeCache(), http_get=fake_http
+    )
+    events, allday, skipped = c.fetch_day("AT", DAY)
+    assert [u for u in calls if "$skip=50" in u] != []
+    assert len(events) == 30  # cap dopo il sort: primi cronologici
+    assert [e.title for e in events] == [f"E{i:02d}" for i in range(30)]
+    assert len(skipped) == 40  # eccedenza contata, mai silenziosa
+
+
+def test_fetch_day_nextlink_ripetuto_si_ferma(tmp_files):
+    p = _page([_item(0)], "https://graph/x?$skip=0")
+    calls = []
+
+    def fake_http(url, token, tz):
+        calls.append(url)
+        return p
+
+    c = OutlookClient(
+        dict(CFG), client=FakeClient(), cache=FakeCache(), http_get=fake_http
+    )
+    events, _, _ = c.fetch_day("AT", DAY)
+    assert len(calls) == 2  # iniziale + nextLink una volta sola, poi stop
+    assert [e.title for e in events] == ["E00"]
