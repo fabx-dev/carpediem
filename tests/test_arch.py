@@ -214,7 +214,9 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
     """G1: app/screens/CLI consumano il boundary (Planner/plan/decide/
     replan/feedback/models/narrative), mai gli stadi decisionali. Fa
     eccezione capacity.total (pura conversione ore->pomo nell'adapter,
-    nessuna decisione): allocate/estimate restano vietati qui."""
+    nessuna decisione): allocate/estimate restano vietati qui, SALVO
+    l'unico ripiego orfani in scheduled_for_today (B4: riuso della policy
+    ufficiale invece di duplicare la matematica di stima in UI)."""
     files = sorted(pathlib.Path("src/screens").glob("*.py")) + [
         pathlib.Path("src/app.py"),
         pathlib.Path("src/cli.py"),
@@ -223,7 +225,6 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
         "planner.scoring",
         "planner.constraints",
         "capacity.allocate",
-        "capacity.estimate",
     )
     for path in files:
         src = path.read_text(encoding="utf-8")
@@ -232,6 +233,11 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
                 f"{path}: '{token}' fuori dal boundary. "
                 "Decisioni solo in src/planner, la UI consuma il risultato."
             )
+    plan_src = pathlib.Path("src/screens/plan.py").read_text(encoding="utf-8")
+    assert plan_src.count("capacity.estimate") == 1, (
+        "capacity.estimate consentito solo nel ripiego orfani B4, "
+        "mai come scoring/capacita' duplicati in UI."
+    )
 
 
 def test_phase6_diagnose_unica_costruttrice():

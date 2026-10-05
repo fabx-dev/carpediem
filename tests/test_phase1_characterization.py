@@ -406,6 +406,8 @@ def test_t9_layout_modelli_frozen_invariato():
         "actual_pomo",
         "actual_minutes",
         "completed",
+        # B1: campo additivo in coda con default (policy api §4, no bump).
+        "raw_estimate_pomo",
     ]
     assert [f.name for f in dataclasses.fields(replan_mod.ReplanProposal)] == [
         "day",

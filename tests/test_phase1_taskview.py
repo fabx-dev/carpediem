@@ -99,9 +99,10 @@ def test_t2_due_time_solo_orari_validi():
     assert todo_to_task(make_todo("A", todo_id=1, due="2026-09-10")).due_time == ""
     assert todo_to_task(make_todo("C", todo_id=3, due="")).due_time == ""
     # TodoItem normalizza "9:30" in forma valida: qui raw via namespace.
+    # B3: il boundary planner pada H:MM come lo storage (09:30, non "").
     for raw, expected in (
         ("2026-09-10 09:30", "09:30"),
-        ("2026-09-10 9:30", ""),
+        ("2026-09-10 9:30", "09:30"),
         ("2026-09-10 24:00", ""),
         ("2026-09-10 12:60", ""),
         ("2026-09-10 xx:yy", ""),

@@ -204,3 +204,46 @@ def test_detail_timed_etichetta_invariata(tmp_files):
             assert _T("why_scheduled_noslot") not in txt
 
     run(t())
+
+
+def test_b10_tasks_senza_slot_etichetta_noslot(tmp_files):
+    """B10: SCHEDULED unscheduled per gara persa -> mai etichetta liscia."""
+    import src.planner.decisions as dec
+    import src.planner.models as pmod
+    from src.lang import T
+    from src.screens.views import DetailScreen
+
+    today = _day(0)
+
+    def t():
+        async def inner():
+            app = make_app(
+                [
+                    make_todo("A", todo_id=1, planned_for=today),
+                    make_todo("B", todo_id=2),
+                ]
+            )
+            d = dec.PlanningDecision(1, dec.SCHEDULED, ())
+            alt = pmod.PlanAlternative(1, dec.SCHEDULED, "tasks", {"task_ids": (2,)})
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                app.push_screen(
+                    DetailScreen(
+                        app.todos[0],
+                        app.todos,
+                        today=today,
+                        hours=6.0,
+                        decisions=(d,),
+                        alternatives={1: alt},
+                    )
+                )
+                await pilot.pause()
+                await pilot.pause()
+                assert type(app.screen).__name__ == "DetailScreen"
+                txt = screen_texts(app.screen)
+                assert T("why_scheduled_noslot") in txt
+                assert T("why_scheduled") not in txt
+
+        return inner()
+
+    run(t())
