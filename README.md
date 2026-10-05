@@ -70,7 +70,7 @@ Requires Python 3.12+. Built with Textual; data stays in local JSON (see Data be
 3. **Execution (`p`, Day plan)** — the operational sheet: exactly the confirmed tasks (`planned_for == today`), re-scheduled in the persisted window in Planner merit order. Scheduled rows carry an inline `HH:MM–HH:MM` prefix and stay fully operational (`Enter` detail, `Space` state, `o`/`O` pomodoro, `x` remove); fixed events appear as read-only `EVENT:` rows; tasks without a slot wait at the tail without a prefix. The `▶` marker follows the running pomodoro; the evening report adds a `Planned vs executed` section (estimate, slot, sessions, actuals, state).
 4. **Closing (`R`, Day closing + evening report)** — `R` shows today (done vs goal, pomodoros) and the picker that becomes *exactly* tomorrow's plan; the evening report (`Day` → `Evening report`) recaps done/leftovers, can print, and jumps to `R` in one click. No window, no slots invented: without a confirmed window the plan shows plain rows, never a default 09:00–18:00.
 
-Planner notes: deterministic (same input → same plan) and explainable (every row carries its reason). `day_hours` in Settings is **capacity**, not working hours. A task without an estimate counts as 1 pomodoro (30 min) for planning only — a fallback, never a user estimate. Finishing an estimated task asks for the actual pomodoros (pre-filled with the counted ones); the planner calibrates with the local median factor (min 5 samples) and shows it in Stats. No network, no AI, no external calendar in v1.
+Planner notes: deterministic (same input → same plan) and explainable (every row carries its reason). `day_hours` in Settings is **capacity**, not working hours. A task without an estimate counts as 1 pomodoro (30 min) for planning only — a fallback, never a user estimate. Finishing an estimated task asks for the actual pomodoros (pre-filled with the counted ones); the planner calibrates with the local median factor (min 5 samples) and shows it in Stats. No AI, and the planner itself never uses the network (planning is always offline); the only network use in the product is the opt-in Outlook calendar import below.
 
 ## Views
 
@@ -81,6 +81,7 @@ Planner notes: deterministic (same input → same plan) and explainable (every r
 - `Day plan` (`p`) — manual plan of today (`+` add from Upcoming, `x` remove, `Space` pause, `Enter` detail, `o`/`O` pomodoro).
 - `Week` (`w`) / `Calendar` (`c`) — week strip and month calendar (day → day plan).
 - `Evening report` / `Day closing` (`R`) — recap + print + tomorrow picker.
+- `Outlook` (opt-in) — connect your Microsoft calendar from Buongiorno (button) to load the day's fixed events; needs encryption on, your own Entra app registration, one browser login (auth-code + PKCE, `Calendars.Read` only).
 
 ### Views and insights
 - Due-date radar (`b` cycles chart → text → hidden, `B` full board) — strip-scatter priority × horizon with today line, worst-offenders caption and undated count; click a dot for the detail (or a picker on overlap). Falls back to text automatically when empty, without overwriting your preference.
@@ -92,7 +93,7 @@ Planner notes: deterministic (same input → same plan) and explainable (every r
 
 ### Data: backup, transfer, archive
 - `Backup now` / `Restore backup` — automatic zip snapshots in `~/Tasko_backups/` (14 kept), restore validates before touching disk with rollback.
-- `Export: Markdown` (`ctrl+e`) / `CSV` / `stats CSV` / `iCal` — the `.ics` covers active tasks with due dates; files land in `~/CarpeDiem_screenshots/`.
+- `Export: Markdown` (`ctrl+e`) / `CSV` / `stats CSV` / `iCal` — the `.ics` covers active tasks with due dates; files land in `~/CarpeDiem_screenshots/`. Exports are readable summaries, not full backups (no recurrences/plan/actuals): use `Backup` snapshots for complete state. Exports are always plaintext, even with encryption on.
 - `Import: CSV` — idempotent on `(source, external_id)` (re-import skips, internal ids untouched; rows without external id are always new).
 - `Archive` — done tasks aside with viewer and restore.
 
@@ -117,6 +118,7 @@ Planner notes: deterministic (same input → same plan) and explainable (every r
 | `b` / `B` | Radar chart → text → hidden / full board |
 | `c` / `w` / `k` / `y` | Calendar / week / stats / project health |
 | `f` / `t` / `g` / `/` | State, tag, project, search filters |
+| `G` / `W` / `C` | Replan preview / Week review / Clear filters |
 | `Esc` (search active) | Clear search only (other filters kept) |
 | `T` / `v` / `m` / `ctrl+p` | Templates / theme / menu / command palette |
 | `ctrl+s` / `ctrl+e` | Screenshot SVG / Markdown export |
@@ -134,6 +136,7 @@ carpediem list --state active --project home
 carpediem list --porcelain               # id|state|priority|due|title, script-friendly
 carpediem done 12
 carpediem show 12
+carpediem replan [--now HH:MM] [--apply]  # read-only preview by default; --apply commits
 ```
 
 `add` without flags parses the phrase (`#tag *project !prio ~estimate //note`, recurrence, dates it/en); with flags the title is taken literally. `done`/`show` use ids; errors go to stderr with exit codes.
@@ -149,6 +152,8 @@ Everything lives in local JSON next to your home (offline-first):
 | `~/.todo_pomodoro.json` | Timer session + cycle |
 | `~/.todo_config.json` | Theme, filters, goals, language, `day_hours`, `kanban_mode`, `smart_lists` (max 10), `day_window` (`{date, start, end, events[]}`) |
 | `~/.todo_archive.json` | Archived done tasks |
+| `~/.todo_executions.json` | Pomodoro execution history (calibration; never backed up) |
+| `~/.todo_outlook_token.json` | Outlook token, owner-only, never backed up |
 | `~/Tasko_backups/` | Automatic zip snapshots (14 kept) |
 | `~/CarpeDiem_screenshots/` | SVG screenshots, CSV/Markdown exports |
 

@@ -70,7 +70,7 @@ Serve Python 3.12+. Costruito con Textual; dati in JSON locali (vedi Dati sotto)
 3. **Esecuzione (`p`, Piano giorno)** — la scheda operativa: esattamente i confermati (`planned_for == oggi`), ri-schedulati nella finestra persistita in ordine di merito del Planner. Le righe schedulate hanno prefisso `HH:MM–HH:MM` inline e restano operative (`Enter` dettaglio, `Space` stato, `o`/`O` pomodoro, `x` rimuovi); gli eventi fissi compaiono come righe `EVENTO:` in sola lettura; i senza-slot attendono in coda senza prefisso. Il marker `▶` segue il pomodoro in corso; il resoconto sera aggiunge la sezione `Pianificato vs eseguito` (stima, slot, sessioni, reali, stato).
 4. **Chiusura (`R`, Chiusura + resoconto sera)** — `R` mostra l'oggi (completati vs obiettivo, pomodori) e la scelta che diventa *esattamente* il piano di domani; il resoconto sera (`Giornata` → `Resoconto sera`) riepiloga fatti/rimasti, stampa e salta a `R` in un click. Senza finestra confermata il piano mostra righe semplici, mai un default 09:00–18:00 inventato.
 
-Note sul planner: deterministico (stessi input → stesso piano) e spiegabile (ogni riga ha il suo motivo). `day_hours` nelle Impostazioni è **capacità**, non orario di lavoro. Un task senza stima vale 1 pomodoro (30 min) ai soli fini di pianificazione — fallback, mai stima utente. Completare un task stimato chiede i pomodori reali (precompilati coi contati); il planner calibra col fattore mediano locale (min 5 campioni) mostrato nelle Statistiche. Niente rete, niente AI, niente calendario esterno nella v1.
+Note sul planner: deterministico (stessi input → stesso piano) e spiegabile (ogni riga ha il suo motivo). `day_hours` nelle Impostazioni è **capacità**, non orario di lavoro. Un task senza stima vale 1 pomodoro (30 min) ai soli fini di pianificazione — fallback, mai stima utente. Completare un task stimato chiede i pomodori reali (precompilati coi contati); il planner calibra col fattore mediano locale (min 5 campioni) mostrato nelle Statistiche. Niente AI, e il planner non usa mai la rete (la pianificazione è sempre offline); l'unico uso di rete del prodotto è l'import calendario Outlook opt-in (vedi sotto).
 
 ## Viste
 
@@ -81,6 +81,7 @@ Note sul planner: deterministico (stessi input → stesso piano) e spiegabile (o
 - `Piano giorno` (`p`) — piano manuale di oggi (`+` aggiunge dai Prossimi, `x` rimuove, `Space` sospende, `Enter` dettaglio, `o`/`O` pomodoro).
 - `Settimana` (`w`) / `Calendario` (`c`) — striscia settimanale e mese navigabile (giorno → piano giorno).
 - `Resoconto sera` / `Chiusura giornata` (`R`) — riepilogo + stampa + scelta di domani.
+- `Outlook` (opt-in) — collega il calendario Microsoft dal Buongiorno (bottone) per caricare gli impegni fissi del giorno; serve cifratura attiva, registrazione Entra propria, un login browser (auth-code + PKCE, solo `Calendars.Read`).
 
 ### Viste e analisi
 - Radar scadenze (`b` a ciclo grafico → testo → nascosto, `B` board completa) — scatter priorità × orizzonte con linea oggi, caption dei peggiori e conteggio senza-data; click sul punto per il dettaglio (o picker sulle sovrapposizioni). A radar vuoto torna al testo da solo, senza sovrascrivere la tua preferenza.
@@ -92,7 +93,7 @@ Note sul planner: deterministico (stessi input → stesso piano) e spiegabile (o
 
 ### Dati: backup, trasferimento, archivio
 - `Backup ora` / `Ripristina backup` — snapshot zip automatici in `~/Tasko_backups/` (14 tenuti), ripristino validato prima di toccare il disco con rollback.
-- `Export: Markdown` (`ctrl+e`) / `CSV` / `CSV statistiche` / `iCal` — l'`.ics` copre i task attivi con scadenza; i file finiscono in `~/CarpeDiem_screenshots/`.
+- `Export: Markdown` (`ctrl+e`) / `CSV` / `CSV statistiche` / `iCal` — l'`.ics` copre i task attivi con scadenza; i file finiscono in `~/CarpeDiem_screenshots/`. Gli export sono riepiloghi leggibili, non backup completi (niente ricorrenze/piano/reali): per lo stato completo usare gli snapshot `Backup`. Gli export sono sempre in chiaro, anche con cifratura attiva.
 - `Import: CSV` — idempotente su `(source, external_id)` (re-import salta, id interni intatti; righe senza external id sempre nuove).
 - `Archivio` — completati da parte con vista e ripristino.
 
@@ -117,6 +118,7 @@ Note sul planner: deterministico (stessi input → stesso piano) e spiegabile (o
 | `b` / `B` | Radar grafico → testo → nascosto / board completa |
 | `c` / `w` / `k` / `y` | Calendario / settimana / statistiche / salute progetti |
 | `f` / `t` / `g` / `/` | Filtri stato, tag, progetto, ricerca |
+| `G` / `W` / `C` | Anteprima replan / Revisione settimana / Pulisci filtri |
 | `Esc` (con ricerca attiva) | Pulisce solo la ricerca (altri filtri intatti) |
 | `T` / `v` / `m` / `ctrl+p` | Template / tema / menu / palette comandi |
 | `ctrl+s` / `ctrl+e` | Screenshot SVG / export Markdown |
@@ -134,6 +136,7 @@ carpediem list --state active --project casa
 carpediem list --porcelain               # id|stato|priorità|scadenza|titolo, per script
 carpediem done 12
 carpediem show 12
+carpediem replan [--now HH:MM] [--apply]  # anteprima sola lettura di default; --apply applica
 ```
 
 `add` senza flag analizza la frase (`#tag *progetto !prio ~stima //nota`, ricorrenze, date it/en); con flag il titolo è letterale. `done`/`show` usano gli id; errori su stderr con exit code.
@@ -149,6 +152,8 @@ Tutto in JSON locali vicino alla home (offline-first):
 | `~/.todo_pomodoro.json` | Sessione timer + ciclo |
 | `~/.todo_config.json` | Tema, filtri, obiettivi, lingua, `day_hours`, `kanban_mode`, `smart_lists` (max 10), `day_window` (`{date, start, end, events[]}`) |
 | `~/.todo_archive.json` | Completati archiviati |
+| `~/.todo_executions.json` | Storico esecuzioni pomodoro (calibrazione; mai in backup) |
+| `~/.todo_outlook_token.json` | Token Outlook, solo proprietario, mai in backup |
 | `~/Tasko_backups/` | Snapshot zip automatici (14 tenuti) |
 | `~/CarpeDiem_screenshots/` | Screenshot SVG, export CSV/Markdown |
 
