@@ -184,3 +184,27 @@ def test_schedule_non_muta_il_dayplan():
 def test_durata_zero_slot_puntuale():
     r = schedule(make_plan(item(1, pomo=0)), [win(9, 10)])
     assert slots(r) == [(1, at(9), at(9))]
+
+
+def test_b6_stima_enorme_mai_crash_unscheduled():
+    """B6: durata oltre le 24h infeasible per costruzione, mai OverflowError."""
+    import sys
+
+    for huge in (10**14, 10**18, sys.maxsize):
+        plan = make_plan(item(1, pomo=huge), item(2, pomo=1))
+        r = schedule(plan, [win(9, 18)])
+        assert [s.item.todo_id for s in r.scheduled] == [2]
+        assert [i.todo_id for i in r.unscheduled] == [1]
+
+
+def test_b6_probe_duration_senza_crash():
+    """B6: la probe riusa schedule() -> BLOCKED_DURATION, mai OverflowError."""
+    import src.planner.diagnostics as dg
+    import src.planner.models as m
+
+    plan = make_plan(item(1, pomo=10**15))
+    sched = schedule(plan, [win(9, 18)])
+    req = m.PlanningRequest(day=DAY, tasks=(), capacity_pomo=12.0)
+    res = m.PlanningResult(request=req, plan=plan, scheduled=sched)
+    alts, _ = dg.diagnose(res)
+    assert alts[0].blocked_by == "duration"
