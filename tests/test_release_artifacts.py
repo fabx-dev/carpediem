@@ -46,7 +46,9 @@ def test_runtime_deps_declared():
 def _norm_name(req: str) -> str:
     import re
 
-    return re.split(r"[<>=!~\s\[]", req.strip(), 1)[0].lower().replace("_", "-")
+    return (
+        re.split(r"[<>=!~\s\[]", req.strip(), maxsplit=1)[0].lower().replace("_", "-")
+    )
 
 
 def _spec_of(req: str) -> str:

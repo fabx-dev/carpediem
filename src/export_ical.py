@@ -1,8 +1,9 @@
 """Export iCal puro (estratto da TodoApp, E1): niente I/O/UI.
 
 `ical_event_lines` produce le righe VEVENT per un task; la scrittura del
-file .ics resta nella action (unico punto di I/O). Comportamento identico
-all'originale: stesso UID, stessi escape, stesso DTSTART/DTEND.
+file .ics resta nella action (unico punto di I/O). Esteso oltre
+l'originale: UID fallback deterministico, DTEND da stima, fold RFC 5545,
+CR hygiene (vedi Phase 3).
 """
 
 import hashlib
