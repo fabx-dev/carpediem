@@ -1105,7 +1105,7 @@ class ReviewScreen(CloseMixin, ModalScreen[None]):
     @staticmethod
     def _option_label(t: TodoItem) -> str:
         due = _due_date_part(t.due)
-        extra = f" (scad. {due})" if due else ""
+        extra = T("plan_overdue_row", due=due) if due else ""
         # Niente #id in coda (resta nel value) e quadre letterali nei titoli.
         return f"{_escape_markup(t.title)}{extra}"
 
@@ -1652,7 +1652,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         t = self.by_id.get(t_id)
         title = _escape_markup(t.title) if t else f"#{t_id}"
         due = _due_date_part(t.due) if t else ""
-        extra = f" (scad. {due})" if due else ""
+        extra = T("plan_overdue_row", due=due) if due else ""
         why = ", ".join(
             T(k, **p) for k, p in reasons if k not in (explain.CUT, explain.SKIPPED)
         )

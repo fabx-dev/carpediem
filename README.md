@@ -4,6 +4,14 @@
 
 CarpeDiem (carpe diem — seize the day) turns quick notes into a realistic day plan: natural-language capture, a smart morning proposal with real time slots, pomodoro focus during the day, evening closing. Offline-first, in English or Italian, no account, no network in the planning path.
 
+What makes it different:
+
+- **Real time slots, not just a list** — the planner places tasks into `HH:MM–HH:MM` blocks inside your explicit availability, around fixed events, respecting deadlines, priorities, durations and daily capacity.
+- **Deterministic and explainable** — same input always yields the same plan, and every row carries its reason (deadline, priority, calibration…). No scoring black box, no AI service.
+- **It learns your pace** — finishing a task records the actual pomodoros; the planner calibrates future estimates from your local history (median factor, min 5 samples, shown in Stats).
+- **Local-first and private** — everything lives in JSON next to your home; planning never touches the network. Optional Fernet encryption, fail-closed writes (an unreadable disk is never overwritten), CLI and TUI safely sharing the same data.
+- **Usable from the terminal** — the full loop works in the TUI, and `add`/`list`/`done`/`show`/`replan` work headless for scripts.
+
 ```text
 Capture in seconds (n, natural language) → morning proposal to confirm (P)
 → work from the Day plan timeline with pomodoro (p, o) → evening Closing (R).
@@ -38,6 +46,7 @@ In the app, open the menu (`m`) → `Day` → `Recommended workflow` for the 5-s
 ```bash
 pipx install carpediem
 ```
+Plain `pip` works too (`pip install carpediem`), preferably inside a virtualenv.
 From the git repo:
 ```bash
 pipx install git+https://github.com/fabx-dev/carpediem.git
@@ -140,6 +149,8 @@ carpediem replan [--now HH:MM] [--apply]  # read-only preview by default; --appl
 ```
 
 `add` without flags parses the phrase (`#tag *project !prio ~estimate //note`, recurrence, dates it/en); with flags the title is taken literally. `done`/`show` use ids; errors go to stderr with exit codes.
+
+Use the TUI for the daily loop and the CLI for quick capture and scripts: `list --porcelain` emits stable `id|state|priority|due|title` rows, `replan` previews without writing unless `--apply` is given, and concurrent CLI/TUI use is safe (single-writer lock + per-id merge).
 
 ## Data
 

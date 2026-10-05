@@ -4,6 +4,14 @@
 
 CarpeDiem (carpe diem — cogli il giorno) trasforma appunti veloci in un piano giornaliero realistico: inserimento in linguaggio naturale, proposta smart al mattino con orari veri, pomodoro durante il giorno, chiusura serale. Offline, in italiano o inglese, senza account, senza rete nel percorso di pianificazione.
 
+Cosa lo distingue:
+
+- **Slot orari veri, non solo una lista** — il planner colloca i task in blocchi `HH:MM–HH:MM` dentro la tua disponibilità esplicita, attorno agli eventi fissi, rispettando scadenze, priorità, durate e capacità giornaliera.
+- **Deterministico e spiegabile** — stessi input, stesso piano; ogni riga riporta il suo motivo (scadenza, priorità, stime calibrate…). Niente black box di punteggio, niente servizi AI.
+- **Impara il tuo ritmo** — completare un task registra i pomodori reali; il planner calibra le stime future dalla tua storia locale (fattore mediano, min 5 campioni, visibile nelle Statistiche).
+- **Local-first e privato** — tutto in JSON vicino alla home; la pianificazione non tocca mai la rete. Cifratura Fernet opzionale, scritture fail-closed (un disco illeggibile non viene mai sovrascritto), CLI e TUI condividono gli stessi dati in sicurezza.
+- **Usabile dal terminale** — il loop completo nella TUI, e `add`/`list`/`done`/`show`/`replan` headless per gli script.
+
 ```text
 Segna tutto in secondi (n, linguaggio naturale) → al mattino Buongiorno con proposta da confermare (P)
 → lavora dal Piano giorno con pomodoro (p, o) → la sera Chiusura giornata (R).
@@ -38,6 +46,7 @@ Dentro l'app, apri il menu (`m`) → `Giornata` → `Workflow consigliato` per l
 ```bash
 pipx install carpediem
 ```
+Va bene anche `pip install carpediem` (meglio in un virtualenv).
 Dal repo git:
 ```bash
 pipx install git+https://github.com/fabx-dev/carpediem.git
@@ -140,6 +149,8 @@ carpediem replan [--now HH:MM] [--apply]  # anteprima sola lettura di default; -
 ```
 
 `add` senza flag analizza la frase (`#tag *progetto !prio ~stima //nota`, ricorrenze, date it/en); con flag il titolo è letterale. `done`/`show` usano gli id; errori su stderr con exit code.
+
+Usa la TUI per il loop quotidiano e la CLI per cattura rapida e script: `list --porcelain` emette righe stabili `id|stato|priorità|scadenza|titolo`, `replan` mostra l'anteprima senza scrivere salvo `--apply`, e l'uso concorrente CLI/TUI è sicuro (lock a scrittore singolo + merge per id).
 
 ## Dati
 
