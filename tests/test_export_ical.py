@@ -87,3 +87,44 @@ def test_uid_con_id_invariato():
     t = make_todo("X", todo_id=7, due="2026-01-02 09:30")
     lines = ei.ical_event_lines(t, "2026-01-02", "09:30", "S")
     assert "UID:carpediem-7@carpediem.local" in lines
+
+
+def test_dtend_da_stima_e_default_30m():
+    """C1.5: timed ha DTEND = start + stima (30m se assente)."""
+    t = make_todo("X", todo_id=1, due="2026-01-02 09:30", stima_pomo=2)
+    lines = ei.ical_event_lines(t, "2026-01-02", "09:30", "S")
+    assert "DTSTART:20260102T093000" in lines
+    assert "DTEND:20260102T103000" in lines
+    t0 = make_todo("Y", todo_id=2, due="2026-01-02 09:30")
+    lines0 = ei.ical_event_lines(t0, "2026-01-02", "09:30", "S")
+    assert "DTEND:20260102T100000" in lines0
+
+
+def test_fold_75_ottetti_e_unfold():
+    """C1.6: righe lunghe piegate RFC 5545, unfold = originale."""
+    t = make_todo("Z", todo_id=3, due="2026-01-03", notes="n" * 200)
+    lines = ei.ical_event_lines(t, "2026-01-03", "", "S")
+    assert all(len(line.encode("utf-8")) <= 75 for line in lines)
+    unfolded = []
+    for line in lines:
+        if line.startswith(" ") and unfolded:
+            unfolded[-1] += line[1:]
+        else:
+            unfolded.append(line)
+    assert any("n" * 200 in u for u in unfolded)
+    # Mai spezzare codepoint: titolo con emoji lunga.
+    te = make_todo("E" + "🎉" * 40, todo_id=4, due="2026-01-04")
+    le = ei.ical_event_lines(te, "2026-01-04", "", "S")
+    assert all(len(line.encode("utf-8")) <= 75 for line in le)
+    ue = []
+    for line in le:
+        if line.startswith(" ") and ue:
+            ue[-1] += line[1:]
+        else:
+            ue.append(line)
+    assert any("🎉" * 40 in u for u in ue)
+
+
+def test_cr_normalizzato_in_escape():
+    """C1.7: \\r\\n e \\r isolati non rompono le righe .ics."""
+    assert ei.ical_escape("a\r\nb\rc") == "a\\nb\\nc"

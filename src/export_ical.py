@@ -15,11 +15,39 @@ from src.models import TodoItem
 def ical_escape(value: str) -> str:
     return (
         str(value)
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
         .replace("\\", "\\\\")
         .replace(";", "\\;")
         .replace(",", "\\,")
         .replace("\n", "\\n")
     )
+
+
+def ical_fold(line: str, width: int = 75) -> list[str]:
+    """Piega una riga .ics a <width> ottetti (RFC 5545 §3.1, CRLF+SP).
+    Solo aggiunta di continuazioni: parser tolleranti leggono entrambi."""
+    raw = line.encode("utf-8")
+    if len(raw) <= width:
+        return [line]
+    out, first = [], True
+    while raw:
+        limit = width if first else width - 1
+        chunk, rest = raw[:limit], raw[limit:]
+        # Mai spezzare un codepoint UTF-8: arretra fino a decodifica valida.
+        while chunk:
+            try:
+                text = chunk.decode("utf-8")
+                break
+            except UnicodeDecodeError:
+                rest = chunk[-1:] + rest
+                chunk = chunk[:-1]
+        else:
+            text = ""  # mai con width>=4 (rest contiene gia' tutto)
+        out.append((" " if not first else "") + text)
+        raw = rest
+        first = False
+    return out
 
 
 def _fallback_uid(title: str, due: str) -> str:
@@ -56,6 +84,20 @@ def ical_event_lines(
     if time_part:
         start = date_part.replace("-", "") + "T" + time_part.replace(":", "") + "00"
         lines.append(f"DTSTART:{start}")
+        # Durata dichiarata dalla stima (30m per pomodoro, 30m se assente:
+        # stessa convenzione del planner; solo display, mai vincolo).
+        # Senza DTEND i client mostrano durata zero (C1.5).
+        try:
+            minutes = max(1, int(todo.stima_pomo or 0)) * 30
+        except (ValueError, TypeError):
+            minutes = 30
+        try:
+            end = (
+                datetime.strptime(start, "%Y%m%dT%H%M%S") + timedelta(minutes=minutes)
+            ).strftime("%Y%m%dT%H%M%S")
+        except ValueError:
+            end = start
+        lines.append(f"DTEND:{end}")
     else:
         start = date_part.replace("-", "")
         try:
@@ -67,4 +109,7 @@ def ical_event_lines(
         lines.append(f"DTSTART;VALUE=DATE:{start}")
         lines.append(f"DTEND;VALUE=DATE:{end}")
     lines.append("END:VEVENT")
-    return lines
+    folded: list[str] = []
+    for line in lines:
+        folded.extend(ical_fold(line))
+    return folded
