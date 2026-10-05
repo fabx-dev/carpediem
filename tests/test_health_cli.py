@@ -192,3 +192,24 @@ def test_cli_sotto_lock_exit_pulito(tmp_files, capsys, monkeypatch):
     assert _cli_main(["add", "X"]) == 1
     err = capsys.readouterr().err
     assert "carpediem:" in err and "Traceback" not in err
+
+
+def test_cli_unreadable_esce_1(tmp_files, capsys):
+    """C2: disco cifrato senza chiave mai presentato come vuoto."""
+    import src.crypto as crypto_mod
+    import src.storage as st
+    from src.cli import _cli_main
+    from src.crypto import encode_password
+    from tests.conftest import make_todo
+
+    crypto_mod.set_key(encode_password("segreta12"))
+    try:
+        st._save_todos_plain([make_todo("A", todo_id=1)])
+    finally:
+        crypto_mod.set_key(None)
+    assert _cli_main(["list"]) == 1
+    assert "carpediem:" in capsys.readouterr().err
+    assert _cli_main(["show", "1"]) == 1
+    assert _cli_main(["done", "1"]) == 1
+    assert _cli_main(["add", "X"]) == 1
+    assert _cli_main(["replan"]) == 1

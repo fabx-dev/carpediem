@@ -183,6 +183,12 @@ def _cli_main(argv: list[str]) -> int:
     def err(msg: str) -> None:
         print(f"carpediem: {msg}", file=sys.stderr)
 
+    # C2: mai presentare un disco illeggibile come "vuoto"/"non trovato".
+    from src.storage import DATA_FILE, _disk_state
+
+    if _disk_state(DATA_FILE) in ("UNREADABLE", "CORRUPT"):
+        err(T("cli_unreadable"))
+        return 1
     try:
         return _cli_dispatch(args, err)
     except OSError as exc:
