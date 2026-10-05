@@ -208,3 +208,15 @@ def test_b6_probe_duration_senza_crash():
     res = m.PlanningResult(request=req, plan=plan, scheduled=sched)
     alts, _ = dg.diagnose(res)
     assert alts[0].blocked_by == "duration"
+
+
+def test_b6_fit_esatto_24h_resta_schedulabile():
+    """B6: 48 pomo = 24h esatti in finestra full-day si collocano;
+    49 restano unscheduled senza crash."""
+    from datetime import datetime
+
+    full = (TimeWindow(datetime(2026, 9, 10, 0, 0), datetime(2026, 9, 11, 0, 0)),)
+    r = schedule(make_plan(item(1, pomo=48)), full)
+    assert [s.item.todo_id for s in r.scheduled] == [1]
+    r2 = schedule(make_plan(item(1, pomo=49)), full)
+    assert [i.todo_id for i in r2.unscheduled] == [1]

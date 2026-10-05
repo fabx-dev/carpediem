@@ -112,27 +112,39 @@ def test_e2_scheduled_for_today_golden():
     assert sched2 is not None and sched2.plan is not None
 
 
-def test_b4_orfano_stessa_policy_del_dayplan():
+def test_b4_orfano_stessa_policy_del_dayplan(monkeypatch):
     """B4: attivo senza PlanItem (id orfano) usa capacity.estimate col
     factor del piano, mai il grezzo non calibrato. Con factor=None invariato."""
+    from datetime import date
+    from types import SimpleNamespace
+
+    import src.screens.plan as plan_mod
+    from src.planner.models import DayPlan, PlanItem
     from src.screens.plan import scheduled_for_today
 
-    hist = []
-    for i in range(5):
-        t = make_todo(f"H{i}", todo_id=100 + i, stima_pomo=1, actual_pomo=2)
-        t.done = True
-        hist.append(t)
-    todos = hist + [
-        make_todo("A", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
-        make_todo("B-orfano", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
-    ]
-    sched, _ev, _conf, _planned, _alts = scheduled_for_today(todos, TODAY_S, 6.0, None)
+    day = date(2026, 9, 10)
+    a = make_todo("A", todo_id=1, planned_for=TODAY_S, stima_pomo=2)
+    orphan = make_todo("B-orfano", todo_id=2, planned_for=TODAY_S, stima_pomo=2)
+    # Piano senza l'id 2: il ripiego orfani deve scattare davvero.
+    partial = DayPlan(
+        day=day,
+        planned=(PlanItem(1, 10, (), 4, False),),
+        capacity_pomo=12.0,
+        planned_pomo=4,
+        factor=2.0,
+    )
+    monkeypatch.setattr(
+        plan_mod, "plan_request", lambda req: SimpleNamespace(plan=partial)
+    )
+    sched, _ev, _conf, _planned, _alts = scheduled_for_today(
+        [a, orphan], TODAY_S, 6.0, None
+    )
     ests = sorted(i.estimate_pomo for i in sched.plan.planned)
-    assert ests == [4, 4], ests  # calibrati entrambi (factor 2.0)
-    # Senza storici (factor None): fallback 1:1 invariato.
-    plain = [
-        make_todo("A", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
-        make_todo("B-orfano", todo_id=1, planned_for=TODAY_S, stima_pomo=2),
-    ]
-    sched2, _e, _c, _p2, _a = scheduled_for_today(plain, TODAY_S, 6.0, None)
+    assert ests == [4, 4], ests  # orfano calibrato (2*2.0), non grezzo (2)
+    # Con factor=None il ripiego resta identico al vecchio inline.
+    plain = DayPlan(day=day, planned=(PlanItem(1, 10, (), 2, False),))
+    monkeypatch.setattr(
+        plan_mod, "plan_request", lambda req: SimpleNamespace(plan=plain)
+    )
+    sched2, _e, _c, _p2, _a = scheduled_for_today([a, orphan], TODAY_S, 6.0, None)
     assert sorted(i.estimate_pomo for i in sched2.plan.planned) == [2, 2]

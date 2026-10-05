@@ -101,17 +101,11 @@ def _subtract(free: list, busy: list) -> list:
     return out
 
 
-_DAY = timedelta(days=1)
+_DAY_MINUTES = 24 * 60
 
 
 def _duration(item: PlanItem) -> timedelta:
-    """Durata dello slot, mai oltre le 24h (B6): lo scheduler e' giornaliero
-    e una durata superiore e' infeasible per costruzione — clamp invece di
-    crash (OverflowError su timedelta), lo schedule() la lascia unscheduled."""
-    try:
-        return min(timedelta(minutes=pomo_minutes(item.estimate_pomo)), _DAY)
-    except OverflowError:
-        return _DAY
+    return timedelta(minutes=pomo_minutes(item.estimate_pomo))
 
 
 def deadlines_for(todos) -> dict:
@@ -209,14 +203,15 @@ def schedule(plan, availability, busy=(), deadlines=None) -> ScheduledDayPlan:
     )
     scheduled: list = []
     unscheduled: list = []
-    day_span = hi - lo
     for item in ordered:
-        need = _duration(item)
-        if need >= day_span:
-            # Infeasible per costruzione (B6): nessuna finestra del giorno
-            # puo' contenerla, mai tentare il fit.
+        # Infeasible per costruzione (B6): lo scheduler e' giornaliero,
+        # oltre le 24h nessuna finestra puo' bastare. Confronto sui minuti
+        # (int, mai overflow) PRIMA di costruire il timedelta; il fit esatto
+        # 24h resta schedulabile.
+        if pomo_minutes(item.estimate_pomo) > _DAY_MINUTES:
             unscheduled.append(item)
             continue
+        need = _duration(item)
         limit = _deadline(deadlines, item.todo_id, plan.day)
         placed = None
         for i, slot in enumerate(free):
