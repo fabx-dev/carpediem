@@ -17,6 +17,7 @@ from textual.widgets import (
     TextArea,
 )
 
+import src.storage as _storage
 from src import crypto as _crypto
 from src import domain
 from src import export_ical as _export_ical
@@ -107,11 +108,14 @@ from src.storage import (
     load_archive,
     load_config,
     load_executions,
+    load_outlook_token,
     load_pomodoro,
     load_templates,
     restore_snapshot,
     save_archive,
     save_config,
+    save_executions,
+    save_outlook_token,
     save_pomodoro,
     save_templates,
     snapshot_info,
@@ -3129,17 +3133,30 @@ class TodoApp(App):
         # E2: logica in src/security_validation.py, qui solo delega.
         return _sec_validation.valid_disable(values, self._sec_current_ok)
 
-    def _rewrite_all_state(self, archive_items: list | None = None) -> None:
+    def _rewrite_all_state(
+        self,
+        archive_items: list | None = None,
+        executions: list | None = None,
+        token: str | None = None,
+    ) -> None:
         # Unico path con memoria autorevole + chiave appena verificata:
-        # riscrive anche dischi UNREADABLE (vecchia chiave). L'archivio va
-        # fotografato PRIMA della rotazione chiave (dal chiamante): dopo,
-        # il disco sarebbe illeggibile e load darebbe [] (wipe).
+        # riscrive anche dischi UNREADABLE (vecchia chiave). Archivio,
+        # executions e token vanno fotografati PRIMA della rotazione chiave
+        # (dal chiamante): dopo, il disco sarebbe illeggibile e load
+        # darebbe []/None (wipe funzionale, vedi B1).
         self._save_data(force_rewrite=True)
         save_templates(self.templates, force_rewrite=True)
         self._save_pomodoro(force_rewrite=True)
         try:
             items = archive_items if archive_items is not None else load_archive()
             save_archive(items, force_rewrite=True)
+        except Exception:
+            pass
+        try:
+            if executions is not None:
+                save_executions(executions, force_rewrite=True)
+            if token is not None:
+                save_outlook_token(token)
         except Exception:
             pass
 
@@ -3159,9 +3176,11 @@ class TodoApp(App):
             self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
         arch = load_archive()  # PRIMA della rotazione chiave (dopo: illeggibile)
+        execs = load_executions()
+        tok = load_outlook_token()
         _crypto.set_key(_crypto.encode_password(new))
         try:
-            self._rewrite_all_state(arch)
+            self._rewrite_all_state(arch, execs, tok)
         except Exception as exc:
             _crypto.set_key(None)
             self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
@@ -3170,7 +3189,10 @@ class TodoApp(App):
         self.notify(T("n_sec_enabled"))
 
     def _sec_current_ok(self, password: str) -> bool:
-        for name, path in _backup_sources():
+        # Path risolti dal modulo storage (mai binding importati: tmp_files
+        # dei test li rimappa e i from-import resterebbero stantii).
+        sources = list(_backup_sources()) + [("executions", _storage.EXECUTIONS_FILE)]
+        for name, path in sources:
             if name == "config":
                 continue
             try:
@@ -3194,9 +3216,11 @@ class TodoApp(App):
             self.notify(T("n_sec_mismatch"), severity="error")
             return
         arch = load_archive()  # PRIMA della rotazione chiave (dopo: illeggibile)
+        execs = load_executions()
+        tok = load_outlook_token()
         _crypto.set_key(_crypto.encode_password(new))
         try:
-            self._rewrite_all_state(arch)
+            self._rewrite_all_state(arch, execs, tok)
         except Exception as exc:
             self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return
@@ -3210,9 +3234,11 @@ class TodoApp(App):
             self.notify(T("n_sec_badcurrent"), severity="error")
             return
         arch = load_archive()  # PRIMA della rotazione chiave (dopo: illeggibile)
+        execs = load_executions()
+        tok = load_outlook_token()
         _crypto.set_key(None)
         try:
-            self._rewrite_all_state(arch)
+            self._rewrite_all_state(arch, execs, tok)
         except Exception as exc:
             self.notify(T("n_bak_fail", e=_escape_markup(str(exc))), severity="error")
             return

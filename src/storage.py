@@ -1161,6 +1161,25 @@ def load_executions() -> list[TaskExecution]:
     return [TaskExecution.from_dict(d) for d in _read_dict_list(EXECUTIONS_FILE)]
 
 
+def save_executions(items: list, *, force_rewrite: bool = False) -> None:
+    """Riscrive l'intera history (solo password rotation: snapshot
+    pre-rotazione + force_rewrite, mai uso normale che e' append-only).
+    Stesse garanzie di append: lock singolo, cap, guard fail-closed."""
+    raw = []
+    for e in items or []:
+        if isinstance(e, TaskExecution):
+            raw.append(e.to_dict())
+        elif isinstance(e, dict):
+            raw.append(e)
+    dicts = [d for d in raw if isinstance(d, dict)]
+    with _locked(EXECUTIONS_FILE):
+        if not force_rewrite:
+            _ensure_writable(EXECUTIONS_FILE)
+        if len(dicts) > MAX_EXECUTIONS:
+            dicts = dicts[-MAX_EXECUTIONS:]
+        _write_locked(EXECUTIONS_FILE, _dump_state_text(dicts))
+
+
 def append_execution(exec: TaskExecution | dict) -> TaskExecution:
     """Aggiunge un record alla history sotto un solo lock (append-only).
 

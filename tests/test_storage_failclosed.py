@@ -289,3 +289,108 @@ def test_d5_unlock_poi_commit_funziona():
         assert _titles(TodoStore.load()) == ["A", "B"]
     finally:
         crypto_mod.set_key(None)
+
+
+def _seed_executions(n=3, actual=2):
+    from src.models import TaskExecution
+
+    recs = [
+        TaskExecution(task_id=i, ended_at=f"2026-09-{10 + i:02d}", estimate_pomo=1,
+                      actual_minutes=60 * actual)
+        for i in range(1, n + 1)
+    ]
+    for r in recs:
+        st.append_execution(r)
+    return recs
+
+
+def test_b1_executions_sopravvivono_a_enable_change_disable(tmp_files):
+    """B1: history leggibile + appendibile dopo ogni rotazione chiave."""
+    from tests.conftest import make_app, run
+
+    async def t():
+        st._save_todos_plain([TodoItem(todo_id=1, title="A")])
+        _seed_executions(3)
+        assert len(st.load_executions()) == 3
+        app = make_app([TodoItem(todo_id=1, title="A")])
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause()
+            app._sec_enable(["nuova1234", "nuova1234"])
+            await pilot.pause()
+            assert [e.task_id for e in st.load_executions()] == [1, 2, 3]
+            st.append_execution(
+                {"task_id": 4, "ended_at": "2026-09-14", "estimate_pomo": 1,
+                 "actual_minutes": 120}
+            )
+            assert len(st.load_executions()) == 4
+            app._sec_change(["nuova1234", "altra1234", "altra1234"])
+            await pilot.pause()
+            assert [e.task_id for e in st.load_executions()] == [1, 2, 3, 4]
+            st.append_execution(
+                {"task_id": 5, "ended_at": "2026-09-15", "estimate_pomo": 1,
+                 "actual_minutes": 120}
+            )
+            app._sec_disable(["altra1234"])
+            await pilot.pause()
+            assert not crypto_mod.is_unlocked()
+            got = st.load_executions()
+            assert [e.task_id for e in got] == [1, 2, 3, 4, 5]
+            assert not crypto_mod.is_envelope(
+                st.EXECUTIONS_FILE.read_text(encoding="utf-8")
+            )
+
+    run(t())
+
+
+def test_b1_token_preservato_dalla_rotation(tmp_files):
+    """B1: il login Outlook sopravvive al cambio password (no logout)."""
+    from tests.conftest import make_app, run
+
+    async def t():
+        st._save_todos_plain([TodoItem(todo_id=1, title="A")])
+        app = make_app([TodoItem(todo_id=1, title="A")])
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause()
+            app._sec_enable(["nuova1234", "nuova1234"])
+            await pilot.pause()
+            st.save_outlook_token('{"cache": "tok123"}')
+            assert st.load_outlook_token() == '{"cache": "tok123"}'
+            app._sec_change(["nuova1234", "altra1234", "altra1234"])
+            await pilot.pause()
+            assert st.load_outlook_token() == '{"cache": "tok123"}'
+            app._sec_disable(["altra1234"])
+            await pilot.pause()
+            assert st.load_outlook_token() == '{"cache": "tok123"}'
+
+    run(t())
+
+
+def test_b1_calibration_stessa_prima_e_dopo(tmp_files):
+    """B1: la calibration sui todos non cambia con la rotation."""
+    from src.domain import calibration_factor
+    from tests.conftest import make_app, run
+
+    async def t():
+        hist = []
+        for i in range(5):
+            t = TodoItem(todo_id=100 + i, title=f"H{i}")
+            t.done = True
+            t.stima_pomo = 1
+            t.actual_pomo = 2
+            hist.append(t)
+        st._save_todos_plain(
+            [TodoItem(todo_id=1, title="A")] + hist
+        )
+        before = calibration_factor(hist)
+        assert before == 2.0
+        app = make_app([TodoItem(todo_id=1, title="A")] + hist)
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause()
+            app._sec_enable(["nuova1234", "nuova1234"])
+            await pilot.pause()
+            after = calibration_factor(
+                [x for x in TodoStore.load().all() if x.state == "completato"]
+            )
+            assert after == before == 2.0
+
+    run(t())
