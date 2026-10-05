@@ -74,21 +74,27 @@ def _cli_replan(args, err) -> int:
     avail: list = []
     busy: tuple = ()
     sched = None
-    try:
-        from src.planner.scheduler import events_to_busy
-        from src.screens.plan import day_window_parts, scheduled_for_today
+    window = load_config().get("day_window")
+    if not isinstance(window, dict) or window.get("date") != today:
+        window = None
+    if window is not None:
+        # Finestra odierna presente: qualunque errore qui e' reale
+        # (mai degrado silenzioso a task-only come per finestra assente).
+        try:
+            from src.planner.scheduler import events_to_busy
+            from src.screens.plan import day_window_parts, scheduled_for_today
 
-        window = load_config().get("day_window")
-        if not isinstance(window, dict) or window.get("date") != today:
-            window = None
-        parts = day_window_parts(window, today)
-        if parts is not None:
-            start, end, events, _allday = parts
-            avail = [TimeWindow(start, end)]
-            busy = events_to_busy(events)
-        sched, _ev, _al, _pl, _alts = scheduled_for_today(todos, today, hours, window)
-    except Exception:
-        pass
+            parts = day_window_parts(window, today)
+            if parts is not None:
+                start, end, events, _allday = parts
+                avail = [TimeWindow(start, end)]
+                busy = events_to_busy(events)
+            sched, _ev, _al, _pl, _alts = scheduled_for_today(
+                todos, today, hours, window
+            )
+        except Exception as exc:
+            err(f"{T('cli_replan_winbad')}: {exc}")
+            return 1
     proposal = replan(todos, today, hours, avail, busy, now, current=sched)
     by_id = {t.id: t for t in todos}
     print(T("cli_replan_title", date=today, now=now.strftime("%H:%M")))
@@ -133,6 +139,8 @@ def _cli_replan(args, err) -> int:
     if not proposal.moves:
         print(T("cli_replan_no_changes"))
     if args.apply:
+        if not proposal.moves:
+            return 0  # niente da applicare: nessun commit, nessun .bak toccato
         added, dropped = _domain.apply_replan(todos, proposal, today)
         store.commit()
         print(T("cli_replan_applied", a=added, d=dropped))

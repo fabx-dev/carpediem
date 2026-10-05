@@ -119,3 +119,54 @@ def test_b2_now_oltre_fine_riga_senza_orario(tmp_files, capsys, monkeypatch):
     assert T("cli_replan_moved") in out
     assert T("cli_replan_row_noslot", t="A") in out
     assert T("cli_replan_row_noslot", t="B") in out
+
+
+def test_c4_finestra_corrotta_exit_1_senza_scritture(tmp_files, capsys, monkeypatch):
+    """C4: errore reale con finestra odierna -> exit 1, mai degrado."""
+    from datetime import datetime
+
+    import src.screens.plan as plan_mod
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    _seed(today)
+    cfg = st.load_config()
+    cfg["day_window"] = {"date": today, "start": "09:00", "end": "18:00", "events": []}
+    st.save_config(cfg)
+    monkeypatch.setattr(
+        plan_mod,
+        "day_window_parts",
+        lambda *a, **k: (_ for _ in ()).throw(TypeError("finestra rotta")),
+    )
+    before = _hashes()
+    assert _cli_main(["replan", "--now", "15:00"]) == 1
+    assert _hashes() == before
+    assert (
+        "annullato" in capsys.readouterr().err or "aborted" in capsys.readouterr().err
+    )
+
+
+def test_c4_sched_failure_exit_1_senza_apply(tmp_files, capsys, monkeypatch):
+    """C4: errore scheduling con finestra valida -> exit 1, apply rifiutato."""
+    from datetime import datetime
+
+    import src.screens.plan as plan_mod
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    _seed(today)
+    monkeypatch.setattr(
+        plan_mod,
+        "scheduled_for_today",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom planner")),
+    )
+    before = _hashes()
+    assert _cli_main(["replan", "--now", "15:00", "--apply"]) == 1
+    assert _hashes() == before
+
+
+def test_c4_apply_senza_moves_non_committa(tmp_files, capsys):
+    """C4: --apply senza mosse non tocca disco ne' .bak."""
+    assert _cli_main(["replan", "--now", "09:00", "--apply"]) == 0
+    out = capsys.readouterr().out
+    assert "Nessuna modifica" in out or "No changes" in out
+    assert not st.DATA_FILE.exists()
+    assert not st.DATA_FILE.with_suffix(".bak.json").exists()

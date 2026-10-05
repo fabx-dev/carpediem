@@ -812,6 +812,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "cli_replan_hint": "Anteprima sola lettura: usa --apply per applicare.",
         "cli_replan_applied": "Replan applicato: {a} aggiunti, {d} rimandati.",
         "cli_replan_bad": "ora non valida: usa HH:MM",
+        "cli_replan_winbad": (
+            "finestra del giorno illeggibile: replan annullato, nessuna scrittura"
+        ),
         "cli_show_h": "Dettaglio testuale di un task",
         "cli_id_h": "ID del task",
         "cli_bad_date": "data non valida: {d}",
@@ -1603,6 +1606,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "cli_replan_hint": "Read-only preview: use --apply to commit.",
         "cli_replan_applied": "Replan applied: {a} added, {d} deferred.",
         "cli_replan_bad": "invalid time: use HH:MM",
+        "cli_replan_winbad": "day window unreadable: replan aborted, nothing written",
         "cli_show_h": "Textual detail of a task",
         "cli_id_h": "Task ID",
         "cli_bad_date": "invalid date: {d}",
