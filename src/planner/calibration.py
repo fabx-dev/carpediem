@@ -24,12 +24,18 @@ def _as_int(value) -> int:
 
 
 def observe(feedback: ExecutionFeedback) -> tuple | None:
-    """(estimate_pomo, actual_pomo) se il task e' completato con entrambi > 0.
+    """(raw_estimate_pomo, actual_pomo) se il task e' completato con entrambi > 0.
 
     Fonte actual = dichiarazione utente (actual_pomo), non le sessions:
     la calibrazione storica confronta stima vs dichiarato, come domain.
+    Baseline = SEMPRE la raw dichiarata (B1): estimate_pomo puo' essere
+    gia' calibrata dal Planner (Planner(factor)->feedback); usarla come
+    baseline cancellerebbe il segnale (convergenza a 1.0). Feedback senza
+    raw (costruiti a mano/storici) usano estimate_pomo come prima.
     """
-    estimate, actual = _as_int(feedback.estimate_pomo), _as_int(feedback.actual_pomo)
+    raw = _as_int(getattr(feedback, "raw_estimate_pomo", 0))
+    estimate = raw if raw > 0 else _as_int(feedback.estimate_pomo)
+    actual = _as_int(feedback.actual_pomo)
     if feedback.completed and estimate > 0 and actual > 0:
         return (estimate, actual)
     return None

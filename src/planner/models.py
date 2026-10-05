@@ -251,6 +251,9 @@ class ExecutionFeedback:
     Solo lettura dei dati esistenti, mai scritture: estimate dal PlanItem,
     scheduled dallo ScheduledDayPlan, actual dallo stato del Todo.
     - estimate_pomo: unita' astratta di stima (mai minuti).
+    - raw_estimate_pomo (B1): stima raw dichiarata (mai calibrata, mai
+      fallback or-1; 0 se assente/sconosciuta) — unica baseline valida per
+      observe(); estimate_pomo puo' essere gia' calibrata dal Planner.
     - estimate_minutes: stima in minuti via POMO_HOURS (unica conversione).
     - scheduled_start/end: slot assegnato, None se mai schedulato.
     - actual_pomo: pomodori dichiarati dall'utente (input calibrazione).
@@ -268,6 +271,7 @@ class ExecutionFeedback:
     actual_pomo: int
     actual_minutes: int
     completed: bool
+    raw_estimate_pomo: int = 0
 
 
 @dataclass(frozen=True)

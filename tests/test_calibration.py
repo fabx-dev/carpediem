@@ -74,3 +74,21 @@ def test_edge_pochi_dati_outlier_determinismo():
         wild.append(t)
     assert calibration.factor_for(wild) == 3.0  # outlier clampato
     assert calibration.factor_for(wild) == calibration.factor_for(list(wild))
+
+
+def test_b1_observe_usano_raw_non_calibrata():
+    """B1: observe(fb) ricostruisce actual/raw anche con factor attivo."""
+    from src.planner import Planner, feedback
+    from src.planner.models import ScheduledDayPlan
+
+    t = make_todo("T", todo_id=1, stima_pomo=2)
+    plan = Planner([t], today="2026-09-10", hours=6.0, factor=2.0).propose()
+    assert plan.planned[0].estimate_pomo == 4  # calibrata per gli slot
+    t.done = True
+    t.actual_pomo = 4
+    (fb,) = feedback(ScheduledDayPlan(plan), [t])
+    assert fb.estimate_pomo == 4
+    assert fb.raw_estimate_pomo == 2
+    assert calibration.observe(fb) == (2, 4)
+    # Senza raw (feedback storici/costruiti a mano): fallback invariato.
+    assert calibration.observe(_fb(1, 2, 4)) == (2, 4)

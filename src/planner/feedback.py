@@ -42,6 +42,8 @@ def feedback(scheduled_plan, todos: list) -> tuple:
                 actual_minutes=_as_int(getattr(todo, "actual_minutes", 0)),
                 # constraint-site: evidence completamento (non decisione)
                 completed=bool(todo is not None and todo.state == "completato"),
+                # B1: baseline raw per observe (mai calibrata, mai fallback).
+                raw_estimate_pomo=_as_int(getattr(todo, "stima_pomo", 0)),
             )
         )
     return tuple(out)
