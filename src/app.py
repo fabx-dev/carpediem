@@ -2850,6 +2850,8 @@ class TodoApp(App):
                         "stima_pomo",
                         "padre",
                         "note",
+                        "source",
+                        "external_id",
                     ]
                 )
                 for t in sorted(self.todos, key=self._sort_key):
@@ -2868,6 +2870,8 @@ class TodoApp(App):
                             t.stima_pomo,
                             t.parent_id if t.parent_id is not None else "",
                             (t.notes or "").replace("\r", " "),
+                            t.source or "",
+                            t.external_id or "",
                         ]
                     )
             self.notify(

@@ -51,3 +51,44 @@ def test_idempotenza_identica(tmp_path):
     store = TodoStore.load()
     assert csv_mod.import_csv_file(path, store) == (3, 0)
     assert csv_mod.import_csv_file(path, store) == (0, 3)
+
+
+def test_export_import_roundtrip_identita(tmp_files, monkeypatch):
+    """C2: source/external_id sopravvivono all'export: reimport = skip."""
+    import src.app as app_module
+    from tests.conftest import run
+
+    async def t():
+        app = make_app([])
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            n, _ = csv_mod.import_csv_file(
+                _write_external(tmp_files / "in.csv"), app.store
+            )
+            assert n == 1
+            app.action_export_csv()
+            await pilot.pause()
+
+    monkeypatch.setattr(app_module, "_home", lambda: tmp_files)
+    run(t())
+    exported = sorted(
+        (tmp_files / "CarpeDiem_screenshots").glob("carpediem_export_*.csv")
+    )
+    assert len(exported) == 1
+    header = exported[0].read_text(encoding="utf-8").splitlines()[0]
+    assert "source" in header.split(",") and "external_id" in header.split(",")
+    storage.DATA_FILE.unlink(missing_ok=True)
+    store2 = TodoStore.load()
+    n2, sk2 = csv_mod.import_csv_file(str(exported[0]), store2)
+    assert (n2, sk2) == (1, 0)
+    by = store2.by_external("todoist", "x1")
+    assert by is not None
+    n3, sk3 = csv_mod.import_csv_file(str(exported[0]), store2)
+    assert (n3, sk3) == (0, 1)
+
+
+def _write_external(path):
+    path.write_text(
+        "id,titolo,source,external_id\n7,Sette,todoist,x1\n", encoding="utf-8"
+    )
+    return str(path)
