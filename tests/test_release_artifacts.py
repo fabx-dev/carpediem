@@ -43,6 +43,81 @@ def test_runtime_deps_declared():
         assert must in joined
 
 
+def _norm_name(req: str) -> str:
+    import re
+
+    return re.split(r"[<>=!~\s\[]", req.strip(), 1)[0].lower().replace("_", "-")
+
+
+def _spec_of(req: str) -> str:
+    import re
+
+    m = re.match(r"^[A-Za-z0-9_.\-]+(\[.*?\])?\s*(.*)$", req.strip())
+    return (m.group(2) or "").strip()
+
+
+def _pins(path: pathlib.Path) -> dict:
+    out = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith(("#", "-")):
+            continue
+        name, _, ver = line.partition("==")
+        out[_norm_name(name)] = ver.strip()
+    return out
+
+
+def _satisfies(pin: str, spec: str) -> bool:
+    """Pin esatto dentro l'intervallo (confronto numerico per parti)."""
+
+    def parts(v: str) -> tuple:
+        out = []
+        for p in v.split("."):
+            out.append(int(p) if p.isdigit() else p)
+        return tuple(out)
+
+    for clause in spec.split(","):
+        clause = clause.strip()
+        if not clause:
+            continue
+        for op in ("==", ">=", "<=", ">", "<", "~="):
+            if clause.startswith(op):
+                want = parts(clause[len(op) :].strip(" .*"))
+                got = parts(pin)
+                if op == "==" and not got[: len(want)] == want:
+                    return False
+                if op == ">=" and not got >= want:
+                    return False
+                if op == "<=" and not got <= want:
+                    return False
+                if op == ">" and not got > want:
+                    return False
+                if op == "<" and not got < want:
+                    return False
+                if op == "~=" and not (got >= want and got[0] == want[0]):
+                    return False
+                break
+    return True
+
+
+def test_deps_allineate_pyproject_requirements_lock():
+    """C6: pyproject (build) e requirements.txt (CI) dichiarano lo stesso
+    set con gli stessi intervalli; i pin del lock rispettano gli intervalli."""
+    py = {(_norm_name(d), _spec_of(d)) for d in _pyproject()["project"]["dependencies"]}
+    req_lines = (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+    req = {
+        (_norm_name(line), _spec_of(line))
+        for line in req_lines
+        if line.strip() and not line.strip().startswith(("#", "-"))
+    }
+    assert {n for n, _ in py} == {n for n, _ in req}
+    assert {s for _, s in py} == {s for _, s in req}
+    lock = _pins(ROOT / "requirements.lock")
+    for name, spec in py:
+        assert name in lock, f"{name} senza pin nel lock"
+        assert _satisfies(lock[name], spec), f"{name}=={lock[name]} fuori {spec}"
+
+
 def test_readme_and_license_present():
     assert (ROOT / "README.md").exists()
     assert (ROOT / "LICENSE").exists()
