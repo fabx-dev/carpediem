@@ -353,7 +353,7 @@ class OutlookClient:
                 "$top": str(CALENDAR_TOP),
             }
         )
-        url = f"{GRAPH_BASE_URL}/me/calendarview?{query}"
+        url: str | None = f"{GRAPH_BASE_URL}/me/calendarview?{query}"
         # Paginazione fino a esaurimento (C5): nextLink ripetuto/patologico
         # interrompe il loop (seen), mai limite arbitrario di pagine.
         values: list = []
