@@ -159,3 +159,36 @@ def test_health_layout_terminale_piccolo(tmp_files):
                     )
 
     asyncio.run(t())
+
+
+def test_cli_porcelain_contratto(tmp_path):
+    """C6: righe porcelain stabili per parsing (pipe + stati noti)."""
+    import re
+
+    home = tmp_path / "home"
+    assert _cli(["add", "A"], home=home).returncode == 0
+    assert _cli(["add", "B", "--due", "oggi"], home=home).returncode == 0
+    r = _cli(["list", "--porcelain"], home=home)
+    assert r.returncode == 0
+    pat = re.compile(
+        r"^\d+\|(attivo|in_sospeso|completato)\|(alta|media|bassa)\|(\S+)\|.+$"
+    )
+    rows = [ln for ln in r.stdout.splitlines() if ln.strip()]
+    assert len(rows) == 2
+    for ln in rows:
+        assert pat.match(ln), ln
+
+
+def test_cli_sotto_lock_exit_pulito(tmp_files, capsys, monkeypatch):
+    """C6: storage bloccato -> exit 1 con messaggio, mai traceback."""
+    from src.cli import _cli_main
+    from src.storage import StorageLocked
+    from src.store import TodoStore
+
+    def _boom(self, **kw):
+        raise StorageLocked("File occupato oltre timeout: x")
+
+    monkeypatch.setattr(TodoStore, "commit", _boom)
+    assert _cli_main(["add", "X"]) == 1
+    err = capsys.readouterr().err
+    assert "carpediem:" in err and "Traceback" not in err

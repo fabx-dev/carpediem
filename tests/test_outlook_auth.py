@@ -472,3 +472,45 @@ def test_abort_sveglia_wait_reale(tmp_files):
     assert not th.is_alive()
     assert dt < 5, dt
     assert outcome.get("err") == "authcode_denied"
+
+
+def test_http_401_429_timeout_mappati(tmp_files, monkeypatch):
+    """C5/G11: token scaduto, rate-limit e rete lenta hanno codici stabili."""
+    import urllib.request
+
+    cases = [
+        (
+            urllib.error.HTTPError(
+                "https://graph.microsoft.com/x", 401, "Unauthorized", {}, None
+            ),
+            "unauthorized",
+        ),
+        (
+            urllib.error.HTTPError(
+                "https://graph.microsoft.com/x", 429, "Too Many", {}, None
+            ),
+            "http_429",
+        ),
+        (urllib.error.URLError("timed out"), "network"),
+        (TimeoutError("timed out"), "network"),
+    ]
+    for boom, code in cases:
+
+        def fake_urlopen(req, timeout=None, _b=boom):
+            raise _b
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        with pytest.raises(OutlookError) as ei:
+            OutlookClient._http_get_default(
+                "https://graph.microsoft.com/x", "AT", "Europe/Rome"
+            )
+        assert ei.value.code == code, code
+
+
+def test_outlook_error_text_codici_failure():
+    """C5: 401/timeout hanno testo dedicato, 429 resta generico visibile."""
+    from src.screens._shared import outlook_error_text
+
+    assert outlook_error_text("unauthorized") != outlook_error_text("network")
+    assert "429" in outlook_error_text("http_429")
+    assert outlook_error_text("need_lock") != ""
