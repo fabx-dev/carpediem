@@ -1450,6 +1450,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         hours: float = 6.0,
         on_window=None,
         outlook_hooks: OutlookHooks | None = None,
+        prev_start: str | None = None,
+        prev_end: str | None = None,
+        prev_date: str | None = None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
@@ -1483,8 +1486,13 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         # Disponibilità: input utente esplicito (start/end), mai default.
         # day_hours resta la capacita' quantitativa, non working hours.
         # Eventi fissi: temporanei come gli orari, mai persistiti.
-        self.start_text = ""
-        self.end_text = ""
+        # Prefill: solo gli orari dell'ultima finestra valida precedente
+        # (mai eventi/allday di ieri); niente prefill = tutto come prima.
+        self.prefill_date = (
+            prev_date if (prev_start and prev_end and prev_date) else None
+        )
+        self.start_text = prev_start or ""
+        self.end_text = prev_end or ""
         self.events_text = ""
         self.events: list = []
         self.events_bad: list = []
@@ -1492,6 +1500,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.slot_error: str | None = None
         self.window_start = None
         self.window_end = None
+        self._refresh_sched()
 
     def _parse_time(self, value: str):
         """(ok, datetime|None): vuoto = (True, None), invalido = (False, None)."""
@@ -1754,10 +1763,23 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                 else:
                     yield Static(T("planp_done" if self.n_planned else "planp_empty"))
                 yield Label(T("planp_avail"), id="planp-avail-label")
+                if self.prefill_date:
+                    yield Static(
+                        T("planp_prefill", date=self.prefill_date),
+                        id="planp-prefill",
+                    )
                 with Horizontal(id="planp-avail-row"):
-                    yield Input(placeholder=T("planp_start_ph"), id="planp-start")
+                    yield Input(
+                        value=self.start_text,
+                        placeholder=T("planp_start_ph"),
+                        id="planp-start",
+                    )
                     yield Label("–", id="planp-avail-dash")
-                    yield Input(placeholder=T("planp_end_ph"), id="planp-end")
+                    yield Input(
+                        value=self.end_text,
+                        placeholder=T("planp_end_ph"),
+                        id="planp-end",
+                    )
                 yield Label(T("planp_events"), id="planp-events-label")
                 yield TextArea(id="planp-events")
                 yield Button(

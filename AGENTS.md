@@ -1004,6 +1004,14 @@ Regole dure:
   Follow-up annotato (non fatto): test sui 3 caller di produzione (quello
   presente inietta `decisions` e non verifica le chiamate nei 3 caller);
   nessuno pulisce mai i `planned_for` passati (igiene dati da valutare).
+- **Ciclo giornata 0.21.0 (fatto)**: Buongiorno ripropone gli orari
+  dell'ultima finestra valida precedente (solo start/end via
+  `prev_start/prev_end/prev_date` da `action_plan_day`, mai eventi/allday
+  di ieri; stessa-oggi/assente/invalida = nessun prefill); riga onesta
+  `planp_prefill` it/en; conferma con prefill svuotato cancella lo stale.
+  Un solo nome `Buongiorno` (footer/help/Tasti; il workflow lo diceva gia'), `help_l5` = ciclo
+  `P`/`p`/`R`/`m` (i simboli `O`/`P`/`X` non sono tasti: lo stato e'
+  `Space`), hint `G` corretto (`P` aggiunge soltanto), welcome sul ciclo.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

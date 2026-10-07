@@ -5,6 +5,22 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Added
+- Morning briefing reuses the previous valid day's hours (start/end only,
+  editable, events never carried over) with an explicit note, so confirming
+  with `s` no longer silently produces a plan without a timeline.
+
+### Changed
+- One name for `P` everywhere: footer, help panel, key list and workflow all
+  say "Buongiorno" (was "Pianifica"/"Plan"/"smart plan").
+- Honest help: the `h` panel lists `P` and shows the day cycle
+  (`P` morning · `p` day · `R` evening · `m` menu); the "task state" section
+  now says the `O`/`P`/`X` symbols are not keys (state changes with `Space`).
+- Day-plan hint corrected: `G` reschedules from now, `P` only adds and never
+  removes (the old hint said `P` replans, which is additive-only).
+- Welcome screen and demo toast point at the day cycle
+  (`P` morning, `p` day, `R` evening) instead of just `h`.
+
 ## [0.20.0] - 2026-10-05
 
 ### Added

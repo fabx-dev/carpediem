@@ -100,6 +100,7 @@ from src.storage import (
     _backup_sources,
     _clamp_int,
     _home,
+    _validate_day_window,
     _validate_outlook,
     append_execution,
     create_backup,
@@ -1538,10 +1539,24 @@ class TodoApp(App):
         )
 
     def action_plan_day(self) -> None:
+        today = datetime.now().strftime("%Y-%m-%d")
         try:
             hours = float(self.config.get("day_hours", 6) or 6)
         except (ValueError, TypeError):
             hours = 6.0
+        # Prefill orari dall'ultima finestra valida PRECEDENTE (solo
+        # start/end, mai eventi/allday di ieri); stessa-oggi/assente/
+        # invalida = nessun prefill, comportamento invariato.
+        prev_start: str | None = None
+        prev_end: str | None = None
+        prev_date: str | None = None
+        prev = _validate_day_window(self.config.get("day_window"))
+        if prev is not None and prev.get("date", "") < today:
+            prev_start, prev_end, prev_date = (
+                prev["start"],
+                prev["end"],
+                prev["date"],
+            )
 
         def _on_buongiorno_done(result: str | None) -> None:
             # "Piano giorno »": conferma avvenuta, apri la scheda operativa.
@@ -1552,9 +1567,13 @@ class TodoApp(App):
             PlanProposalScreen(
                 self.todos,
                 self._on_plan_changed,
+                today=today,
                 hours=hours,
                 on_window=self._save_day_window,
                 outlook_hooks=self._outlook_hooks(),
+                prev_start=prev_start,
+                prev_end=prev_end,
+                prev_date=prev_date,
             ),
             _on_buongiorno_done,
         )

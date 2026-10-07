@@ -185,7 +185,6 @@ def test_buongiorno_esc_non_scrive_finestra(tmp_files):
 def test_buongiorno_senza_orari_cancella_stale(tmp_files):
     async def t():
         app = make_app(_todos())
-        app.config["day_window"] = _window(_day(-1))
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await _open_buongiorno(pilot, app)
@@ -193,6 +192,120 @@ def test_buongiorno_senza_orari_cancella_stale(tmp_files):
             await pilot.pause()
             await pilot.pause()
             assert app.config.get("day_window") is None
+
+    asyncio.run(t())
+
+
+def test_buongiorno_prefill_ieri_mantiene_orari(tmp_files):
+    """Prefill B1: gli orari di ieri sono riproposti (modificabili) con la
+    preview gia' calcolata; eventi/allday di ieri MAI riportati; la conferma
+    scrive la finestra di oggi."""
+    from textual.widgets import Input, TextArea
+
+    async def t():
+        app = make_app(_todos(planned=False))
+        app.config["day_window"] = {
+            "date": _day(-1),
+            "start": "09:00",
+            "end": "18:00",
+            "events": [{"start": "13:00", "end": "14:00", "title": "Pranzo"}],
+            "allday": ["Festa"],
+        }
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_buongiorno(pilot, app)
+            assert app.screen.query_one("#planp-start", Input).value == "09:00"
+            assert app.screen.query_one("#planp-end", Input).value == "18:00"
+            assert app.screen.query_one("#planp-events", TextArea).text == ""
+            txt = screen_texts(app.screen)
+            assert _T("planp_prefill", date=_day(-1)) in txt
+            assert "09:00–09:30" in txt  # preview senza digitare nulla
+            await pilot.press("s")
+            await pilot.pause()
+            await pilot.pause()
+            assert app.config["day_window"] == _window(_day(0))
+
+    asyncio.run(t())
+
+
+def test_buongiorno_prefill_svuotato_cancella_stale(tmp_files):
+    """Prefill cancellato a mano + conferma = nessuna finestra (stale via)."""
+    from textual.widgets import Input
+
+    async def t():
+        app = make_app(_todos())
+        app.config["day_window"] = _window(_day(-1))
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_buongiorno(pilot, app)
+            assert app.screen.query_one("#planp-start", Input).value == "09:00"
+            await _set_times(pilot, app.screen, start="", end="")
+            await pilot.press("s")
+            await pilot.pause()
+            await pilot.pause()
+            assert app.config.get("day_window") is None
+
+    asyncio.run(t())
+
+
+def test_buongiorno_prefill_esc_non_scrive(tmp_files):
+    """Esc con prefill: nessuna scrittura, lo stale di ieri resta intatto."""
+    from textual.widgets import Input
+
+    async def t():
+        app = make_app(_todos())
+        stale = _window(_day(-1))
+        app.config["day_window"] = stale
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await _open_buongiorno(pilot, app)
+            assert app.screen.query_one("#planp-start", Input).value == "09:00"
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+            assert app.config["day_window"] == stale
+
+    asyncio.run(t())
+
+
+def test_buongiorno_nessun_prefill_oggi_o_invalido(tmp_files):
+    """Stessa-oggi (riapertura) e finestra invalida: input vuoti, mai crash."""
+    from textual.widgets import Input
+
+    async def t():
+        for window in (
+            _window(_day(0)),
+            {"date": _day(-1), "start": "25:00", "end": "18:00"},
+            {"date": "nope"},
+            None,
+        ):
+            app = make_app(_todos())
+            if window is not None:
+                app.config["day_window"] = window
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause()
+                await _open_buongiorno(pilot, app)
+                assert app.screen.query_one("#planp-start", Input).value == ""
+                assert app.screen.query_one("#planp-end", Input).value == ""
+                assert len(app.screen.query("#planp-prefill")) == 0
+                assert _T("planp_slots_none") in screen_texts(app.screen)
+
+    asyncio.run(t())
+
+
+def test_buongiorno_prefill_tre_taglie(tmp_files):
+    """Il prefill non rompe l'apertura a terminale piccolo."""
+    from textual.widgets import Input
+
+    async def t():
+        for size in ((120, 40), (80, 24), (70, 20)):
+            app = make_app(_todos())
+            app.config["day_window"] = _window(_day(-1))
+            async with app.run_test(size=size) as pilot:
+                await pilot.pause()
+                await _open_buongiorno(pilot, app)
+                assert app.screen.query_one("#planp-start", Input).value == "09:00"
+                assert _T("planp_prefill", date=_day(-1)) in screen_texts(app.screen)
 
     asyncio.run(t())
 
