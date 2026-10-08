@@ -65,9 +65,15 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  best-fit atomico (minimo waste, slack crescente con now,
                  niente split); rank secondario slack/durata a pari score
                  (pesi 100/60/30/20/15/5 congelati); replan a due passaggi
-                 (confermati prima, KEPT preciso, remaining_min distinto da
+                 (confermati prima, KEPT preciso,                  remaining_min distinto da
                  residual_pomo); evidence slack_min/gap_waste_min/
                  residual_pomo/remaining_min per la narrativa Why
+                 Outcome a tre stati (2026-10-08): outcomes.py puro
+                 (classify/outcome_of su blocked_by: tasks -> non inserito,
+                 duration/deadline/busy/window -> non entra oggi);
+                 ReplanMove.alt additivo (diagnose sul merged, nessun bump:
+                 replan fuori contratto); code Buongiorno/piano sdoppiate
+                 con causa reale, G/CLI con riga outcome + minuti residui
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit();
@@ -1037,6 +1043,15 @@ Regole dure:
   (revertire i doc non toccati); i test atemporali esistenti vanno
   congelati alle 08:00, non riscritti ( salvo i 3 replan che codificavano
   la vecchia divergenza preview/piano, ora KEPT per disegno).
+- **Outcome scheduling a tre stati (2026-10-08, fatto, 5 commit)**:
+  `outcomes.py` puro (nessun nuovo kind, nessun bump: tasks = gara persa,
+  resto temporale = strutturale); `ReplanMove.alt` additivo con diagnose
+  sul merged (test T9 aggiornato); Buongiorno/piano con due code/sezioni
+  (Non inseriti vs Non entrano oggi) + causa reale in riga, G/CLI con riga
+  outcome + `cli_replan_remaining`; degradato senza finestra invariato;
+  cross-view test (Buongiorno == P == G a parita' di stato). Lezioni:
+  `_cause_text` con `escape=False` per output CLI puro; mypy vuole
+  l'alias `_imported_*` per gli import lazy con fallback None.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 

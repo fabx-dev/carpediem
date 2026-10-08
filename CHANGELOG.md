@@ -6,6 +6,14 @@ Entries in English from now on.
 ## [Unreleased]
 
 ### Added
+- Three-state scheduling outcome: `src/planner/outcomes.py` maps
+  `blocked_by` to scheduled / non inserito (lost competition, `tasks`) /
+  non entra oggi (no compatible gap: `duration`/`deadline`/`busy`/`window`);
+  Buongiorno tail and day-plan tail split into two sections with the real
+  cause inline (no more generic "senza orario" bucket); `ReplanMove.alt`
+  carries the diagnose alternative so G preview and CLI print the outcome
+  with real numbers plus remaining free minutes; no contract bump
+  (additive `alt` field, `replan()` semantics not frozen).
 - Time-aware planning (F0/F1): new pure `src/planner/time_model.py`
   (`clip_future`/`fuse`/`residual`/canonical `slack`); `PlanningRequest.now`
   is binding (contract bumped to v2, `docs/planner-api.md` updated);
