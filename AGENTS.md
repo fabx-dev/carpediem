@@ -12,7 +12,7 @@
 TUI todo-list in italiano/inglese costruita con **Textual** (>=0.86,<4; in venv: 3.7.1).
 Python >= 3.12. Repo: `git@github.com:fabx-dev/carpediem.git`, branch `main`.
 
-Avvio: `carpediem` (TUI) oppure `python -m carpediem.main ...` / `.venv/bin/python -m carpediem.main ...` (con `PYTHONPATH=src` dal checkout).
+Avvio: `carpediem` (TUI) oppure `python -m carpediem.main ...` / `.venv/bin/python -m carpediem.main ...` (venv con `pip install -e .`, altrimenti `PYTHONPATH=src` dal checkout).
 CLI non interattiva: `carpediem add|list|done|show` (+ `--porcelain`).
 
 Feature principali: task con 3 stati, sotto-task annidati, ricorrenze, progetti/tag/priorità,
