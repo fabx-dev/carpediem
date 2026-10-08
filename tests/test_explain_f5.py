@@ -112,10 +112,36 @@ def test_buongiorno_coda_con_causa_reale():
     screen.end_text = "10:00"
     screen._refresh_sched()
     lines = screen._slot_lines()
-    # 90m in 60m: coda con causa dai numeri reali di diagnose.
-    assert _T("planp_slots_un", t="")[:12] in lines
+    # 90m in 60m: fuori disponibilità, con causa dai numeri reali di diagnose.
+    assert _T("planp_slots_outside", t="")[:16] in lines
+    assert _T("planp_slots_pending", t="") not in lines
+    assert _T("planp_slots_un", t="") not in lines
     assert "Big" in lines and "90" in lines and "60" in lines
     assert "non viene spezzato" in lines
+
+
+def test_buongiorno_coda_non_inseriti_per_gara():
+    from src.planner.outcomes import OUT_ELIGIBLE, classify
+
+    todos = [
+        make_todo("A", todo_id=1, stima_pomo=1),
+        make_todo("B", todo_id=2, stima_pomo=1),
+    ]
+    screen = PlanProposalScreen(
+        todos,
+        lambda *a: None,
+        today=_day(0),
+        hours=1.0,
+        now=datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M"),
+    )
+    screen.start_text = "09:00"
+    screen.end_text = "09:30"  # un buco da 30m per due task da 30m
+    screen._refresh_sched()
+    alts = screen._preview_alts()
+    assert classify(alts[2].blocked_by) == OUT_ELIGIBLE
+    lines = screen._slot_lines()
+    assert _T("planp_slots_pending", t="")[:13] in lines
+    assert _T("planp_slots_outside", t="") not in lines
 
 
 def test_piano_header_mostra_minuti_liberi(tmp_files):

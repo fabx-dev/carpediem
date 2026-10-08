@@ -52,6 +52,7 @@ from src.planner.models import (
     ScheduledDayPlan,
     TimeWindow,
 )
+from src.planner.outcomes import OUT_ELIGIBLE, classify
 from src.planner.phrases import phrase_for
 from src.planner.replan import ADDED, DROPPED, KEPT, MOVED, replan
 from src.planner.time_model import as_moment
@@ -391,6 +392,8 @@ def _timeline_lines(
         names = ", ".join(_escape_markup(a) for a in allday)
         lines.insert(1 if bad_names else 0, T("planp_allday", t=names))
     tail = []
+    pending: list[str] = []
+    outside: list[str] = []
     cause_fn = None
     titles: dict = {}
     if alts is not None:
@@ -411,14 +414,26 @@ def _timeline_lines(
         t = by_id.get(it.todo_id)
         name = _escape_markup(t.title) if t else f"#{it.todo_id}"
         cause = None
+        bucket = None
         if cause_fn is not None and alts is not None:
             try:
                 alt = alts.get(it.todo_id)
                 if alt is not None:
                     cause = cause_fn(alt.blocked_by, alt.detail, titles)
+                    bucket = classify(alt.blocked_by)
             except Exception:
                 cause = None
-        tail.append(f"{name} ({cause})" if cause else name)
+        label = f"{name} ({cause})" if cause else name
+        if bucket == OUT_ELIGIBLE:
+            pending.append(label)
+        elif bucket is not None:
+            outside.append(label)
+        else:
+            tail.append(label)
+    if pending:
+        lines.append(T("planp_slots_pending", t=", ".join(pending)))
+    if outside:
+        lines.append(T("planp_slots_outside", t=", ".join(outside)))
     if tail:
         lines.append(T("planp_slots_un", t=", ".join(tail)))
     return lines

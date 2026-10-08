@@ -178,11 +178,14 @@ def test_finestra_corta_e_unscheduled(tmp_files):
             await pilot.pause()
             await pilot.pause()
             screen = app.screen
-            # Finestra 1h reale: A (30m) entra, B (1h) no -> senza orario.
+            # Finestra 1h reale: A (30m) entra, B (1h) no -> non inserito
+            # (da solo entrerebbe, ma A occupa il buco: gara persa).
             await _set_times(pilot, screen, start="09:00", end="10:00")
             txt = screen_texts(screen)
             assert "09:00–09:30 A-ritardo" in txt
-            assert _T("planp_slots_un", t="B-oggi") in txt
+            assert _T("planp_slots_pending", t="")[:13] in txt
+            assert "B-oggi" in txt
+            assert _T("planp_slots_outside", t="") not in txt
             assert "09:30–10:30 B-oggi" not in txt
 
     asyncio.run(t())
