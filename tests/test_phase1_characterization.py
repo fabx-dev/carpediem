@@ -428,6 +428,8 @@ def test_t9_layout_modelli_frozen_invariato():
         "new_end",
         "reasons",
         "primary",
+        # Outcome: campo additivo in coda con default (policy api §4, no bump).
+        "alt",
     ]
 
 

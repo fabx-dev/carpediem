@@ -160,3 +160,55 @@ def test_current_senza_slot_kept_senza_orario():
     assert kinds(p) == {1: KEPT}
     assert p.moves[0].new_start is None
     assert p.remaining_min == 0
+
+
+def test_move_senza_slot_portano_alternativa_reale():
+    """I move senza new_start (non DROPPED) espongono alt da diagnose."""
+    from src.planner.outcomes import OUT_ELIGIBLE, OUT_OUTSIDE, classify
+
+    todos = [
+        make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2),
+        make_todo("B", todo_id=2, planned_for=TODAY, stima_pomo=2),
+        make_todo("C", todo_id=3, stima_pomo=8),  # 240m > finestra 180m
+    ]
+    window = [TimeWindow(at(9), at(12))]
+    p = replan(todos, TODAY, 6.0, window, now=at(9))
+    by_id = {m.todo_id: m for m in p.moves}
+    # A e B confermati con slot: nessun alt (outcome = schedulato).
+    assert by_id[1].new_start is not None and by_id[1].alt is None
+    assert by_id[2].new_start is not None and by_id[2].alt is None
+    # C aggiunto ma strutturalmente impossibile: alt reale fuori disponibilità.
+    assert by_id[3].kind == ADDED and by_id[3].new_start is None
+    assert by_id[3].alt is not None
+    assert classify(by_id[3].alt.blocked_by) == OUT_OUTSIDE
+    assert by_id[3].alt.detail["max_gap_min"] == 180
+    assert classify("tasks") == OUT_ELIGIBLE  # gara persa = non inserito
+
+
+def test_added_che_perde_la_gara_con_i_confermati():
+    """Caso B §5: da solo entrerebbe, ma i confermati occupano -> ELIGIBLE."""
+    from src.planner.outcomes import OUT_ELIGIBLE, classify
+
+    todos = [
+        make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2),
+        make_todo("B", todo_id=2, planned_for=TODAY, stima_pomo=2),
+        make_todo("C", todo_id=3, stima_pomo=6),  # 180m = finestra intera
+    ]
+    window = [TimeWindow(at(9), at(12))]
+    p = replan(todos, TODAY, 6.0, window, now=at(9))
+    by_id = {m.todo_id: m for m in p.moves}
+    assert by_id[3].kind == ADDED and by_id[3].new_start is None
+    assert by_id[3].alt is not None
+    assert by_id[3].alt.blocked_by == "tasks"
+    assert classify(by_id[3].alt.blocked_by) == OUT_ELIGIBLE
+
+
+def test_kept_senza_orario_con_alt_fuori_disponibilita():
+    """KEPT (None,None) a finestra esaurita: alt window, mai MOVED."""
+    from src.planner.outcomes import OUT_OUTSIDE, classify
+
+    todos = [make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2)]
+    p = replan(todos, TODAY, 6.0, avail(), now=at(20))
+    (m,) = p.moves
+    assert m.kind == KEPT and m.new_start is None
+    assert m.alt is not None and classify(m.alt.blocked_by) == OUT_OUTSIDE

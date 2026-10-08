@@ -18,7 +18,8 @@ piano non divergono).
 Il confronto col piano corrente produce kept/moved/dropped/added con
 definizione precisa di KEPT (stesso task, stesso start/end, slot ancora
 futuro e senza conflitti); i motivi vengono da decide()/primary_reason(),
-mai inventati.
+mai inventati. I move senza nuovo slot portano `alt` (PlanAlternative da
+diagnose sul merged: blocked_by/detail reali per l'outcome temporale).
 
 Capacita' residua vs tempo residuo (F4, mai confusi):
 - remaining_capacity (residual_pomo): pomodori di capacita' meno pianificati.
@@ -29,7 +30,15 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from src.planner.decisions import decide, primary_reason
-from src.planner.models import DayPlan, ScheduledDayPlan, TimeWindow
+from src.planner.diagnostics import diagnose
+from src.planner.models import (
+    DayPlan,
+    PlanAlternative,
+    PlanningRequest,
+    PlanningResult,
+    ScheduledDayPlan,
+    TimeWindow,
+)
 from src.planner.scheduler import deadlines_for
 from src.planner.service import Planner
 from src.planner.time_model import clip_future, residual
@@ -49,7 +58,14 @@ _KIND_ORDER = {KEPT: 0, MOVED: 1, ADDED: 2, DROPPED: 3}
 
 @dataclass(frozen=True)
 class ReplanMove:
-    """Una modifica proposta (slot 'HH:MM', None se senza slot)."""
+    """Una modifica proposta (slot 'HH:MM', None se senza slot).
+
+    `alt` (PlanAlternative da diagnose sul nuovo schedule merged, solo per
+    move senza nuovo slot e non DROPPED): porta blocked_by/detail reali
+    per l'outcome temporale (non inserito vs non entra oggi); None per i
+    move con slot (outcome = schedulato) e per DROPPED (rimozione per
+    scelta, il motivo resta `primary`). Mai costruito a mano fuori test.
+    """
 
     todo_id: int
     kind: str
@@ -59,6 +75,7 @@ class ReplanMove:
     new_end: str | None = None
     reasons: tuple = ()
     primary: tuple | None = None
+    alt: PlanAlternative | None = None
 
 
 @dataclass(frozen=True)
@@ -134,7 +151,9 @@ def _stable_schedule(new_plan: DayPlan, current_ids, future, busy, deadlines, mo
     I confermati scelgono per primi sui slot futuri (ordine di merito del
     DayPlan); i nuovi candidati riempiono i buchi restanti (slot occupati
     passati come busy). Riusa Planner.schedule senza toccarlo: niente
-    secondo scoring, niente ricalcolo stime. Ritorna {todo_id: slot}.
+    secondo scoring, niente ricalcolo stime. Ritorna (slots, first, second)
+    dove slots = {todo_id: ScheduledItem} merged e first/second sono gli
+    ScheduledDayPlan dei due passaggi (per la diagnose sugli outcome).
     """
     confirmed = [it for it in new_plan.planned if it.todo_id in current_ids]
     added = [it for it in new_plan.planned if it.todo_id not in current_ids]
@@ -165,7 +184,45 @@ def _stable_schedule(new_plan: DayPlan, current_ids, future, busy, deadlines, mo
         deadlines,
         now=moment,
     )
-    return {s.item.todo_id: s for s in (*first.scheduled, *second.scheduled)}
+    slots = {s.item.todo_id: s for s in (*first.scheduled, *second.scheduled)}
+    return slots, first, second
+
+
+def _merged_diagnose(new_plan, slots, first, busy, todos, moment, sample_count):
+    """Alternative sul nuovo schedule merged (solo lettura, per gli outcome).
+
+    Ricompone uno ScheduledDayPlan unico dai due passaggi (stessa
+    availability/busy normalizzata del primo: i buchi occupati dai
+    confermati restano visibili come scheduled per le probe di gara) e
+    riusa diagnose() esistente: nessuna logica duplicata, nessuna
+    divergenza probe-vs-reale. Ritorna {todo_id: PlanAlternative}.
+    """
+    scheduled = tuple(slots[tid] for tid in slots)
+    unscheduled = tuple(it for it in new_plan.planned if it.todo_id not in slots)
+    merged = ScheduledDayPlan(
+        plan=new_plan,
+        scheduled=scheduled,
+        unscheduled=unscheduled,
+        availability=first.availability,
+        busy=first.busy,
+    )
+    try:
+        req = PlanningRequest(
+            day=new_plan.day,
+            tasks=tuple(todos or ()),
+            capacity_pomo=new_plan.capacity_pomo,
+            factor=new_plan.factor,
+            availability=first.availability,
+            busy=first.busy,
+            now=moment,
+            sample_count=sample_count,
+        )
+        alts, _diags = diagnose(
+            PlanningResult(request=req, plan=new_plan, scheduled=merged)
+        )
+    except Exception:
+        return {}
+    return {a.todo_id: a for a in alts}
 
 
 def replan(
@@ -208,13 +265,16 @@ def replan(
     future = _clip_future(availability, moment)
     deadlines = deadlines_for(todos)
     current_ids = _confirmed_ids(todos, today)
-    new_slots = _stable_schedule(
+    new_slots, first_sched, _second_sched = _stable_schedule(
         new_plan,
         current_ids,
         future,
         busy,
         deadlines,
         moment,
+    )
+    new_alts = _merged_diagnose(
+        new_plan, new_slots, first_sched, busy, todos, moment, sample_count
     )
     old_slots = {}
     if current is not None:
@@ -243,7 +303,8 @@ def replan(
             kind = ADDED
         else:
             kind = DROPPED
-        moves.append(ReplanMove(tid, kind, *old_pair, *new_pair, reasons, primary))
+        alt = new_alts.get(tid) if (new is None and kind != DROPPED) else None
+        moves.append(ReplanMove(tid, kind, *old_pair, *new_pair, reasons, primary, alt))
     moves.sort(
         key=lambda m: (
             _KIND_ORDER.get(m.kind, 9),
