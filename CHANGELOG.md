@@ -5,6 +5,8 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-08
+
 ### Added
 - Three-state scheduling outcome: `src/planner/outcomes.py` maps
   `blocked_by` to scheduled / non inserito (lost competition, `tasks`) /
@@ -62,6 +64,14 @@ Entries in English from now on.
   removes (the old hint said `P` replans, which is additive-only).
 - Welcome screen and demo toast point at the day cycle
   (`P` morning, `p` day, `R` evening) instead of just `h`.
+
+### Fixed
+- Detail Why respects the scheduling outcome: a task without slot no
+  longer reads "Confermato nel piano di oggi" — `OUT_ELIGIBLE` renders as
+  non inserito and `OUT_OUTSIDE` as non entra oggi, with the real cause;
+  merit, delay and priority details are preserved, the story is suppressed
+  when the outcome is known, and the legacy fallback without outcome is
+  unchanged (it/en).
 
 ## [0.20.0] - 2026-10-05
 
