@@ -68,7 +68,11 @@ def test_divisorio_etichettato_e_coda_senza_orario(tmp_files):
             await pilot.pause()
             await _open_plan(pilot, app)
             txt = screen_texts(app.screen)
-            assert _T("plan_sec_noslot") in txt  # divisorio nominato
+            # B e C hanno perso la gara con A: sezione Non inseriti, mai
+            # il contenitore generico "Senza orario".
+            assert _T("plan_sec_pending") in txt  # divisorio nominato
+            assert _T("plan_sec_outside") not in txt
+            assert _T("plan_sec_noslot") not in txt
             assert "09:00–09:30 A" in txt  # A timed
             assert "09:00–09:30 B" not in txt  # B in coda, senza prefisso
 

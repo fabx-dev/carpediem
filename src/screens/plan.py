@@ -623,6 +623,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         events: list,
         planned: list[TodoItem],
         allday: tuple = (),
+        alts: dict | None = None,
     ) -> list[ListItem]:
         """Righe operative della sezione pianificati, con timing in riga.
 
@@ -634,7 +635,10 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
           degli slot (first-fit = cronologico = merito);
         - eventi fissi: righe disabled informative, intercalati per orario
           (non sono task, non alterano l'ordine dei task);
-        - task senza slot: operativi in coda, senza prefisso temporale.
+        - task senza slot: operativi in coda in due sezioni (non inseriti
+          per gara persa vs non entrano oggi per gap insufficiente, da
+          `alts` di diagnose — mai dedotto qui); senza alt, terza coda
+          onesta "senza orario".
         """
         scheduled_ids = {s.item.todo_id for s in sched.scheduled}
         by_id = {t.id: t for t in self.all_todos if t.id is not None}
@@ -687,43 +691,77 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                         section="planned",
                     )
                 )
-        # Linea di divisione tra la parte con timing (slot + eventi) e la
-        # coda senza slot: solo se entrambe le parti esistono (mai linee
-        # orfane). Disabled come gli eventi: non operativa.
-        tail_rows: list[ListItem] = []
+
+        # Linee di divisione tra la parte con timing (slot + eventi) e le
+        # code senza slot, una per outcome (non inseriti vs non entrano
+        # oggi + ripiego onesto senza alt): solo con contenuto sopra, mai
+        # linee orfane. Disabled come gli eventi: non operative.
+        def _divider(key: str) -> ListItem:
+            return ListItem(
+                Label(f"  [dim]──── {T(key)} ────[/]"),
+                disabled=True,
+            )
+
+        try:
+            from src.screens.views import _cause_text as _plan_cause
+        except Exception:
+            _plan_cause = None
+        titles = {t.id: t.title for t in self.all_todos if t.id is not None}
+        pending_rows: list[ListItem] = []
+        outside_rows: list[ListItem] = []
+        unknown_rows: list[ListItem] = []
         tail_ids = [it.todo_id for it in sched.unscheduled]
         for tid in tail_ids:
             todo = by_id.get(tid)
-            if todo is not None:
-                due = _due_date_part(todo.due)
-                extra = T("plan_overdue_row", due=todo.due) if due else ""
-                tail_rows.append(
-                    PlanRow(
-                        Label(self._row(todo, self._marker(todo.id, "x"), extra)),
-                        task_id=todo.id,
-                        section="planned",
-                    )
-                )
+            if todo is None:
+                continue
+            due = _due_date_part(todo.due)
+            extra = T("plan_overdue_row", due=todo.due) if due else ""
+            cause = None
+            bucket = None
+            if _plan_cause is not None and alts is not None:
+                try:
+                    alt = alts.get(tid)
+                    if alt is not None:
+                        cause = _plan_cause(alt.blocked_by, alt.detail, titles)
+                        bucket = classify(alt.blocked_by)
+                except Exception:
+                    cause = None
+            label = self._row(todo, self._marker(todo.id, "x"), extra)
+            if cause:
+                label = f"{label} ({cause})"
+            row = PlanRow(
+                Label(label),
+                task_id=todo.id,
+                section="planned",
+            )
+            if bucket == OUT_ELIGIBLE:
+                pending_rows.append(row)
+            elif bucket is not None:
+                outside_rows.append(row)
+            else:
+                unknown_rows.append(row)
         # Difensivo: confermati mai coperti (es. id None) restano visibili.
         for t in planned:
             if t.id not in scheduled_ids and t.id not in tail_ids:
                 due = _due_date_part(t.due)
                 extra = T("plan_overdue_row", due=t.due) if due else ""
-                tail_rows.append(
+                unknown_rows.append(
                     PlanRow(
                         Label(self._row(t, self._marker(t.id, "x"), extra)),
                         task_id=t.id,
                         section="planned",
                     )
                 )
-        if rows and tail_rows:
-            rows.append(
-                ListItem(
-                    Label(f"  [dim]──── {T('plan_sec_noslot')} ────[/]"),
-                    disabled=True,
-                )
-            )
-        rows.extend(tail_rows)
+        if rows and pending_rows:
+            rows.append(_divider("plan_sec_pending"))
+        rows.extend(pending_rows)
+        if rows and outside_rows:
+            rows.append(_divider("plan_sec_outside"))
+        rows.extend(outside_rows)
+        if rows and unknown_rows:
+            rows.append(_divider("plan_sec_noslot"))
+        rows.extend(unknown_rows)
         return rows
 
     def compose(self) -> ComposeResult:
@@ -786,7 +824,11 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             custom = (
                 {
                     "planned": self._planned_children(
-                        sched, events, planned, tuple(allday)
+                        sched,
+                        events,
+                        planned,
+                        tuple(allday),
+                        alts=dict(self._diag_alts),
                     )
                 }
                 if sched is not None and sched.availability

@@ -424,8 +424,10 @@ def test_piano_timeline_task_confermati(tmp_files):
             assert _T("planp_slots_un", t="") not in txt2  # niente riassunto
             assert "B-oggi" in txt2 and "C-libero" in txt2
             assert "09:00–09:30 B-oggi" not in txt2  # senza slot, senza orario
-            # Linea di divisione tra la parte con timing e la coda:
-            # esattamente una, disabled, tra le due parti.
+            # Linee di divisione tra la parte con timing e le code per
+            # outcome: una per sezione non vuota, disabled, mai orfane.
+            # C (30m) ha perso la gara con A -> Non inseriti; B (60m) non
+            # entra nel buco da 30m -> Non entrano oggi.
             from textual.widgets import ListItem
 
             lv2 = app2.screen.query_one("#plan-section", ListView)
@@ -434,12 +436,18 @@ def test_piano_timeline_task_confermati(tmp_files):
                 for c in lv2.children
                 if isinstance(c, ListItem) and c.disabled and "────" in _label_text(c)
             ]
-            assert len(divs) == 1
+            assert len(divs) == 2
             texts_children = [_label_text(c) for c in lv2.children]
-            idx_div = next(i for i, t_ in enumerate(texts_children) if "────" in t_)
-            assert "B-oggi" in texts_children[idx_div + 1]  # coda subito dopo
+            idx = [i for i, t_ in enumerate(texts_children) if "────" in t_]
+            assert _T("plan_sec_pending") in texts_children[idx[0]]
+            assert _T("plan_sec_outside") in texts_children[idx[1]]
+            assert "C-libero" in texts_children[idx[0] + 1]  # coda dopo divisorio
+            assert "B-oggi" in texts_children[idx[1] + 1]
+            # Cause reali in riga (dopo i marker della riga operativa).
+            assert "(servono 60 min" in texts_children[idx[1] + 1]
+            assert "(gli altri task" in texts_children[idx[0] + 1]
             assert any(
-                "09:00–09:30" in t_ for t_ in texts_children[:idx_div]
+                "09:00–09:30" in t_ for t_ in texts_children[: idx[0]]
             )  # timing sopra
 
     asyncio.run(t())
