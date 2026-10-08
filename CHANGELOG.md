@@ -5,6 +5,8 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-10-08
+
 ### Changed
 - Packaging: the import package is now `carpediem` (`src/` is the source
   root, no longer an installable `src` application package); entry point
