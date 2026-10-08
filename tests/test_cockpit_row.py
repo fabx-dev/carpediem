@@ -6,11 +6,31 @@ se planned; 4. alta -> !; 5. media/bassa -> niente; 6. niente wrap indesiderato.
 
 from datetime import datetime
 
+import pytest
+
 import carpediem.screens.plan as plan_mod
 from carpediem.models import Priority
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 _row = plan_mod.DailyPlanScreen._row
+
+
+@pytest.fixture(autouse=True)
+def _mattino(monkeypatch):
+    """Congela le 08:00 come test_plan_slots: le finestre 09:00–18:00
+    restano nel futuro a qualunque ora reale (clip-a-now invariata)."""
+    import carpediem.screens.plan as plan_mod
+
+    fixed = datetime.strptime(
+        f"{datetime.now().date():%Y-%m-%d} 08:00", "%Y-%m-%d %H:%M"
+    )
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    monkeypatch.setattr(plan_mod, "datetime", _Frozen)
 
 
 def test_riga_unit_marker_durata_scadenza():

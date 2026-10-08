@@ -39,6 +39,23 @@ def _today() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+@pytest.fixture(autouse=True)
+def _mattino(monkeypatch):
+    """Congela le 08:00 come test_plan_slots: gli scenari con finestra
+    09:00–18:00 restano nel futuro a qualunque ora reale (clip-a-now
+    invariata; la parte data non cambia)."""
+    import carpediem.screens.plan as plan_mod
+
+    fixed = datetime.strptime(f"{_today()} 08:00", "%Y-%m-%d %H:%M")
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    monkeypatch.setattr(plan_mod, "datetime", _Frozen)
+
+
 def _basic_todos(n=12, **kw):
     return [make_todo(f"Task {i}", todo_id=i, **kw) for i in range(1, n + 1)]
 

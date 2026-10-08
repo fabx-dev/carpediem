@@ -4,11 +4,28 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 
+import pytest
 from textual.widgets import Input, SelectionList
 
 import carpediem.main as m
 from carpediem.models import Priority
 from tests.conftest import commands_module, make_app, make_todo, screen_texts
+
+
+@pytest.fixture(autouse=True)
+def _mattino(monkeypatch):
+    """Congela le 08:00 come test_plan_slots: la finestra 09:00–18:00
+    resta attiva a qualunque ora reale (clip-a-now invariata)."""
+    import carpediem.screens.plan as plan_mod
+
+    fixed = datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M")
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    monkeypatch.setattr(plan_mod, "datetime", _Frozen)
 
 
 def _day(offset: int) -> str:

@@ -1067,7 +1067,14 @@ Regole dure:
   senza `__init__.py` resta namespace package importabile dal tree, il
   test vero e' il contenuto della wheel; `_legacy_candidate_bases` con
   override attivo non guarda mai la home reale (test non importano dati
-  veri); `tests/test_{packaging,paths,migration}.py` nuovi.
+  veri);   `tests/test_{packaging,paths,migration}.py` nuovi.
+- **Test finestra time-bombed (2026-10-08, fix post-CI)**: i test con
+  finestra 09:00–18:00 e `now` reale passavano solo di mattina (dopo le
+  18:00 la clip-a-now, voluta, svuota gli slot: CI rossa la sera).
+  Fix con lo stesso seam di `test_plan_slots` (freeze 08:00 via
+  `monkeypatch.setattr(plan_mod, "datetime", _Frozen)`, solo test, mai
+  produzione) in `test_cockpit_row`/`test_plan_ui`/`test_ui_regression`.
+  Regola: ogni nuovo test con finestra assoluta congela l'ora.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
