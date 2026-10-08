@@ -92,15 +92,17 @@ def test_detail_coda_frase_unica(tmp_files):
             await pilot.pause()
             assert type(app.screen).__name__ == "DetailScreen"
             txt = screen_texts(app.screen)
-            # Un unico discorso: membro + merito + causa (A occupa lo slot).
+            # Un unico discorso: outcome + merito + causa (A occupa lo slot).
+            # B ha perso la gara: mai "Confermato nel piano".
             assert (
                 _T(
-                    "why_noslot_sentence",
+                    "why_noslot_sentence_tasks",
                     m=_T("why_frag_m_planned"),
                     c=_T("why_frag_c_tasks", t="A"),
                 )
                 in txt
             )
+            assert "Confermato" not in txt
             assert _T("why_scheduled_noslot") not in txt  # assorbita nella frase
             assert _T("why_scheduled") not in txt
             assert _T("why_story_sched") not in txt  # assorbita
@@ -265,7 +267,8 @@ def test_b10_tasks_senza_slot_etichetta_noslot(tmp_files):
                 await pilot.pause()
                 assert type(app.screen).__name__ == "DetailScreen"
                 txt = screen_texts(app.screen)
-                assert T("why_scheduled_noslot") in txt
+                assert T("why_scheduled_noslot_tasks") in txt
+                assert "Confermato" not in txt
                 assert T("why_scheduled") not in txt
 
         return inner()

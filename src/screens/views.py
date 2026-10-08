@@ -50,6 +50,7 @@ from src.planner import (
 )
 from src.planner import plan as plan_request
 from src.planner.narrative import explain_decision, explain_proposed
+from src.planner.outcomes import OUT_ELIGIBLE, OUT_OUTSIDE, classify
 from src.planner.phrases import phrase_for
 from src.screens._shared import (
     CloseMixin,
@@ -1298,12 +1299,15 @@ def _cause_text(blocked, detail, titles=None, escape: bool = True) -> str | None
         return None
 
 
-def _noslot_sentence(decision, alt, titles=None) -> str | None:
+def _noslot_sentence(decision, alt, titles=None, outcome=None) -> str | None:
     """Unica frase noslot (membro + merito + causa), o None se non componibile.
 
     Unisce etichetta+story+blocco in un solo discorso; quando c'e', le tre
     righe separate spariscono (sarebbero ripetizioni). None -> rendering
     legacy invariato (mai inventare pezzi mancanti).
+    outcome (da classify su alt.blocked_by, mai ricalcolato qui): con
+    OUT_ELIGIBLE/OUT_OUTSIDE la cornice dice "non inserito"/"non entra
+    oggi" invece di "confermato"; senza outcome, cornice legacy invariata.
     """
     if alt is None:
         return None
@@ -1321,6 +1325,10 @@ def _noslot_sentence(decision, alt, titles=None) -> str | None:
         cause = _cause_text(blocked, detail, titles)
         if cause is None:
             return None
+        if outcome == OUT_ELIGIBLE:
+            return T("why_noslot_sentence_tasks", m=merit, c=cause)
+        if outcome == OUT_OUTSIDE:
+            return T("why_noslot_sentence_outside", m=merit, c=cause)
         return T("why_noslot_sentence", m=merit, c=cause)
     except Exception:
         return None
@@ -1518,8 +1526,18 @@ class DetailScreen(ModalScreen[str | None]):
                 alt = (self._alternatives or {}).get(self.todo.id)
             except Exception:
                 alt = None
+            # Outcome di scheduling gia' calcolato dal planner (mai
+            # ricalcolato qui): con slot non c'e' alt; senza slot l'alt
+            # dice se e' gara persa (non inserito) o gap impossibile
+            # (non entra oggi). Senza alt, fallback legacy invariato.
+            outcome = None
+            if decision.decision == SCHEDULED and alt is not None:
+                try:
+                    outcome = classify(alt.blocked_by)
+                except Exception:
+                    outcome = None
             sent = (
-                _noslot_sentence(decision, alt, titles)
+                _noslot_sentence(decision, alt, titles, outcome)
                 if decision.decision == SCHEDULED
                 else None
             )
@@ -1534,7 +1552,12 @@ class DetailScreen(ModalScreen[str | None]):
                     except Exception:
                         blocked = ""
                     if blocked in ("window", "busy", "deadline", "duration", "tasks"):
-                        sched_label = T("why_scheduled_noslot")
+                        if outcome == OUT_ELIGIBLE:
+                            sched_label = T("why_scheduled_noslot_tasks")
+                        elif outcome == OUT_OUTSIDE:
+                            sched_label = T("why_scheduled_noslot_outside")
+                        else:
+                            sched_label = T("why_scheduled_noslot")
                 lines = [
                     {
                         SCHEDULED: sched_label,
@@ -1546,6 +1569,11 @@ class DetailScreen(ModalScreen[str | None]):
                 try:
                     story = explain_decision(decision)
                 except Exception:
+                    story = None
+                # Con outcome noto la story resta fuori: descriverebbe uno
+                # slot che non c'e' ("occupa uno dei primi slot liberi").
+                # Merito e dettagli restano in primary/Dettagli qui sotto.
+                if outcome in (OUT_ELIGIBLE, OUT_OUTSIDE):
                     story = None
         if story is not None:
             lines.append(T(story.key, **story.params))

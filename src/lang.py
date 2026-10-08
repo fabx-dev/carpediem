@@ -488,7 +488,11 @@ STRINGS: dict[str, dict[str, str]] = {
         # Why (M3: sezione spiegazioni da PlanningDecision, mai logica in UI)
         "why_scheduled": "Nel piano di oggi.",
         "why_scheduled_noslot": "Confermato nel piano di oggi, ma senza orario assegnato.",
+        "why_scheduled_noslot_tasks": "Non inserito nel piano di oggi (senza orario assegnato).",
+        "why_scheduled_noslot_outside": "Non entra nel piano di oggi (senza orario assegnato).",
         "why_noslot_sentence": "Confermato nel piano di oggi perché {m}, ma senza orario assegnato perché {c}.",
+        "why_noslot_sentence_tasks": "Non inserito oggi benché {m}, perché {c}.",
+        "why_noslot_sentence_outside": "Non entra oggi benché {m}, perché {c}.",
         "why_frag_m_overdue": "è già in ritardo e ha priorità obbligatoria",
         "why_frag_m_due_today": "scade oggi ed è prioritario",
         "why_frag_m_tomorrow": "scade domani",
@@ -1309,7 +1313,11 @@ STRINGS: dict[str, dict[str, str]] = {
         # Why (M3: explanation section from PlanningDecision, never logic in UI)
         "why_scheduled": "In today's plan.",
         "why_scheduled_noslot": "Confirmed in today's plan, but with no time slot assigned.",
+        "why_scheduled_noslot_tasks": "Not placed in today's plan (no time slot assigned).",
+        "why_scheduled_noslot_outside": "Does not fit in today's plan (no time slot assigned).",
         "why_noslot_sentence": "Confirmed in today's plan because {m}, but with no time slot assigned because {c}.",
+        "why_noslot_sentence_tasks": "Not placed today although {m}, because {c}.",
+        "why_noslot_sentence_outside": "Does not fit today although {m}, because {c}.",
         "why_frag_m_overdue": "it is already overdue and has mandatory priority",
         "why_frag_m_due_today": "it is due today and ranks ahead",
         "why_frag_m_tomorrow": "it is due tomorrow",
