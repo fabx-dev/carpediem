@@ -48,7 +48,9 @@ def real_paths(monkeypatch):
 
 
 def _home(monkeypatch, tmp_path):
+    # Path.home()/expanduser usano HOME su POSIX, USERPROFILE su Windows.
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     return tmp_path / "home"
 
 

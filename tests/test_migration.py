@@ -285,7 +285,7 @@ def test_override_non_tocca_home_reale(tmp_path, monkeypatch):
     assert st._legacy_candidate_bases() == [tmp_path / "new"]
 
 
-def test_lang_precedenza(tmp_path, monkeypatch):
+def test_lang_precedenza(tmp_path, monkeypatch, italian_lang):
     import carpediem.main as main_mod
 
     monkeypatch.delenv("CARPEDIEM_HOME", raising=False)
@@ -302,7 +302,7 @@ def test_lang_precedenza(tmp_path, monkeypatch):
         main_mod._apply_startup_lang()
 
 
-def test_tasko_lang_legacy(tmp_path, monkeypatch):
+def test_tasko_lang_legacy(tmp_path, monkeypatch, italian_lang):
     import carpediem.main as main_mod
 
     monkeypatch.delenv("CARPEDIEM_LANG", raising=False)
