@@ -20,6 +20,12 @@ Entries in English from now on.
   frozen); overlapping/contiguous availabilities fused; tasks never split;
   unscheduled tasks carry structured `blocked_by` with `max_gap_min` and
   `gap_count` evidence (new `DETAIL_KEYS`, it/en narrative in F5).
+- Stable replan (F4): two-pass scheduling (confirmed tasks choose first on
+  future slots, new candidates fill the gaps, never stealing); precise KEPT
+  (same start/end, slot still in the future — partially-elapsed slots can
+  never be KEPT, tasks are atomic); `remaining_min` (free future minutes)
+  kept distinct from `residual_pomo` (capacity minus planned);
+  `domain.apply_replan` contract untouched.
 - Morning briefing reuses the previous valid day's hours (start/end only,
   editable, events never carried over) with an explicit note, so confirming
   with `s` no longer silently produces a plan without a timeline.

@@ -1,4 +1,4 @@
-"""Replanning deterministico (M4, puro, niente I/O/UI/i18n).
+"""Replanning stabile deterministico (M4/F4, puro, niente I/O/UI/i18n).
 
 Il replan e' un'operazione esplicita: dato il piano corrente, l'ora
 corrente, i task rimanenti, il calendario (busy) e la capacita' residua,
@@ -7,20 +7,32 @@ immediate al piano persistito (il commit e' domain.apply_replan + store).
 
 Riutilizza il motore esistente senza toccarlo: Planner.propose() per la
 selezione (i completati escono da soli, i gia'-pianificati restano
-privilegiati in capacity.allocate), schedule() con availability clippata
-a [now, fine] per rendere gli slot passati indisponibili. Il confronto
-col piano corrente produce kept/moved/dropped/added; i motivi vengono da
-decide()/primary_reason(), mai inventati.
+privilegiati in capacity.allocate), poi scheduling a due passaggi per
+stabilita': prima i confermati (in ordine di merito, sui soli slot futuri
+[now, fine]), poi i nuovi candidati sui buchi restanti (slot occupati
+come busy). Cosi' un nuovo task non ruba mai lo slot a un confermato:
+MOVED solo se costretto da busy/now/completamenti. Gli slot passati sono
+indisponibili via time_model (stessa clip del piano giorno: preview e
+piano non divergono).
+
+Il confronto col piano corrente produce kept/moved/dropped/added con
+definizione precisa di KEPT (stesso task, stesso start/end, slot ancora
+futuro e senza conflitti); i motivi vengono da decide()/primary_reason(),
+mai inventati.
+
+Capacita' residua vs tempo residuo (F4, mai confusi):
+- remaining_capacity (residual_pomo): pomodori di capacita' meno pianificati.
+- remaining_time (remaining_min): minuti liberi futuri dopo now/busy.
 """
 
 from dataclasses import dataclass
 from datetime import date, datetime
 
 from src.planner.decisions import decide, primary_reason
-from src.planner.models import DayPlan, ScheduledDayPlan
+from src.planner.models import DayPlan, ScheduledDayPlan, TimeWindow
 from src.planner.scheduler import deadlines_for
 from src.planner.service import Planner
-from src.planner.time_model import clip_future
+from src.planner.time_model import clip_future, residual
 
 # Vedi scoring._REAL_DATETIME: classi reali per isinstance robusti al
 # congelamento dell'orologio nei test (patch del nome `datetime`).
@@ -59,6 +71,7 @@ class ReplanProposal:
     capacity_pomo: float = 0.0
     planned_pomo: int = 0
     residual_pomo: float = 0.0
+    remaining_min: int = 0
 
 
 def _hhmm(dt) -> str | None:
@@ -75,6 +88,84 @@ def _clip_future(availability, now: datetime) -> list:
     solo il futuro di oggi. now di un altro giorno = nessuna availability.
     """
     return clip_future(availability, now)
+
+
+def _is_kept(old, new, moment: datetime) -> bool:
+    """KEPT preciso (F4, puro): stesso slot ancora valido, niente churn.
+
+    Solo se entrambi noti, stessi start/end, inizio non trascorso
+    (uno slot parzialmente trascorso non puo' essere KEPT: i task sono
+    atomici) — la validita' busy/availability dello slot la garantisce
+    il fresh schedule che ha prodotto `new`. (None, None) non arriva qui:
+    il chiamante lo tratta come mantenuto-senza-orario.
+    """
+    try:
+        if old is None or new is None:
+            return False
+        if old.start != new.start or old.end != new.end:
+            return False
+        return old.start >= moment
+    except (AttributeError, TypeError):
+        return False
+
+
+def _confirmed_ids(todos, today: str) -> set:
+    """Id confermati oggi (stato attivo + planned_for == today, puro)."""
+    found = set()
+    try:
+        for t in todos or ():
+            # constraint-site: scan confermati per diff (non decisione)
+            if (
+                getattr(t, "state", None) == "attivo"
+                and getattr(t, "planned_for", "") == today
+            ):
+                try:
+                    found.add(int(t.id))
+                except (ValueError, TypeError):
+                    pass
+    except TypeError:
+        pass
+    return found
+
+
+def _stable_schedule(new_plan: DayPlan, current_ids, future, busy, deadlines, moment):
+    """Ricollocazione a due passaggi (F4): confermati prima, poi aggiunti.
+
+    I confermati scelgono per primi sui slot futuri (ordine di merito del
+    DayPlan); i nuovi candidati riempiono i buchi restanti (slot occupati
+    passati come busy). Riusa Planner.schedule senza toccarlo: niente
+    secondo scoring, niente ricalcolo stime. Ritorna {todo_id: slot}.
+    """
+    confirmed = [it for it in new_plan.planned if it.todo_id in current_ids]
+    added = [it for it in new_plan.planned if it.todo_id not in current_ids]
+    first = Planner.schedule(
+        DayPlan(
+            day=new_plan.day,
+            planned=tuple(confirmed),
+            capacity_pomo=new_plan.capacity_pomo,
+            planned_pomo=sum(i.estimate_pomo for i in confirmed),
+            factor=new_plan.factor,
+        ),
+        future,
+        busy or (),
+        deadlines,
+        now=moment,
+    )
+    occupied = list(busy or ()) + [TimeWindow(s.start, s.end) for s in first.scheduled]
+    second = Planner.schedule(
+        DayPlan(
+            day=new_plan.day,
+            planned=tuple(added),
+            capacity_pomo=new_plan.capacity_pomo,
+            planned_pomo=sum(i.estimate_pomo for i in added),
+            factor=new_plan.factor,
+        ),
+        future,
+        occupied,
+        deadlines,
+        now=moment,
+    )
+    return {s.item.todo_id: s for s in (*first.scheduled, *second.scheduled)}
 
 
 def replan(
@@ -115,28 +206,19 @@ def replan(
         d.todo_id: d for d in decide(new_plan, todos, sample_count=sample_count)
     }
     future = _clip_future(availability, moment)
-    new_sched = Planner.schedule(
-        new_plan, future, busy or (), deadlines_for(todos), now=moment
+    deadlines = deadlines_for(todos)
+    current_ids = _confirmed_ids(todos, today)
+    new_slots = _stable_schedule(
+        new_plan,
+        current_ids,
+        future,
+        busy,
+        deadlines,
+        moment,
     )
-    new_slots = {s.item.todo_id: s for s in new_sched.scheduled}
     old_slots = {}
     if current is not None:
         old_slots = {s.item.todo_id: s for s in current.scheduled}
-
-    current_ids = set()
-    try:
-        for t in todos or ():
-            # constraint-site: scan confermati per diff (non decisione)
-            if (
-                getattr(t, "state", None) == "attivo"
-                and getattr(t, "planned_for", "") == today
-            ):
-                try:
-                    current_ids.add(int(t.id))
-                except (ValueError, TypeError):
-                    pass
-    except TypeError:
-        pass
     new_ids = {it.todo_id for it in new_plan.planned}
 
     moves = []
@@ -153,7 +235,10 @@ def replan(
             (_hhmm(new.start), _hhmm(new.end)) if new is not None else (None, None)
         )
         if tid in current_ids and tid in new_ids:
-            kind = KEPT if old_pair == new_pair else MOVED
+            if old is None and new is None:
+                kind = KEPT  # mantenuto senza orario (nessuno slot prima né dopo)
+            else:
+                kind = KEPT if _is_kept(old, new, moment) else MOVED
         elif tid in new_ids:
             kind = ADDED
         else:
@@ -166,12 +251,13 @@ def replan(
             m.todo_id if isinstance(m.todo_id, int) else 0,
         )
     )
-    residual = new_plan.capacity_pomo - new_plan.planned_pomo
+    residual_pomo = new_plan.capacity_pomo - new_plan.planned_pomo
     return ReplanProposal(
         new_plan.day,
         moment,
         tuple(moves),
         new_plan.capacity_pomo,
         new_plan.planned_pomo,
-        residual,
+        residual_pomo,
+        residual(future, busy, moment),
     )
