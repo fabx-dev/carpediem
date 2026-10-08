@@ -6,6 +6,14 @@ Entries in English from now on.
 ## [Unreleased]
 
 ### Added
+- Time-aware planning (F0/F1): new pure `src/planner/time_model.py`
+  (`clip_future`/`fuse`/`residual`/canonical `slack`); `PlanningRequest.now`
+  is binding (contract bumped to v2, `docs/planner-api.md` updated);
+  Buongiorno freezes the opening time and clips the window to
+  `[max(start, now), end]` with an explicit "already passed" line, honest
+  degrade to task-only when the window is over; day plan, replan preview
+  and CLI clip to the same `now` so the replan confirms (KEPT) instead of
+  churning; new `planp_past`/`planp_prefill_past` strings (it/en).
 - Morning briefing reuses the previous valid day's hours (start/end only,
   editable, events never carried over) with an explicit note, so confirming
   with `s` no longer silently produces a plan without a timeline.

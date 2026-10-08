@@ -50,7 +50,9 @@ def test_preview_readonly(tmp_files, capsys, monkeypatch):
     assert _cli_main(["replan", "--now", "15:00"]) == 0
     assert _hashes() == before  # zero scritture
     out = capsys.readouterr().out
-    assert T("cli_replan_moved") in out and T("cli_replan_added") in out
+    # F1: scheduled_for_today clippa allo stesso now del replan — il piano
+    # corrente e il ricalcolo coincidono (KEPT, non MOVED) + C aggiunto.
+    assert T("cli_replan_kept") in out and T("cli_replan_added") in out
     assert T("cli_replan_hint") in out
     assert T("cli_replan_applied").split(":")[0] not in out
 
@@ -105,8 +107,11 @@ class _FakeDateTime:
 
 
 def test_b2_now_oltre_fine_riga_senza_orario(tmp_files, capsys, monkeypatch):
-    """B2: finestra esaurita -> MOVED resi espliciti senza orario,
-    mai come cambi di slot. Planner invariato (solo rendering)."""
+    """B2: finestra esaurita -> niente slot passati, piano mantenuto com'e'.
+
+    F1+F4: con now oltre la fine non esistono slot futuri (né vecchi né
+    nuovi): A/B restano KEPT senza orario (mai resi come cambi di slot),
+    il commit resta solo planned_for. Planner invariato (solo rendering)."""
     from datetime import datetime
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -116,9 +121,8 @@ def test_b2_now_oltre_fine_riga_senza_orario(tmp_files, capsys, monkeypatch):
     assert _cli_main(["replan", "--now", "20:00"]) == 0
     assert _hashes() == before  # zero scritture
     out = capsys.readouterr().out
-    assert T("cli_replan_moved") in out
-    assert T("cli_replan_row_noslot", t="A") in out
-    assert T("cli_replan_row_noslot", t="B") in out
+    assert T("cli_replan_kept") in out
+    assert "–" not in out  # nessuno slot fantasma, solo titoli + motivi
 
 
 def test_c4_finestra_corrotta_exit_1_senza_scritture(tmp_files, capsys, monkeypatch):

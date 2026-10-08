@@ -55,7 +55,9 @@ def test_preview_non_scrive(tmp_files):
             await pilot.pause()
             assert type(app.screen).__name__ == "ReplanPreviewScreen"
             txt = screen_texts(app.screen)
-            assert T("cli_replan_moved") in txt and T("cli_replan_added") in txt
+            # F1: piano giorno e replan clippano allo stesso now — il
+            # ricalcolo conferma (KEPT) invece di spostare (MOVED) + C aggiunto.
+            assert T("cli_replan_kept") in txt and T("cli_replan_added") in txt
             assert _hashes() == before
 
     run(t())

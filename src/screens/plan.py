@@ -203,6 +203,7 @@ def build_planning_request(
     today: str,
     hours: float,
     window: dict | None = None,
+    now=None,
 ) -> PlanningRequest:
     """TodoItem/config app -> PlanningRequest (Phase 2, adapter app-owned).
 
@@ -212,6 +213,8 @@ def build_planning_request(
     plan(request)), finestra -> availability/busy, contesto calibrazione.
     Puro sui dati passati (mai I/O): il commit resta al chiamante.
     `today` garbage -> giorno corrente (l'orologio appartiene al caller).
+    `now` (F0, contratto v2): datetime vincolante per la clip al futuro —
+    None = nessuna clip (legacy per i percorsi storici come l'execution).
     """
     try:
         day = datetime.strptime(str(today or "")[:10], "%Y-%m-%d").date()
@@ -226,6 +229,7 @@ def build_planning_request(
         start, end, events, _allday = parts
         avail = [TimeWindow(start, end)]
         busy = events_to_busy(events)
+    moment = now if isinstance(now, datetime) else None
     return PlanningRequest(
         day=day,
         tasks=tuple(todos or ()),
@@ -233,6 +237,7 @@ def build_planning_request(
         factor=domain.calibration_factor(list(todos or ())),
         availability=tuple(avail),
         busy=tuple(busy),
+        now=moment,
         sample_count=domain.calibration_samples(list(todos or ())),
     )
 
@@ -243,6 +248,7 @@ def scheduled_for_today(
     hours: float,
     window: dict | None,
     include_done: bool = False,
+    now=None,
 ):
     """(ScheduledDayPlan, eventi, confermati) di oggi; (None, [], []) se vuoto.
 
@@ -253,6 +259,11 @@ def scheduled_for_today(
     ScheduledDayPlan degenere (tutti unscheduled, slot None) — lo
     scheduling vero richiede la finestra scritta da Buongiorno, mai
     orari inventati.
+
+    `now` (F1): datetime vincolante — la finestra e' clippata a
+    [max(start, now), end]; con end <= now degrada onestamente allo
+    stesso degenere (solo task, zero timeline). None = nessuna clip
+    (percorsi storici: execution lookup, briefing sera).
 
     include_done (briefing): include i confermati non attivi (es.
     completati) nel ritorno `planned` ma FUORI dal dayplan: lo Scheduler
@@ -300,13 +311,21 @@ def scheduled_for_today(
     if parts is None:
         return ScheduledDayPlan(dayplan), [], [], planned, ()
     start, end, events, allday = parts
+    moment = now if isinstance(now, datetime) else None
+    if moment is not None:
+        if end <= moment:
+            # Finestra interamente trascorsa: stesso degenere onesto della
+            # finestra assente (solo task, zero timeline, mai orari inventati).
+            return ScheduledDayPlan(dayplan), [], [], planned, ()
+        if start < moment:
+            start = moment
     sched = Planner.schedule(
         dayplan,
         [TimeWindow(start, end)],
         busy=events_to_busy(events),
         deadlines=deadlines_for(todos),
     )
-    req = build_planning_request(todos, today, hours, window)
+    req = build_planning_request(todos, today, hours, window, now=moment)
     try:
         alts, _diags = diagnose(
             PlanningResult(request=req, plan=dayplan, scheduled=sched), events
@@ -669,8 +688,9 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             )
             # Contesto esecutivo di oggi: UNICA costruzione condivisa col
             # Briefing (confermati -> merito Planner -> slot Scheduler).
+            # F1: clip a now — la scheda operativa non mostra slot passati.
             sched, events, allday, planned, dalts = scheduled_for_today(
-                self.all_todos, self.today, self.hours, self.window
+                self.all_todos, self.today, self.hours, self.window, now=datetime.now()
             )
             # Verita' slot della timeline visibile (per il Detail: etichetta
             # noslot e Blocco coerenti con le righe, mai col piano intero).
@@ -1248,7 +1268,7 @@ class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
             avail = [TimeWindow(start, end)]
             busy = events_to_busy(events)
         sched, _ev, _al, _pl, _alts = scheduled_for_today(
-            self.all_todos, self.today, self.hours, self.window
+            self.all_todos, self.today, self.hours, self.window, now=self.now
         )
         return replan(
             self.all_todos,
@@ -1453,10 +1473,14 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         prev_start: str | None = None,
         prev_end: str | None = None,
         prev_date: str | None = None,
+        now=None,
     ) -> None:
         super().__init__()
         self.all_todos = all_todos
         self.on_change = on_change
+        # Ora del Buongiorno (F1): congelata all'apertura — il motore clippa
+        # la finestra a [max(start, now), end], mai slot nel passato.
+        self.now = now if isinstance(now, datetime) else datetime.now()
         # Contesto operativo (orari + eventi fissi): alla conferma va al piano
         # giorno via callback (le screen non salvano mai su disco).
         self.on_window = on_window
@@ -1518,6 +1542,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.sched = None
         self.window_start = None
         self.window_end = None
+        self.past_note: tuple | None = None
         ok_start, start = self._parse_time(self.start_text)
         ok_end, end = self._parse_time(self.end_text)
         if start is None and ok_start:
@@ -1534,6 +1559,16 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             return
         self.events, self.events_bad = parse_event_lines(self.events_text, self.today)
         self.window_start, self.window_end = start, end
+        # Clip a now (F1): il passato non si schedula. La finestra originale
+        # resta per il payload (l'utente ha scritto quelli); lo scheduling
+        # usa il futuro e la preview mostra la fascia esclusa.
+        eff_start = start
+        if self.now is not None and start < self.now < end:
+            eff_start = self.now
+            self.past_note = (start, self.now)
+        elif self.now is not None and end <= self.now:
+            self.past_note = (start, end)
+            return  # interamente trascorsa: solo task, zero timeline
         # La preview segue le X: solo i selezionati si schedulano (riallineati
         # sui buchi liberati); deselezionare tutto = nessuno slot, onesto.
         shown = self._shown_ids()
@@ -1546,7 +1581,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         )
         self.sched = Planner.schedule(
             sub,
-            [TimeWindow(start, end)],
+            [TimeWindow(eff_start, end)],
             busy=events_to_busy(self.events),
             deadlines=deadlines_for(self.all_todos),
         )
@@ -1579,13 +1614,28 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
 
         Fonde gli eventi originali con gli slot (ordinamento display, mai
         scheduling); gli eventi fuori availability non si mostrano.
+        Con clip a now (F1) la fascia esclusa e' mostrata per prima, mai
+        slot fantasma nel passato.
         """
         if self.slot_error is not None:
             return T(self.slot_error)
+        lines: list[str] = []
+        past = getattr(self, "past_note", None)
+        if past is not None:
+            s, e = past
+            lines.append(
+                T(
+                    "planp_past",
+                    s=s.strftime("%H:%M"),
+                    e=e.strftime("%H:%M"),
+                    n=self.now.strftime("%H:%M"),
+                )
+            )
         if self.sched is None:
-            return T("planp_slots_none")
+            lines.append(T("planp_slots_none"))
+            return "\n".join(lines)
         shown = self._shown_ids()
-        lines = _timeline_lines(
+        rendered = _timeline_lines(
             self.sched,
             self.events,
             shown,
@@ -1593,6 +1643,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             tuple(self.events_bad),
             tuple(self.allday),
         )
+        lines.extend(rendered)
         return "\n".join(lines) if lines else T("planp_slots_none")
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -1768,6 +1819,14 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
                         T("planp_prefill", date=self.prefill_date),
                         id="planp-prefill",
                     )
+                    if getattr(self, "past_note", None) is not None:
+                        yield Static(
+                            T(
+                                "planp_prefill_past",
+                                n=self.now.strftime("%H:%M"),
+                            ),
+                            id="planp-prefill-past",
+                        )
                 with Horizontal(id="planp-avail-row"):
                     yield Input(
                         value=self.start_text,

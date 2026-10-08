@@ -1198,6 +1198,7 @@ def plan_context(
     today: str | None,
     hours: float,
     window: dict | None = None,
+    now=None,
 ) -> tuple[tuple[PlanningDecision, ...], dict]:
     """(decisions, {todo_id: PlanAlternative}) da un singolo plan() (Phase 6).
 
@@ -1205,6 +1206,7 @@ def plan_context(
     Why-card. Un solo calcolo condiviso; fallimento loggato con vuoti.
     window opzionale (dict day_window): senza, niente scheduling e quindi
     niente blocker temporali (deadline/busy/window) — solo cut/skip.
+    now (F1): inoltrato al request (clip vincolante, contratto v2).
     """
     try:
         # Import locale: evita dipendenze tra aree screen all'import
@@ -1212,7 +1214,9 @@ def plan_context(
         from src.screens.plan import build_planning_request
 
         res = plan_request(
-            build_planning_request(list(all_todos or ()), today or "", hours, window)
+            build_planning_request(
+                list(all_todos or ()), today or "", hours, window, now=now
+            )
         )
         return res.decisions, {a.todo_id: a for a in res.alternatives}
     except Exception:

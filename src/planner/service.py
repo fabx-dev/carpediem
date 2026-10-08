@@ -172,11 +172,15 @@ def plan(request: PlanningRequest) -> PlanningResult:
     algoritmi (stessa coda di Planner.propose via _build_day_plan).
     - factor: esplicito dal request (None = non calibrato, mai auto qui).
     - scheduled: None senza availability (decisione ≠ schedulazione).
+    - now (F0, contratto v2): vincolante — l'availability e' clippata al
+      futuro [max(start, now), end] via time_model prima dello scheduling;
+      a parita' di request stesso risultato, ma request con now diverso
+      danno slot diversi (mai slot nel passato).
     - decisions: via decide() con request.sample_count (confidence anche
       None — regola invariata).
     - alternatives/diagnostics (Phase 6): osservabili additivi via
       diagnose(), mai decisionali.
-    Contratto stabile v1 (docs/planner-api.md): pura e deterministica
+    Contratto stabile v2 (docs/planner-api.md): pura e deterministica
     a parita' di request.
     """
     views = list(request.tasks)
@@ -188,10 +192,15 @@ def plan(request: PlanningRequest) -> PlanningResult:
         calib,
         request.capacity_pomo,
     )
+    avail = request.availability
+    if request.now is not None:
+        from src.planner.time_model import clip_future
+
+        avail = tuple(clip_future(request.availability, request.now))
     scheduled = (
         scheduler.schedule(
             dayplan,
-            request.availability,
+            avail,
             request.busy,
             scheduler.deadlines_for(views),
         )

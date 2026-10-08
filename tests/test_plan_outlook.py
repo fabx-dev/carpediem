@@ -6,9 +6,28 @@ con persistenza day_window (eventi+allday), setup_needed->setup->annulla,
 connect->poll->salvataggio+ricarica, gate lock, merge puro.
 """
 
+import pytest
+
 import src.screens.plan as plan_mod
 from src.screens._shared import outlook_error_text
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
+
+
+@pytest.fixture(autouse=True)
+def _buongiorno_al_mattino(monkeypatch):
+    """F1 clip-a-now: congela l'ora alle 08:00 di oggi (scenari mattutini)."""
+    from datetime import datetime
+
+    today = datetime.now().date()
+    fixed = datetime(today.year, today.month, today.day, 8, 0)
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    monkeypatch.setattr(plan_mod, "datetime", _Frozen)
+
 
 IT = "m.rossi@azienda.it"
 EVENTS = [("10:00", "11:00", "Riunione"), ("13:00", "14:00", "Pranzo")]

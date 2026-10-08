@@ -90,7 +90,7 @@ def _cli_replan(args, err) -> int:
                 avail = [TimeWindow(start, end)]
                 busy = events_to_busy(events)
             sched, _ev, _al, _pl, _alts = scheduled_for_today(
-                todos, today, hours, window
+                todos, today, hours, window, now=now
             )
         except Exception as exc:
             err(f"{T('cli_replan_winbad')}: {exc}")

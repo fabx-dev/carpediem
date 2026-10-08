@@ -1,4 +1,4 @@
-"""Freeze test del contratto pubblico v1 (Phase 7, docs/planner-api.md).
+"""Freeze test del contratto pubblico v2 (Phase 7 v1, F0 time-aware v2).
 
 Congela: versione, superficie promessa, campi/default/ordine dei due
 contratti, costruzione kwargs minima, frozen su tutte le classi promesse.
@@ -14,9 +14,9 @@ import src.planner as p
 from src.planner import models as m
 
 
-def test_contract_version_e_1():
-    assert p.PLANNER_CONTRACT_VERSION == 1
-    assert m.PLANNER_CONTRACT_VERSION == 1
+def test_contract_version_e_2():
+    assert p.PLANNER_CONTRACT_VERSION == 2
+    assert m.PLANNER_CONTRACT_VERSION == 2
 
 
 PROMISED = {

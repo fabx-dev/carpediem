@@ -20,10 +20,12 @@ modello di dominio futuro — vedi docstring di TaskView/todo_to_task.
 from dataclasses import dataclass
 from datetime import date, datetime
 
-# Versione del contratto pubblico (Phase 7, stabile da v1).
+# Versione del contratto pubblico (Phase 7 stabile v1, F0 time-aware v2).
 # Indipendente dalla versione package: evolve solo su cambio breaking
 # deliberato del contratto (mai silenzioso). Vedi docs/planner-api.md.
-PLANNER_CONTRACT_VERSION = 1
+# v2 (F0): PlanningRequest.now e' vincolante — plan() clippa l'availability
+# al futuro [max(start, now), end] invece di ignorarlo.
+PLANNER_CONTRACT_VERSION = 2
 
 
 @dataclass(frozen=True)

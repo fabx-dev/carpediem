@@ -3,6 +3,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
+import pytest
 from textual.widgets import Input, TextArea
 
 from src.lang import T as _T
@@ -10,6 +11,26 @@ from src.models import Priority
 from src.planner import Planner
 from src.planner.models import TimeWindow
 from tests.conftest import make_app, make_todo, screen_texts
+
+
+@pytest.fixture(autouse=True)
+def _buongiorno_al_mattino(monkeypatch):
+    """F1 clip-a-now: congela l'ora di apertura alle 08:00 di oggi.
+
+    Questi scenari usano finestre 09:00–18:00 e si aspettano slot dalle
+    09:00: senza freeze sarebbero nel passato dopo le 09:00 reali e la
+    clip li sposterebbe (comportamento voluto, non regressione).
+    """
+    import src.screens.plan as plan_mod
+
+    fixed = datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M")
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    monkeypatch.setattr(plan_mod, "datetime", _Frozen)
 
 
 def _day(offset: int) -> str:

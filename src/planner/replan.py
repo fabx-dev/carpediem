@@ -17,9 +17,10 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from src.planner.decisions import decide, primary_reason
-from src.planner.models import DayPlan, ScheduledDayPlan, TimeWindow
+from src.planner.models import DayPlan, ScheduledDayPlan
 from src.planner.scheduler import deadlines_for
 from src.planner.service import Planner
+from src.planner.time_model import clip_future
 
 # Vedi scoring._REAL_DATETIME: classi reali per isinstance robusti al
 # congelamento dell'orologio nei test (patch del nome `datetime`).
@@ -70,22 +71,10 @@ def _hhmm(dt) -> str | None:
 def _clip_future(availability, now: datetime) -> list:
     """Availability con gli slot passati indisponibili (busy implicito).
 
-    Solo il futuro di oggi: now di un altro giorno = nessuna availability.
+    Thin wrapper sopra time_model.clip_future (F0): stessi risultati,
+    solo il futuro di oggi. now di un altro giorno = nessuna availability.
     """
-    out = []
-    for w in availability or ():
-        if not isinstance(w, TimeWindow):
-            continue
-        try:
-            same_day = (w.start.date() == now.date()) if now is not None else True
-        except Exception:
-            continue
-        if not same_day:
-            continue
-        start = max(w.start, now) if now is not None else w.start
-        if start < w.end:
-            out.append(TimeWindow(start, w.end))
-    return out
+    return clip_future(availability, now)
 
 
 def replan(

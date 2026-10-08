@@ -1,7 +1,7 @@
-# Planner API v1 — superficie promessa e policy di compatibilità
+# Planner API v2 — superficie promessa e policy di compatibilità
 
-> Stato: contratto stabile da Phase 7 (`PLANNER_CONTRACT_VERSION = 1`,
-> vedi `docs/planner-phase7-plan.md`). Questa pagina è vincolante: ogni
+> Stato: contratto stabile v2 da F0 time-aware (`PLANNER_CONTRACT_VERSION = 2`,
+> vedi `docs/planner-phase7-plan.md` per v1). Questa pagina è vincolante: ogni
 > cambio al contratto deve rispettarla o aggiornarla con bump deliberato.
 
 ## 1. Superficie promessa
@@ -42,7 +42,10 @@ res.diagnostics         # tuple[PlanDiagnostic, ...] (solo fatti veri)
 
 Regole d'uso: `day` invalido = `ValueError` subito (mai piano spostato
 silenziosamente); `plan()` è pura e deterministica a parità di request;
-`scheduled` è `None` senza `availability` (decisione ≠ schedulazione).
+`scheduled` è `None` senza `availability` (decisione ≠ schedulazione);
+`request.now` è vincolante (v2): con `now` l'availability è clippata al
+futuro `[max(start, now), end]` prima dello scheduling — a parità di giorno
+ma con `now` diverso gli slot cambiano (mai slot nel passato).
 
 ## 3. Consumer in-repo dichiarati (P7-3)
 

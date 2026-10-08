@@ -7,8 +7,25 @@ insufficiente), con la stessa story di una riga timed.
 
 from datetime import datetime, timedelta
 
+import pytest
+
 from src.lang import T as _T
 from tests.conftest import make_app, make_todo, run, screen_texts
+
+
+@pytest.fixture(autouse=True)
+def _buongiorno_al_mattino(monkeypatch):
+    """F1 clip-a-now: congela l'ora alle 08:00 di oggi (scenari mattutini)."""
+    import src.screens.plan as plan_mod
+
+    fixed = datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M")
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    monkeypatch.setattr(plan_mod, "datetime", _Frozen)
 
 
 def _day(offset: int) -> str:
