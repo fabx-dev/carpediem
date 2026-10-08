@@ -26,6 +26,12 @@ Entries in English from now on.
   never be KEPT, tasks are atomic); `remaining_min` (free future minutes)
   kept distinct from `residual_pomo` (capacity minus planned);
   `domain.apply_replan` contract untouched.
+- Secondary fit+urgency ordering (F3): primary weights frozen; at equal
+  score, tighter canonical slack first, then shorter duration (gap-filling
+  proxy — true gap-relative waste stays in the F2 best-fit scheduler where
+  gaps exist), then due/id; `None` context keeps the legacy order
+  byte-identical; new decision evidence `slack_min`/`gap_waste_min`/
+  `residual_pomo`/`remaining_min` for the F5 narrative.
 - Morning briefing reuses the previous valid day's hours (start/end only,
   editable, events never carried over) with an explicit note, so confirming
   with `s` no longer silently produces a plan without a timeline.

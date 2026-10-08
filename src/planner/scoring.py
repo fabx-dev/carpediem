@@ -19,7 +19,10 @@ parita' coperta dalle fixture). Niente import dal modello storage.
 from datetime import date, datetime
 
 from src.planner import explain
+from src.planner.estimation import POMO_MINUTES
 from src.planner.models import TaskView
+from src.planner.time_model import deadline_at
+from src.planner.time_model import slack as canonical_slack
 
 # Classi stdlib reali: i test congelano l'orologio patchando il nome
 # `datetime` del modulo con una sottoclasse (unico modo per freezare
@@ -160,7 +163,71 @@ def score_all(
     return scored
 
 
-def rank_key(entry) -> tuple:
-    """Ordinamento per merito: score desc, poi scadenza, poi id."""
+def rank_key(entry, *, now=None, deadlines=None) -> tuple:
+    """Ordinamento per merito: score desc, poi urgenza, poi scadenza, poi id.
+
+    Pesi primari congelati (F3: 100/60/30/20/10/15/5 intoccati). A parita'
+    di score, secondario deterministico: slack crescente (deadline odierna
+    con ora valida + now esplicito, definizione canonica time_model),
+    poi durata crescente (i task brevi riempiono meglio i buchi: proxy di
+    fit senza contesto temporale — il waste vero vive nel best-fit F2 dove
+    i gap esistono, capacity resta timeline-free per disegno), poi scadenza
+    e id. Senza now/deadlines la chiave e' quella legacy, byte-identica.
+    """
     todo, score, _reasons = entry[0], entry[1], entry[2]
-    return (-score, _date_part(todo.due) or "9999", todo.id)
+    due = _date_part(todo.due) or "9999"
+    moment = _as_moment(now)
+    if moment is None or not deadlines:
+        return (-score, due, todo.id)
+    return (
+        -score,
+        _slack_key(todo, moment, deadlines),
+        _need_min(todo),
+        due,
+        todo.id,
+    )
+
+
+_SLACK_NONE = 10**9
+
+
+def _need_min(todo) -> int:
+    """Durata in minuti dalla stima raw (fallback 1, mai calibrazione).
+
+    La calibrazione scala tutti i task dello stesso factor: ininfluente per
+    l'ordine relativo. POMO_MINUTES in lock-step con capacity.POMO_HOURS.
+    """
+    try:
+        base = int(todo.estimate_pomo or 0) or 1
+    except (ValueError, TypeError):
+        base = 1
+    return max(0, POMO_MINUTES * base)
+
+
+def _as_moment(now):
+    if isinstance(now, _REAL_DATETIME):
+        return now
+    if isinstance(now, _REAL_DATE):
+        return datetime(now.year, now.month, now.day)
+    return None
+
+
+def _slack_key(todo, moment, deadlines) -> int:
+    """Slack canonico del task, o +inf se non calcolabile (in coda).
+
+    moment gia' normalizzato dal chiamante (rank_key); deadlines la mappa
+    {todo_id: (due_s, due_t)} dello scheduler.
+    """
+    if moment is None or not deadlines:
+        return _SLACK_NONE
+    try:
+        day = parse_day(_date_part(todo.due))
+    except Exception:
+        return _SLACK_NONE
+    if day is None:
+        return _SLACK_NONE
+    limit = deadline_at(deadlines, todo.id, day)
+    if limit is None:
+        return _SLACK_NONE
+    value = canonical_slack(limit, moment, _need_min(todo))
+    return value if value is not None else _SLACK_NONE

@@ -156,25 +156,12 @@ def deadlines_for(todos) -> dict:
 def _deadline(deadlines, todo_id, day):
     """Limite superiore di fine-slot, o None se non applicabile (totale).
 
-    Solo due-date == plan.day + orario HH:MM valido: il resto (scaduti,
-    futuri, senza ora, garbage, mappa assente) schedula come prima.
+    Delega a time_model.deadline_at (F3, definizione unica): solo due-date
+    == plan.day + orario valido, il resto schedula come prima.
     """
-    try:
-        due_s, due_t = (deadlines or {}).get(todo_id, ("", ""))
-    except (AttributeError, TypeError, ValueError):
-        return None
-    if not due_t or str(due_s or "")[:10] != day.isoformat():
-        return None
-    try:
-        h, m = int(str(due_t)[:2]), int(str(due_t)[3:5])
-        if not (0 <= h <= 23 and 0 <= m <= 59 and str(due_t)[2:3] == ":"):
-            return None
-    except (ValueError, TypeError, IndexError):
-        return None
-    try:
-        return datetime(day.year, day.month, day.day, h, m)
-    except ValueError:
-        return None
+    from src.planner.time_model import deadline_at
+
+    return deadline_at(deadlines, todo_id, day)
 
 
 def events_to_busy(events) -> tuple:

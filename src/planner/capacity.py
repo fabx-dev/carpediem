@@ -39,12 +39,6 @@ def pomo_minutes(pomo) -> int:
         return 0
 
 
-def _date_part(due: str) -> str:
-    """Solo YYYY-MM-DD (copia locale: niente import dal modello storage)."""
-    s = str(due or "")
-    return s.strip().split()[0] if s.strip() else ""
-
-
 def total(hours: float) -> float:
     """Pomodori disponibili: ore / 0.5; ore invalide = 0."""
     try:
@@ -89,14 +83,23 @@ def keep_always(entry, today_s: str) -> bool:
 
 
 def allocate(
-    candidates: list, *, today_s: str, capacity: float, calib: float | None
+    candidates: list,
+    *,
+    today_s: str,
+    capacity: float,
+    calib: float | None,
+    now=None,
+    deadlines=None,
 ) -> list:
     """Seleziona i candidati: [(todo, score, reasons, mandatory)] in ordine finale.
 
     keep_always() entrano sempre (possono sforare); gli altri in ordine di
     merito finche' c'e' capienza, poi motivo di taglio. I tagliati restano in
     fondo (cut-last), mai nascosti. Il mandatory passa attraverso per il
-    DayPlan (PlanItem lo porta come campo esplicito)."""
+    DayPlan (PlanItem lo porta come campo esplicito).
+    now/deadlines (F3): secondario slack/durata a parita' di score via
+    rank_key; None = ordinamento legacy byte-identico.
+    """
     included: list[tuple] = []
     rest: list[tuple] = []
     used = 0
@@ -106,7 +109,7 @@ def allocate(
             used += estimate(t, calib)
         else:
             rest.append((t, result, reasons))
-    rest.sort(key=rank_key)
+    rest.sort(key=lambda e: rank_key(e, now=now, deadlines=deadlines))
     for t, result, reasons in rest:
         if used + estimate(t, calib) <= capacity:
             included.append((t, result, reasons, False))
@@ -116,9 +119,7 @@ def allocate(
     included.sort(
         key=lambda e: (
             any(k == explain.CUT for k, _p in e[2]),
-            -e[1],
-            _date_part(e[0].due) or "9999",
-            e[0].id,
+            *rank_key((e[0], e[1], e[2]), now=now, deadlines=deadlines),
         )
     )
     return included

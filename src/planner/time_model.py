@@ -161,3 +161,33 @@ def slack(deadline, now, duration_min) -> int | None:
     except Exception:
         return None
     return delta_min - duration
+
+
+def deadline_at(deadlines, todo_id, day) -> datetime | None:
+    """Limite di fine-slot da mappa scadenze, o None se non applicabile.
+
+    Solo due-date == day + orario HH:MM valido con range reali (stessa
+    semantica di scheduler._deadline, che delega qui dal F3): scaduti,
+    futuri, senza-ora, garbage e mappa assente -> None. Totale, mai solleva.
+    """
+    try:
+        due_s, due_t = (deadlines or {}).get(todo_id, ("", ""))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    try:
+        day_iso = day.isoformat()
+    except AttributeError:
+        return None
+    if not due_t or str(due_s or "")[:10] != day_iso:
+        return None
+    try:
+        text = str(due_t)
+        h, m = int(text[:2]), int(text[3:5])
+        if not (0 <= h <= 23 and 0 <= m <= 59 and text[2:3] == ":"):
+            return None
+    except (ValueError, TypeError, IndexError):
+        return None
+    try:
+        return datetime(day.year, day.month, day.day, h, m)
+    except (ValueError, AttributeError):
+        return None

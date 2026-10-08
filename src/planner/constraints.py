@@ -44,10 +44,14 @@ def eligibility_of(todo, today_s: str) -> str:
     return ELIGIBLE
 
 
-def partition(scored: list, today_s: str) -> tuple[list, list]:
+def partition(
+    scored: list, today_s: str, *, now=None, deadlines=None
+) -> tuple[list, list]:
     """(candidati, scartati): gli scartati ricevono il motivo e sono ordinati
     per merito; i candidati (inclusi i mandatory) vanno a capacity.
-    Entrambi tengono il flag mandatory per il DayPlan."""
+    Entrambi tengono il flag mandatory per il DayPlan.
+    now/deadlines (F3): secondario slack/durata negli scartati; None = legacy.
+    """
     candidates = []
     skipped = []
     for t, result, reasons, mandatory in scored:
@@ -55,5 +59,5 @@ def partition(scored: list, today_s: str) -> tuple[list, list]:
             skipped.append((t, result, [*reasons, explain.skipped()], mandatory))
         else:
             candidates.append((t, result, reasons, mandatory))
-    skipped.sort(key=rank_key)
+    skipped.sort(key=lambda e: rank_key(e, now=now, deadlines=deadlines))
     return candidates, skipped

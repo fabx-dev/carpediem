@@ -1,4 +1,4 @@
-"""Decisioni di pianificazione esplicite (M3, puro, niente I/O/UI/i18n).
+"""Decisioni di pianificazione esplicite (M3/F3, puro, niente I/O/UI/i18n).
 
 PlanningDecision rende esplicito cio' che prima era implicito nelle tre
 tuple di DayPlan: NON e' un secondo motore decisionale. Pipeline:
@@ -21,10 +21,12 @@ tuple di DayPlan: NON e' un secondo motore decisionale. Pipeline:
   NUOVE decisioni (mai mutazione in-place, frozen) aggiungendo gli slot;
   solo mandatory-senza-slot diventa CONSTRAINED. Mai overlap, mai orari
   inventati, mai vincoli rilassati.
-- evidence stabile (superficie proto-diagnostica per Phase 6, solo lettura):
+- evidence stabile (superficie proto-diagnostica per Phase 6/F3, solo lettura):
   due/priority/overdue/score/rank/rank_of/estimate_pomo/estimate_minutes/
-  mandatory/capacity_pomo/planned_pomo (+ slot_start/slot_end dopo refine).
-  Niente nuovi campi in Phase 1 (ogni aggiunta si propaga alla Why-card).
+  mandatory/capacity_pomo/planned_pomo/residual_pomo (+ slot_start/slot_end
+  dopo refine, + slack_min con now/deadlines, + gap_waste_min/remaining_min
+  con now in refine). Niente nuovi campi senza consumer narrativo (ogni
+  aggiunta si propaga alla Why-card in F5).
 """
 
 from dataclasses import dataclass, replace
@@ -34,6 +36,8 @@ from src.planner.estimation import execution_confidence
 from src.planner.explain import CALIBRATED, CUT, SKIPPED
 from src.planner.models import DayPlan, ScheduledDayPlan
 from src.planner.scoring import parse_day
+from src.planner.time_model import deadline_at, residual
+from src.planner.time_model import slack as canonical_slack
 
 SCHEDULED = "scheduled"
 NOT_SCHEDULED = "not_scheduled"
@@ -70,6 +74,10 @@ def _evidence(item, todo, day_s: str, rank: int, rank_of: int, plan: DayPlan) ->
         priority = ""
     due_day = parse_day(due)
     overdue = due_day is not None and due_day.isoformat() < day_s
+    try:
+        residual_pomo = plan.capacity_pomo - plan.planned_pomo
+    except (TypeError, ValueError):
+        residual_pomo = 0
     return {
         "due": due,
         "priority": priority,
@@ -82,7 +90,23 @@ def _evidence(item, todo, day_s: str, rank: int, rank_of: int, plan: DayPlan) ->
         "mandatory": bool(item.mandatory),
         "capacity_pomo": plan.capacity_pomo,
         "planned_pomo": plan.planned_pomo,
+        "residual_pomo": residual_pomo,
     }
+
+
+def _slack_evidence(item, todo_id, day, now, deadlines):
+    """Slack canonico del task in minuti, o None se non calcolabile.
+
+    Solo deadline odierna con ora valida + now esplicito (stessa regola
+    dello scheduler F2): niente now = niente slack, mai valori inventati.
+    La normalizzazione di now (date -> mezzanotte) vive in time_model.
+    """
+    if now is None or not deadlines:
+        return None
+    limit = deadline_at(deadlines, todo_id, day)
+    if limit is None:
+        return None
+    return canonical_slack(limit, now, pomo_minutes(item.estimate_pomo))
 
 
 # Seam D4 (Phase 1): la traduzione int->livello resta delegata a domain di
@@ -106,7 +130,15 @@ def _confidence(reasons, sample_count, explicit=None) -> str | None:
         return None
 
 
-def decide(plan: DayPlan, todos, *, sample_count=None, confidence=None) -> tuple:
+def decide(
+    plan: DayPlan,
+    todos,
+    *,
+    sample_count=None,
+    confidence=None,
+    now=None,
+    deadlines=None,
+) -> tuple:
     """Proietta un DayPlan in decisioni, una per voce valutata, in ordine.
 
     sample_count e' misurato dal chiamante (es. domain.calibration_samples):
@@ -114,6 +146,10 @@ def decide(plan: DayPlan, todos, *, sample_count=None, confidence=None) -> tuple
     confidence esplicita vince sempre (opt-in, nessun caller di produzione
     la passa in Phase 1). I non eleggibili non compaiono nel piano e non
     diventano decisioni.
+    now/deadlines (F3, opzionali): aggiungono evidence slack_min (slack
+    canonico in minuti, None se non calcolabile); senza restano assenti
+    come prima (legacy byte-identico a meno dei campi additivi sempre
+    presenti residual_pomo).
     """
     try:
         by_id = {t.id: t for t in todos or ()}
@@ -132,25 +168,59 @@ def decide(plan: DayPlan, todos, *, sample_count=None, confidence=None) -> tuple
             section_of[id(item)] = decision
     out = []
     for rank, item in enumerate(items, start=1):
+        evidence = _evidence(item, by_id.get(item.todo_id), day_s, rank, rank_of, plan)
+        slack = _slack_evidence(item, item.todo_id, plan.day, now, deadlines)
+        if slack is not None:
+            evidence["slack_min"] = slack
         out.append(
             PlanningDecision(
                 item.todo_id,
                 section_of.get(id(item), SCHEDULED),
                 tuple(item.reasons),
-                _evidence(item, by_id.get(item.todo_id), day_s, rank, rank_of, plan),
+                evidence,
                 _confidence(item.reasons, sample_count, confidence),
             )
         )
     return tuple(out)
 
 
-def refine_with_schedule(decisions, scheduled: ScheduledDayPlan | None) -> tuple:
+def _gap_waste_min(need_min: int, availability, busy) -> int | None:
+    """Minimo waste del task tra i gap che lo contengono, o None.
+
+    Solo osservazione sui gap reali (availability meno busy): quanto spazio
+    avanzerebbe nel buco migliore. None se nessun gap basta (spiegazione
+    via diagnose/blocked_by, mai qui).
+    """
+    try:
+        from src.planner.scheduler import _subtract
+
+        gaps = _subtract(list(availability or ()), list(busy or ()))
+    except Exception:
+        return None
+    best = None
+    for w in gaps:
+        try:
+            size = int((w.end - w.start).total_seconds() // 60)
+        except Exception:
+            continue
+        if size >= need_min:
+            waste = size - need_min
+            best = waste if best is None or waste < best else best
+    return best
+
+
+def refine_with_schedule(
+    decisions, scheduled: ScheduledDayPlan | None, *, now=None
+) -> tuple:
     """Arricchisce le decisioni con l'esito dello scheduler (puro, no in-place).
 
     SCHEDULED con slot resta SCHEDULED (+ slot_start/slot_end in evidence);
     mandatory senza slot diventa CONSTRAINED; non-mandatory senza slot resta
     SCHEDULED (la timeline e' una fase distinta dalla decisione). Cut/skipped
     (NOT_SCHEDULED/DEFERRED) passano invariati: lo scheduler non li colloca.
+    now (F3, opzionale): aggiunge gap_waste_min (miglior buco per il task)
+    e remaining_min (minuti liberi futuri dopo now/busy); senza restano
+    assenti come prima.
     """
     if scheduled is None:
         return tuple(decisions)
@@ -166,11 +236,25 @@ def refine_with_schedule(decisions, scheduled: ScheduledDayPlan | None) -> tuple
             evidence = dict(d.evidence or {})
             evidence["slot_start"] = slot.start.strftime("%Y-%m-%d %H:%M")
             evidence["slot_end"] = slot.end.strftime("%Y-%m-%d %H:%M")
-            out.append(replace(d, evidence=evidence))
+            new_d = replace(d, evidence=evidence)
         elif (d.evidence or {}).get("mandatory") and d.todo_id in unscheduled_ids:
-            out.append(replace(d, decision=CONSTRAINED))
+            new_d = replace(d, decision=CONSTRAINED)
         else:
-            out.append(d)
+            new_d = d
+        if now is not None:
+            evidence = dict(new_d.evidence or {})
+            try:
+                need = int(evidence.get("estimate_minutes") or 0)
+            except (ValueError, TypeError):
+                need = 0
+            waste = _gap_waste_min(need, scheduled.availability, scheduled.busy)
+            if waste is not None:
+                evidence["gap_waste_min"] = waste
+            evidence["remaining_min"] = residual(
+                scheduled.availability, scheduled.busy, now
+            )
+            new_d = replace(new_d, evidence=evidence)
+        out.append(new_d)
     return tuple(out)
 
 

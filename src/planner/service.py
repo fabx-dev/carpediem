@@ -50,6 +50,7 @@ class _PlannerInput:
     capacity_pomo: float
     factor: float | None
     views: tuple
+    now: datetime | None = None
 
 
 class Planner:
@@ -90,19 +91,26 @@ class Planner:
             if self.factor is not None
             else calibration.factor_for(self.todos)
         )
+        moment = self.now if isinstance(self.now, datetime) else None
         return _PlannerInput(
             day=day,
             today_s=day.strftime("%Y-%m-%d"),
             capacity_pomo=capacity.total(self.hours),
             factor=capacity.normalize_factor(raw),
             views=tuple(self.todos),
+            now=moment,
         )
 
     def propose(self) -> DayPlan:
         """Proposta giornaliera come DayPlan (planned/cut/skipped + capacita')."""
         inp = self._normalize()
         return _build_day_plan(
-            list(inp.views), inp.day, inp.today_s, inp.factor, inp.capacity_pomo
+            list(inp.views),
+            inp.day,
+            inp.today_s,
+            inp.factor,
+            inp.capacity_pomo,
+            now=inp.now,
         )
 
     @staticmethod
@@ -116,18 +124,27 @@ class Planner:
         return scheduler.schedule(plan, availability, busy, deadlines, now=now)
 
 
-def _build_day_plan(views, day, today_s: str, calib, total) -> DayPlan:
+def _build_day_plan(views, day, today_s: str, calib, total, *, now=None) -> DayPlan:
     """Eleggibilita' → merito → selezione → DayPlan (coda condivisa).
 
     Unica implementazione usata da Planner.propose() e plan(): stessi pesi,
     stessi vincoli, stessa capacita', stesso ordinamento. Niente algoritmi
-    qui, solo composizione degli stadi.
+    qui, solo composizione degli stadi. now/deadlines (F3): secondario
+    slack/durata a parita' di score; None = legacy byte-identico.
     """
     eligible = [t for t in views if constraints.is_eligible(t)]
     scored = scoring.score_all(eligible, list(views), day, today_s, calib)
-    candidates, skipped = constraints.partition(scored, today_s)
+    deadlines = scheduler.deadlines_for(list(views))
+    candidates, skipped = constraints.partition(
+        scored, today_s, now=now, deadlines=deadlines
+    )
     included = capacity.allocate(
-        candidates, today_s=today_s, capacity=total, calib=calib
+        candidates,
+        today_s=today_s,
+        capacity=total,
+        calib=calib,
+        now=now,
+        deadlines=deadlines,
     )
     planned: list[PlanItem] = []
     cut: list[PlanItem] = []
@@ -180,7 +197,8 @@ def plan(request: PlanningRequest) -> PlanningResult:
       a parita' di request stesso risultato, ma request con now diverso
       danno slot diversi (mai slot nel passato).
     - decisions: via decide() con request.sample_count (confidence anche
-      None — regola invariata).
+      None — regola invariata) + now/deadlines per le evidence temporali
+      (F3: slack_min/gap/remaining, solo dati).
     - alternatives/diagnostics (Phase 6): osservabili additivi via
       diagnose(), mai decisionali.
     Contratto stabile v2 (docs/planner-api.md): pura e deterministica
@@ -188,12 +206,14 @@ def plan(request: PlanningRequest) -> PlanningResult:
     """
     views = list(request.tasks)
     calib = capacity.normalize_factor(request.factor)
+    deadlines = scheduler.deadlines_for(views)
     dayplan = _build_day_plan(
         views,
         request.day,
         request.day.strftime("%Y-%m-%d"),
         calib,
         request.capacity_pomo,
+        now=request.now,
     )
     avail = request.availability
     if request.now is not None:
@@ -205,7 +225,7 @@ def plan(request: PlanningRequest) -> PlanningResult:
             dayplan,
             avail,
             request.busy,
-            scheduler.deadlines_for(views),
+            deadlines,
             now=request.now,
         )
         if request.availability
@@ -215,7 +235,13 @@ def plan(request: PlanningRequest) -> PlanningResult:
         request=request,
         plan=dayplan,
         scheduled=scheduled,
-        decisions=decide(dayplan, views, sample_count=request.sample_count),
+        decisions=decide(
+            dayplan,
+            views,
+            sample_count=request.sample_count,
+            now=request.now,
+            deadlines=deadlines,
+        ),
     )
     alternatives, diagnostics = diagnose(base)
     return replace(base, alternatives=alternatives, diagnostics=diagnostics)

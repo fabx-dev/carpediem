@@ -416,6 +416,8 @@ def test_t9_layout_modelli_frozen_invariato():
         "capacity_pomo",
         "planned_pomo",
         "residual_pomo",
+        # F4: campo additivo in coda con default (policy api §4, no bump).
+        "remaining_min",
     ]
     assert [f.name for f in dataclasses.fields(replan_mod.ReplanMove)] == [
         "todo_id",
