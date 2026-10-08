@@ -59,6 +59,15 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  M4: replan.py puro (ReplanProposal/ReplanMove kept/moved/
                  dropped/added; availability clippata a [now, fine];
                  commit via domain.apply_replan + carpediem replan CLI)
+                 F0-F5 (2026-10-08, contratto v2): time_model.py puro
+                 (clip_future/fuse/residual/slack canonico/as_moment);
+                 PlanningRequest.now vincolante (mai decorativo); scheduler
+                 best-fit atomico (minimo waste, slack crescente con now,
+                 niente split); rank secondario slack/durata a pari score
+                 (pesi 100/60/30/20/15/5 congelati); replan a due passaggi
+                 (confermati prima, KEPT preciso, remaining_min distinto da
+                 residual_pomo); evidence slack_min/gap_waste_min/
+                 residual_pomo/remaining_min per la narrativa Why
 src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit();
@@ -1012,6 +1021,22 @@ Regole dure:
   Un solo nome `Buongiorno` (footer/help/Tasti; il workflow lo diceva gia'), `help_l5` = ciclo
   `P`/`p`/`R`/`m` (i simboli `O`/`P`/`X` non sono tasti: lo stato e'
   `Space`), hint `G` corretto (`P` aggiunge soltanto), welcome sul ciclo.
+- **Refactoring planner time-aware F0-F5 (2026-10-08, fatto, 5 commit)**:
+  `time_model.py` puro (clip/fuse/residual/slack/as_moment freeze-proof);
+  `PlanningRequest.now` vincolante (contratto v2, `docs/planner-api.md`);
+  Buongiorno congela l'ora di apertura e clippa `[max(start,now),end]`
+  con riga fascia esclusa + degrado onesto, piano/G/CLI stesso now
+  (replan stabile invece di churn); scheduler best-fit atomico con
+  slack-order e availability fuse; rank secondario slack/durata (pesi
+  intoccati, legacy byte-identico senza contesto); replan a due passaggi
+  con KEPT preciso + `remaining_min`; narrative tight + cause gap con
+  numeri + fallback onesto kind ignoti; Why con window+now dai 3 caller;
+  header piano con minuti liberi. Lezioni: freeze `datetime` dei test
+  rompe gli `isinstance` sui nomi patchati -> normalizzare con classi
+  reali (`as_moment`); `ruff format` formatta anche i code-block nei .md
+  (revertire i doc non toccati); i test atemporali esistenti vanno
+  congelati alle 08:00, non riscritti ( salvo i 3 replan che codificavano
+  la vecchia divergenza preview/piano, ora KEPT per disegno).
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
