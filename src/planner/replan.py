@@ -115,7 +115,9 @@ def replan(
         d.todo_id: d for d in decide(new_plan, todos, sample_count=sample_count)
     }
     future = _clip_future(availability, moment)
-    new_sched = Planner.schedule(new_plan, future, busy or (), deadlines_for(todos))
+    new_sched = Planner.schedule(
+        new_plan, future, busy or (), deadlines_for(todos), now=moment
+    )
     new_slots = {s.item.todo_id: s for s in new_sched.scheduled}
     old_slots = {}
     if current is not None:

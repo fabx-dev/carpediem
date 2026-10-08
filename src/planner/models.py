@@ -359,7 +359,8 @@ DIAG_NO_AVAIL = "empty_availability"
 DIAG_KINDS = frozenset({DIAG_OVERFLOW, DIAG_CONSTRAINED, DIAG_NO_AVAIL})
 
 # Chiavi ammesse in PlanAlternative.detail / PlanDiagnostic.detail
-# (vocabolario chiuso: solo fatti che Phase 6 sa davvero).
+# (vocabolario chiuso: solo fatti che Phase 6 sa davvero; F2 aggiunge le
+# dimensioni dei buchi per spiegare i task atomici non collocabili).
 DETAIL_KEYS = frozenset(
     {
         "needed_min",
@@ -373,6 +374,8 @@ DETAIL_KEYS = frozenset(
         "count",
         "todo_ids",
         "planned_count",
+        "max_gap_min",
+        "gap_count",
     }
 )
 

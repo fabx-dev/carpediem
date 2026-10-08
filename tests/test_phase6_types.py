@@ -51,6 +51,9 @@ def test_d1_vocabolari_chiusi():
             "count",
             "todo_ids",
             "planned_count",
+            # F2: dimensioni dei buchi (task atomici non collocabili).
+            "max_gap_min",
+            "gap_count",
         }
     )
 

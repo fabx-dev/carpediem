@@ -109,6 +109,22 @@ def _feasible_gaps(avail, busy, limit, need) -> list:
     return gaps
 
 
+def _gap_stats(avail, busy) -> tuple[int, int]:
+    """(buco massimo in minuti, numero di buchi) da availability meno busy.
+
+    Pura osservazione per le evidence F2: quanto spazio frammentato resta,
+    a prescindere dai vincoli del singolo task.
+    """
+    gaps = _subtract(list(avail or ()), list(busy or ()))
+    if not gaps:
+        return 0, 0
+    try:
+        sizes = [int((w.end - w.start).total_seconds() // 60) for w in gaps]
+    except Exception:
+        return 0, 0
+    return max(sizes), len(gaps)
+
+
 def _probe_unscheduled(
     item, day, avail, busy, deadlines, events=(), scheduled=()
 ) -> PlanAlternative:
@@ -118,7 +134,7 @@ def _probe_unscheduled(
     quindi nessun esito inventato. decision rispecchia refine_with_schedule
     (mandatory senza slot -> CONSTRAINED). Se la voce entrerebbe da sola ma
     altri task schedulati occupano il suo slot, il blocco sono LORO
-    (competizione first-fit persa), non la finestra.
+    (competizione best-fit persa), non la finestra.
     """
     decision = CONSTRAINED if item.mandatory else SCHEDULED
     needed = pomo_minutes(item.estimate_pomo)
@@ -160,9 +176,16 @@ def _probe_unscheduled(
         names = _blocking_titles(events, freed)
         if names:
             detail["busy_titles"] = names
+        max_gap, gap_count = _gap_stats(avail, busy)
+        detail["max_gap_min"] = max_gap
+        detail["gap_count"] = gap_count
         return PlanAlternative(item.todo_id, decision, BLOCKED_BUSY, detail)
+    max_gap, gap_count = _gap_stats(avail, busy)
     return PlanAlternative(
-        item.todo_id, decision, BLOCKED_WINDOW, {"needed_min": needed}
+        item.todo_id,
+        decision,
+        BLOCKED_WINDOW,
+        {"needed_min": needed, "max_gap_min": max_gap, "gap_count": gap_count},
     )
 
 

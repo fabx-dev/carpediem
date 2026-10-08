@@ -324,6 +324,7 @@ def scheduled_for_today(
         [TimeWindow(start, end)],
         busy=events_to_busy(events),
         deadlines=deadlines_for(todos),
+        now=moment,
     )
     req = build_planning_request(todos, today, hours, window, now=moment)
     try:
@@ -1584,6 +1585,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             [TimeWindow(eff_start, end)],
             busy=events_to_busy(self.events),
             deadlines=deadlines_for(self.all_todos),
+            now=self.now,
         )
 
     def _window_payload(self) -> dict | None:

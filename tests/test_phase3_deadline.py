@@ -137,19 +137,19 @@ def test_due_time_sempre_formato_valido():
 
 
 def test_p1_placeable_congiunzione():
-    """P1 (P4-4): fit + entro-scadenza come congiunti nominati."""
+    """P1 (P4-4, F2 best-fit): fit + entro-scadenza come congiunti nominati."""
     from datetime import timedelta
 
-    from src.planner.scheduler import _placeable
+    from src.planner.scheduler import _best_gap
 
     slot = _win(9, 0, 18, 0)
-    assert _placeable(slot, timedelta(minutes=30), None) is True
-    assert _placeable(slot, timedelta(hours=9), None) is True
-    assert _placeable(slot, timedelta(hours=9, minutes=1), None) is False
+    assert _best_gap([slot], timedelta(minutes=30), None) == 0
+    assert _best_gap([slot], timedelta(hours=9), None) == 0
+    assert _best_gap([slot], timedelta(hours=9, minutes=1), None) is None
     limit = datetime(2026, 9, 10, 10, 0)
-    assert _placeable(slot, timedelta(minutes=60), limit) is True
-    assert _placeable(slot, timedelta(minutes=61), limit) is False
-    assert _placeable(slot, timedelta(0), datetime(2026, 9, 10, 8, 0)) is False
+    assert _best_gap([slot], timedelta(minutes=60), limit) == 0
+    assert _best_gap([slot], timedelta(minutes=61), limit) is None
+    assert _best_gap([slot], timedelta(0), datetime(2026, 9, 10, 8, 0)) is None
 
 
 def test_e_date_only_identico_con_e_senza_mappa():

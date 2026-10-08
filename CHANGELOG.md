@@ -14,6 +14,12 @@ Entries in English from now on.
   degrade to task-only when the window is over; day plan, replan preview
   and CLI clip to the same `now` so the replan confirms (KEPT) instead of
   churning; new `planp_past`/`planp_prefill_past` strings (it/en).
+- Gap-aware atomic scheduler (F2): best-fit placement (minimum waste,
+  tie-break by start) with deadline-tightness ordering by canonical slack
+  (`deadline - now - duration`, stable sort, merit untouched, weights
+  frozen); overlapping/contiguous availabilities fused; tasks never split;
+  unscheduled tasks carry structured `blocked_by` with `max_gap_min` and
+  `gap_count` evidence (new `DETAIL_KEYS`, it/en narrative in F5).
 - Morning briefing reuses the previous valid day's hours (start/end only,
   editable, events never carried over) with an explicit note, so confirming
   with `s` no longer silently produces a plan without a timeline.

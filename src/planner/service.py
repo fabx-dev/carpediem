@@ -107,10 +107,13 @@ class Planner:
 
     @staticmethod
     def schedule(
-        plan: DayPlan, availability, busy=(), deadlines=None
+        plan: DayPlan, availability, busy=(), deadlines=None, now=None
     ) -> ScheduledDayPlan:
-        """Collocazione temporale di un DayPlan (thin wrapper a scheduler)."""
-        return scheduler.schedule(plan, availability, busy, deadlines)
+        """Collocazione temporale di un DayPlan (thin wrapper a scheduler).
+
+        now vincolante per l'ordine di urgenza (F2); None = ordine legacy.
+        """
+        return scheduler.schedule(plan, availability, busy, deadlines, now=now)
 
 
 def _build_day_plan(views, day, today_s: str, calib, total) -> DayPlan:
@@ -203,6 +206,7 @@ def plan(request: PlanningRequest) -> PlanningResult:
             avail,
             request.busy,
             scheduler.deadlines_for(views),
+            now=request.now,
         )
         if request.availability
         else None

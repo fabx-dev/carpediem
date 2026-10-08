@@ -1,10 +1,29 @@
 """Scheduler temporale deterministico (puro, niente I/O/UI/i18n).
 
-Catalogo hard Phase 4 (H5-H8; H9 vive in replan._clip_future; H1-H4 in
-constraints/capacity): H5 solo dentro availability, H6 mai overlap busy,
-H7 scadenza oggi+orario (sotto), H8 clip finestre al giorno. Greedy
-first-fit nell'ordine del Planner: niente ottimizzazione, niente secondo
-scoring, niente ricalcolo delle stime (usa PlanItem.estimate_pomo).
+Catalogo hard Phase 4 (H5-H8; H9 vive in replan._clip_future via
+time_model; H1-H4 in constraints/capacity): H5 solo dentro availability
+(fuse con time_model: sovrapposte/contenute/contigue unite), H6 mai
+overlap busy, H7 scadenza oggi+orario (sotto), H8 clip finestre al giorno.
+
+Collocazione best-fit atomica (F2): i task restano indivisibili e si
+collocano nell'ordine del Planner con urgenza temporale (slack crescente
+per le scadenze odierne con ora valida, stable sort — mai secondo
+scoring sul merito); tra i gap che contengono il task vince il minimo
+waste (gap - need), tie-break (waste, start). Gerarchia esplicita:
+merito -> urgenza/deadline -> capienza del gap -> fit -> tie-break.
+Il waste sceglie solo il gap, mai l'ordine dei task.
+
+Deadline (Phase 3): una voce con scadenza OGGI con orario si colloca solo
+in slot che finiscono ENTRO la scadenza (bordo inclusivo); altrimenti resta
+unscheduled strutturale. Vale solo due-date == plan.day + orario valido:
+scaduti (merito, non vincolo), futuri e senza-ora schedulano come prima.
+Le scadenze arrivano nella mappa esplicita `deadlines` (None = spente =
+comportamento legacy identico).
+
+Cut e skipped non si schedulano (gia' decisi dal Planner); i planned senza
+slot restano unscheduled (strutturale, motivo via diagnose()/blocked_by).
+Mandatory senza slot = unscheduled: mai overlap, mai ore inventate, mai
+durate modificate, mai split del task.
 
 Deadline (Phase 3): una voce con scadenza OGGI con orario si colloca solo
 in slot che finiscono ENTRO la scadenza (bordo inclusivo); altrimenti resta
@@ -41,6 +60,8 @@ from src.planner.models import (
     ScheduledItem,
     TimeWindow,
 )
+from src.planner.time_model import fuse
+from src.planner.time_model import slack as canonical_slack
 
 
 def _day_bounds(day) -> tuple:
@@ -61,15 +82,18 @@ def _clip(window: TimeWindow, lo: datetime, hi: datetime):
 
 
 def _normalize(windows, lo: datetime, hi: datetime) -> list:
-    """Finestre valide, clippate al giorno, ordinate per inizio."""
+    """Finestre valide, clippate al giorno, fuse e ordinate per inizio.
+
+    La fusione (time_model.fuse) unisce sovrapposte/contenute/contigue:
+    niente double-booking apparente da availability multiple.
+    """
     out = []
     for w in windows or ():
         if isinstance(w, TimeWindow):
             c = _clip(w, lo, hi)
             if c is not None:
                 out.append(c)
-    out.sort(key=lambda w: (w.start, w.end))
-    return out
+    return fuse(out)
 
 
 def _merge(windows: list) -> list:
@@ -170,37 +194,77 @@ def events_to_busy(events) -> tuple:
     return tuple(out)
 
 
-def _placeable(slot: TimeWindow, need, limit) -> bool:
-    """Congiunzione di collocazione (Phase 4): fit nel libero + entro la
-    scadenza quando c'e'. Un futuro bound temporale aggiunge qui un
-    congiunto + mappa esplicita (precedente deadlines), mai chirurgia del
-    loop. Terzo congiunto senza consumer reale vietato in review."""
+def _slack_order_key(item, deadlines, day, now):
+    """Chiave di urgenza temporale (F2): slack crescente, mai merito.
 
-    end = slot.end if limit is None else min(slot.end, limit)
-    return slot.start + need <= end
+    Solo scadenze odierne con ora valida + now esplicito: (0, slack_min).
+    Tutto il resto (senza scadenza odierna, o now assente) resta in coda
+    con chiave costante — stable sort preserva l'ordine di merito del
+    DayPlan. Slack canonico da time_model (deadline - now - duration).
+    """
+    if now is None:
+        return (1, 0)
+    limit = _deadline(deadlines, item.todo_id, day)
+    if limit is None:
+        return (1, 0)
+    value = canonical_slack(limit, now, pomo_minutes(item.estimate_pomo))
+    if value is None:
+        return (1, 0)
+    return (0, value)
 
 
-def schedule(plan, availability, busy=(), deadlines=None) -> ScheduledDayPlan:
-    """Colloca plan.planned in availability evitando busy (first-fit).
+def _best_gap(free: list, need, limit):
+    """Indice del gap col minimo waste tra quelli collocabili, o None.
+
+    Candidato = inizio + need <= min(fine, scadenza); waste = (fine
+    effettiva - inizio) - need. Tie-break (waste, start): il loop segue
+    `free` (ordinato per inizio), primo minimo vince; perfect-fit esce
+    subito. Puro, deterministico.
+    """
+    best = None
+    best_waste = None
+    for i, slot in enumerate(free):
+        end = slot.end if limit is None else min(slot.end, limit)
+        if slot.start + need > end:
+            continue
+        waste = (end - slot.start) - need
+        if best is None or waste < best_waste:
+            best, best_waste = i, waste
+            if waste <= timedelta(0):
+                break
+    return best
+
+
+def schedule(plan, availability, busy=(), deadlines=None, now=None) -> ScheduledDayPlan:
+    """Colloca plan.planned in availability evitando busy (best-fit atomico).
 
     deadlines = {todo_id: (due_date_s, due_time_s)} da deadlines_for():
     con scadenza oggi+orario lo slot deve finire entro la scadenza, senno'
     la voce resta unscheduled. None = vincoli spenti (legacy identico).
+    now = datetime vincolante per l'ordine di urgenza (slack crescente);
+    None = ordine legacy (scadenza odierna prima, resto per merito).
+    I task restano atomici: mai split su piu' gap.
     """
     lo, hi = _day_bounds(plan.day)
     avail = _normalize(availability, lo, hi)
     busy_n = _merge(_normalize(busy, lo, hi))
     free = _subtract(avail, busy_n)
-    # Feasibility-first (Phase 5): a parita' d'altro, le voci con scadenza
-    # odierna si collocano prima di quelle libere — una deadline stretta non
-    # resta stranded dietro una voce capiente. Stable sort: l'ordine di
-    # merito del DayPlan resta l'unico criterio oltre il vincolo, il DayPlan
-    # stesso non e' riordinato, niente secondo scoring. Senza scadenze la
-    # chiave e' costante e la sequenza e' identica a prima.
-    ordered = sorted(
-        plan.planned,
-        key=lambda it: _deadline(deadlines, it.todo_id, plan.day) is None,
-    )
+    moment = now if isinstance(now, datetime) else None
+    # Urgenza temporale (F2): le voci con scadenza odierna si ordinano per
+    # slack crescente — una deadline stretta non resta stranded dietro una
+    # voce capiente. Stable sort: l'ordine di merito del DayPlan resta
+    # l'unico criterio oltre il vincolo. Senza now/scadenze la chiave e'
+    # costante e la sequenza e' identica a prima (legacy).
+    if moment is not None:
+        ordered = sorted(
+            plan.planned,
+            key=lambda it: _slack_order_key(it, deadlines, plan.day, moment),
+        )
+    else:
+        ordered = sorted(
+            plan.planned,
+            key=lambda it: _deadline(deadlines, it.todo_id, plan.day) is None,
+        )
     scheduled: list = []
     unscheduled: list = []
     for item in ordered:
@@ -213,19 +277,17 @@ def schedule(plan, availability, busy=(), deadlines=None) -> ScheduledDayPlan:
             continue
         need = _duration(item)
         limit = _deadline(deadlines, item.todo_id, plan.day)
-        placed = None
-        for i, slot in enumerate(free):
-            if _placeable(slot, need, limit):
-                placed = ScheduledItem(item, slot.start, slot.start + need)
-                if slot.start + need < slot.end:
-                    free[i] = TimeWindow(slot.start + need, slot.end)
-                else:
-                    del free[i]
-                break
-        if placed is not None:
-            scheduled.append(placed)
-        else:
+        at = _best_gap(free, need, limit)
+        if at is None:
             unscheduled.append(item)
+            continue
+        slot = free[at]
+        placed = ScheduledItem(item, slot.start, slot.start + need)
+        if slot.start + need < slot.end:
+            free[at] = TimeWindow(slot.start + need, slot.end)
+        else:
+            del free[at]
+        scheduled.append(placed)
     return ScheduledDayPlan(
         plan=plan,
         scheduled=tuple(scheduled),
