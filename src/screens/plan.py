@@ -702,10 +702,13 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 disabled=True,
             )
 
+        _plan_cause = None
         try:
-            from src.screens.views import _cause_text as _plan_cause
+            from src.screens.views import _cause_text as _imported_plan_cause
+
+            _plan_cause = _imported_plan_cause
         except Exception:
-            _plan_cause = None
+            pass
         titles = {t.id: t.title for t in self.all_todos if t.id is not None}
         pending_rows: list[ListItem] = []
         outside_rows: list[ListItem] = []
@@ -1378,6 +1381,14 @@ class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
 
     def _section_lines(self, proposal) -> list[str]:
         by_id = {t.id: t for t in self.all_todos if t.id is not None}
+        _replan_cause = None
+        try:
+            from src.screens.views import _cause_text as _imported_cause
+
+            _replan_cause = _imported_cause
+        except Exception:
+            pass
+        titles = {t.id: t.title for t in self.all_todos if t.id is not None}
         lines = []
         for kind in (KEPT, MOVED, DROPPED, ADDED):
             rows = [m for m in proposal.moves if m.kind == kind]
@@ -1390,6 +1401,17 @@ class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
                 title = (
                     _escape_markup(todo.title) if todo is not None else f"#{m.todo_id}"
                 )
+                cause = None
+                if (
+                    m.new_start is None
+                    and kind != DROPPED
+                    and m.alt is not None
+                    and _replan_cause is not None
+                ):
+                    try:
+                        cause = _replan_cause(m.alt.blocked_by, m.alt.detail, titles)
+                    except Exception:
+                        cause = None
                 if (
                     kind == MOVED
                     and m.old_start is not None
@@ -1407,6 +1429,23 @@ class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
                             s=m.new_start,
                             e=m.new_end or "?",
                             t=title,
+                        )
+                    )
+                elif cause is not None:
+                    # Outcome temporale con causa reale da diagnose (non
+                    # inserito vs non entra oggi): mai il generico
+                    # "senza orario" quando la causa e' nota.
+                    outcome = classify(m.alt.blocked_by)
+                    lines.append(
+                        T(
+                            "cli_replan_row_outcome",
+                            t=title,
+                            o=T(
+                                "replan_out_eligible"
+                                if outcome == OUT_ELIGIBLE
+                                else "replan_out_outside"
+                            ),
+                            c=cause,
                         )
                     )
                 elif kind == MOVED and m.new_start is None and m.old_start is not None:
@@ -1450,6 +1489,10 @@ class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
                 yield Static(
                     T("cli_replan_residual", r=f"{proposal.residual_pomo:g}"),
                     id="rp-residual",
+                )
+                yield Static(
+                    T("cli_replan_remaining", r=proposal.remaining_min),
+                    id="rp-remaining",
                 )
             yield Static(T("rp_legend"), id="rp-legend")
             with Horizontal(id="rp-buttons", classes="btn-row"):

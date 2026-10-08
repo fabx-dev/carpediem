@@ -1240,23 +1240,28 @@ _NOSLOT_MERIT = {
 }
 
 
-def _busy_names(detail) -> str | None:
-    """Nomi eventi bloccanti escapati per markup, o None se assenti."""
+def _busy_names(detail, escape: bool = True) -> str | None:
+    """Nomi eventi bloccanti (escapati per markup se escape), o None."""
     try:
         names = (detail or {}).get("busy_titles") or ()
-        shown = ", ".join(_escape_markup(str(n)) for n in names if str(n).strip())
+        shown = ", ".join(
+            (_escape_markup(str(n)) if escape else str(n))
+            for n in names
+            if str(n).strip()
+        )
     except Exception:
         return None
     return shown or None
 
 
-def _titles_text(ids, titles) -> str:
-    """Nomi task escapati per markup ('#id' se titolo ignoto), max 3 + …."""
+def _titles_text(ids, titles, escape: bool = True) -> str:
+    """Nomi task ('#id' se ignoto), max 3 + … (escape per markup se richiesto)."""
     shown = []
     for tid in ids or ():
         try:
             name = (titles or {}).get(tid)
-            shown.append(_escape_markup(str(name)) if name else f"#{tid}")
+            text = str(name) if name else f"#{tid}"
+            shown.append(_escape_markup(text) if (escape and name) else text)
         except Exception:
             shown.append(f"#{tid}")
     if len(shown) > 3:
@@ -1264,23 +1269,24 @@ def _titles_text(ids, titles) -> str:
     return ", ".join(shown)
 
 
-def _cause_text(blocked, detail, titles=None) -> str | None:
+def _cause_text(blocked, detail, titles=None, escape: bool = True) -> str | None:
     """Causa in forma di frammento, o None se non componibile (mai inventata).
 
     Condivisa da frase unica e riga Blocco: stessa causa, due vesti.
     Mapping centrale via phrase_for; escaping/nomi restano qui in UI.
+    escape=False per output testo puro (CLI): niente markup escapato.
     """
     try:
         detail = dict(detail or {})
         if blocked == "busy":
-            names = _busy_names(detail)
+            names = _busy_names(detail, escape=escape)
             if names is not None:
                 detail["busy_titles"] = names
         if blocked == "tasks":
             ids = detail.get("task_ids") or ()
             if not ids:
                 return None
-            detail["task_names"] = _titles_text(ids, titles)
+            detail["task_names"] = _titles_text(ids, titles, escape=escape)
         ref = phrase_for(blocked, "blocked-frag", detail)
     except KeyError:
         return None

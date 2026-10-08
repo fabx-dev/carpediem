@@ -97,6 +97,18 @@ def _cli_replan(args, err) -> int:
             return 1
     proposal = replan(todos, today, hours, avail, busy, now, current=sched)
     by_id = {t.id: t for t in todos}
+    _cli_cause = None
+    _classify = None
+    try:
+        from src.planner.outcomes import OUT_ELIGIBLE
+        from src.planner.outcomes import classify as _imported_classify
+        from src.screens.views import _cause_text as _imported_cause
+
+        _cli_cause = _imported_cause
+        _classify = _imported_classify
+    except Exception:
+        pass
+    titles = {t.id: t.title for t in todos if t.id is not None}
     print(T("cli_replan_title", date=today, now=now.strftime("%H:%M")))
     for kind in (KEPT, MOVED, DROPPED, ADDED):
         rows = [m for m in proposal.moves if m.kind == kind]
@@ -107,6 +119,28 @@ def _cli_replan(args, err) -> int:
         for m in rows:
             todo = by_id.get(m.todo_id)
             title = todo.title if todo is not None else f"#{m.todo_id}"
+            cause = None
+            outcome_label = None
+            if (
+                m.new_start is None
+                and kind != DROPPED
+                and m.alt is not None
+                and _cli_cause is not None
+                and _classify is not None
+            ):
+                try:
+                    cause = _cli_cause(
+                        m.alt.blocked_by, m.alt.detail, titles, escape=False
+                    )
+                    if cause is not None:
+                        outcome_label = T(
+                            "replan_out_eligible"
+                            if _classify(m.alt.blocked_by) == OUT_ELIGIBLE
+                            else "replan_out_outside"
+                        )
+                except Exception:
+                    cause = None
+                    outcome_label = None
             if m.new_start is not None and kind != DROPPED:
                 print(
                     "  "
@@ -115,6 +149,16 @@ def _cli_replan(args, err) -> int:
                         s=m.new_start,
                         e=m.new_end or "?",
                         t=title,
+                    )
+                )
+            elif cause is not None and outcome_label is not None:
+                print(
+                    "  "
+                    + T(
+                        "cli_replan_row_outcome",
+                        t=title,
+                        o=outcome_label,
+                        c=cause,
                     )
                 )
             elif kind == MOVED and m.new_start is None and m.old_start is not None:
@@ -136,6 +180,7 @@ def _cli_replan(args, err) -> int:
             else:
                 print(f"  {title}")
     print(T("cli_replan_residual", r=f"{proposal.residual_pomo:g}"))
+    print(T("cli_replan_remaining", r=proposal.remaining_min))
     if not proposal.moves:
         print(T("cli_replan_no_changes"))
     if args.apply:
