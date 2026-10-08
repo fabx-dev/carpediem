@@ -54,6 +54,7 @@ from src.planner.models import (
 )
 from src.planner.phrases import phrase_for
 from src.planner.replan import ADDED, DROPPED, KEPT, MOVED, replan
+from src.planner.time_model import as_moment
 from src.screens._shared import (
     CloseMixin,
     _completed_by_date,
@@ -229,7 +230,9 @@ def build_planning_request(
         start, end, events, _allday = parts
         avail = [TimeWindow(start, end)]
         busy = events_to_busy(events)
-    moment = now if isinstance(now, datetime) else None
+    # as_moment (classi stdlib reali): freeze-proof contro il patch del nome
+    # `datetime` nei test, accetta anche date (= mezzanotte).
+    moment = as_moment(now)
     return PlanningRequest(
         day=day,
         tasks=tuple(todos or ()),
@@ -311,7 +314,7 @@ def scheduled_for_today(
     if parts is None:
         return ScheduledDayPlan(dayplan), [], [], planned, ()
     start, end, events, allday = parts
-    moment = now if isinstance(now, datetime) else None
+    moment = as_moment(now)
     if moment is not None:
         if end <= moment:
             # Finestra interamente trascorsa: stesso degenere onesto della
@@ -343,6 +346,7 @@ def _timeline_lines(
     by_id: dict,
     bad_names: tuple = (),
     allday: tuple = (),
+    alts: dict | None = None,
 ) -> list[str]:
     """Righe timeline: task schedulati + eventi fissi ordinati per inizio.
 
@@ -350,6 +354,9 @@ def _timeline_lines(
     task prima degli eventi a pari ora; eventi fuori availability esclusi;
     in coda gli unscheduled strutturali tra quelli richiesti (`shown`).
     `allday` = riga informativa tutto-il-giorno (mai busy, mai schedulata).
+    `alts` (F5, {todo_id: PlanAlternative} da diagnose): la coda mostra la
+    causa reale del mancato slot ("X (buco max 30m < 90m)"); senza, soli
+    titoli come prima. Mai cause inventate: solo blocked_by osservati.
     """
     entries = []  # (start, order, line): task prima degli eventi a pari ora
     for s in sched.scheduled:
@@ -384,11 +391,34 @@ def _timeline_lines(
         names = ", ".join(_escape_markup(a) for a in allday)
         lines.insert(1 if bad_names else 0, T("planp_allday", t=names))
     tail = []
+    cause_fn = None
+    titles: dict = {}
+    if alts is not None:
+        try:
+            from src.screens.views import _cause_text
+
+            titles = {
+                tid: t.title
+                for tid, t in (by_id or {}).items()
+                if tid is not None and t is not None
+            }
+            cause_fn = _cause_text
+        except Exception:
+            cause_fn = None
     for it in sched.unscheduled:
         if it.todo_id not in shown:
             continue
         t = by_id.get(it.todo_id)
-        tail.append(_escape_markup(t.title) if t else f"#{it.todo_id}")
+        name = _escape_markup(t.title) if t else f"#{it.todo_id}"
+        cause = None
+        if cause_fn is not None and alts is not None:
+            try:
+                alt = alts.get(it.todo_id)
+                if alt is not None:
+                    cause = cause_fn(alt.blocked_by, alt.detail, titles)
+            except Exception:
+                cause = None
+        tail.append(f"{name} ({cause})" if cause else name)
     if tail:
         lines.append(T("planp_slots_un", t=", ".join(tail)))
     return lines
@@ -690,8 +720,9 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
             # Contesto esecutivo di oggi: UNICA costruzione condivisa col
             # Briefing (confermati -> merito Planner -> slot Scheduler).
             # F1: clip a now — la scheda operativa non mostra slot passati.
+            plan_now = datetime.now()
             sched, events, allday, planned, dalts = scheduled_for_today(
-                self.all_todos, self.today, self.hours, self.window, now=datetime.now()
+                self.all_todos, self.today, self.hours, self.window, now=plan_now
             )
             # Verita' slot della timeline visibile (per il Detail: etichetta
             # noslot e Blocco coerenti con le righe, mai col piano intero).
@@ -707,17 +738,24 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
                 load = T("plan_load", f=load_f, s=load_s) if load_s else ""
             # Finestra operativa di Buongiorno: solo con pianificati (mai
             # default di orari); le righe planned diventano timed operative.
-            win_lbl = (
-                T(
+            # F5: minuti liberi futuri (tempo) accanto alla finestra; il
+            # carico in pomodori (capacita') resta in `load` — mai confusi.
+            win_lbl = ""
+            if sched is not None and sched.availability:
+                win_lbl = T(
                     "plan_sec_window",
                     window=(
                         f"{sched.availability[0].start:%H:%M}"
                         f"–{sched.availability[0].end:%H:%M}"
                     ),
                 )
-                if sched is not None and sched.availability
-                else ""
-            )
+                try:
+                    from src.planner.time_model import residual
+
+                    free_min = residual(sched.availability, sched.busy, plan_now)
+                    win_lbl += f" · {T('plan_time_left', m=free_min)}"
+                except Exception:
+                    pass
             sections = [
                 (
                     T("plan_sec_planned", win=win_lbl, load=load),
@@ -881,7 +919,7 @@ class DailyPlanScreen(CloseMixin, ModalScreen[None]):
         from src.screens.views import DetailScreen, plan_context
 
         _decisions, _plan_alts = plan_context(
-            self.all_todos, self.today, self.hours, self.window
+            self.all_todos, self.today, self.hours, self.window, now=datetime.now()
         )
         # Le alternative della TIMELINE visibile vincono su quelle del piano
         # intero: un task con slot qui non deve mai dirsi senza orario.
@@ -1257,7 +1295,7 @@ class ReplanPreviewScreen(CloseMixin, ModalScreen[None]):
         except (ValueError, TypeError):
             self.hours = 6.0
         self.window = window if isinstance(window, dict) else None
-        self.now = now if isinstance(now, datetime) else datetime.now()
+        self.now = as_moment(now) or datetime.now()
 
     def _proposal(self):
         """Proposta M4 su finestra odierna (lettura, mai scritture)."""
@@ -1481,7 +1519,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.on_change = on_change
         # Ora del Buongiorno (F1): congelata all'apertura — il motore clippa
         # la finestra a [max(start, now), end], mai slot nel passato.
-        self.now = now if isinstance(now, datetime) else datetime.now()
+        self.now = as_moment(now) or datetime.now()
         # Contesto operativo (orari + eventi fissi): alla conferma va al piano
         # giorno via callback (le screen non salvano mai su disco).
         self.on_window = on_window
@@ -1522,6 +1560,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         self.events: list = []
         self.events_bad: list = []
         self.sched: ScheduledDayPlan | None = None
+        self._preview_plan: DayPlan | None = None
         self.slot_error: str | None = None
         self.window_start = None
         self.window_end = None
@@ -1541,6 +1580,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         """Ricalcola lo ScheduledDayPlan dall'input (solo rendering)."""
         self.slot_error = None
         self.sched = None
+        self._preview_plan = None
         self.window_start = None
         self.window_end = None
         self.past_note: tuple | None = None
@@ -1580,6 +1620,7 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             capacity_pomo=self.plan.capacity_pomo,
             factor=self.plan.factor,
         )
+        self._preview_plan = sub
         self.sched = Planner.schedule(
             sub,
             [TimeWindow(eff_start, end)],
@@ -1617,7 +1658,9 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
         Fonde gli eventi originali con gli slot (ordinamento display, mai
         scheduling); gli eventi fuori availability non si mostrano.
         Con clip a now (F1) la fascia esclusa e' mostrata per prima, mai
-        slot fantasma nel passato.
+        slot fantasma nel passato. La coda senza orario (F5) mostra la causa
+        reale da diagnose (blocked_by osservato sul sotto-piano visibile),
+        mai cause inventate.
         """
         if self.slot_error is not None:
             return T(self.slot_error)
@@ -1644,9 +1687,32 @@ class PlanProposalScreen(CloseMixin, ModalScreen[None]):
             self.by_id,
             tuple(self.events_bad),
             tuple(self.allday),
+            self._preview_alts(),
         )
         lines.extend(rendered)
         return "\n".join(lines) if lines else T("planp_slots_none")
+
+    def _preview_alts(self) -> dict:
+        """{todo_id: PlanAlternative} della preview (F5, solo rendering).
+
+        diagnose() sul sotto-DayPlan dei selezionati con lo sched visibile:
+        stesse alternative che il Detail mostrerebbe per la timeline. Mai
+        eccezioni verso il rendering (vuoto = sole titoli in coda).
+        """
+        try:
+            preview = self._preview_plan
+            if preview is None or self.sched is None:
+                return {}
+            req = build_planning_request(
+                self.all_todos, self.today, self.hours, None, now=self.now
+            )
+            alts, _diags = diagnose(
+                PlanningResult(request=req, plan=preview, scheduled=self.sched),
+                self.events,
+            )
+            return {a.todo_id: a for a in alts}
+        except Exception:
+            return {}
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id not in ("planp-start", "planp-end"):

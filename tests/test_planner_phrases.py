@@ -103,8 +103,12 @@ def test_kind_mapping_blocked_replan_decision():
 def test_kind_ignoto_e_detail_mancante_sollevano():
     import pytest
 
-    with pytest.raises(KeyError):
-        phrase_for("buco_nero", "blocked-line", {})
+    # F5: kind ignoto nelle famiglie blocked -> fallback generico onesto
+    # (mai KeyError, mai causa falsa); famiglia ignota o detail richiesto
+    # assente -> KeyError come prima (errore programmatore).
+    for family in ("blocked-line", "blocked-frag"):
+        ref = phrase_for("buco_nero", family, {})
+        assert ref.key in STRINGS["it"] and ref.key in STRINGS["en"]
     with pytest.raises(KeyError):
         phrase_for("capacity", "famiglia_ignota", {})
     with pytest.raises(KeyError):

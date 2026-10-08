@@ -33,7 +33,8 @@ def _ev(**kw):
 
 
 def test_sedici_template_distinti():
-    assert len(story_keys()) == 16
+    # F5: +2 varianti tight (sched/prop) con slack misurato.
+    assert len(story_keys()) == 18
     assert all(k.startswith("why_story_") for k in story_keys())
 
 

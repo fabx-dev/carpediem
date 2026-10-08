@@ -5,11 +5,12 @@ chiave i18n. Nessuna AI, rete, scoring: solo selezione di un template
 in base a decisione + reasons + evidence gia' prodotte dal planner.
 
 Priorita' di selezione (documentata, deterministica): la decisione viene
-per prima; dentro SCHEDULED contano i flag in ordine overdue, due-today,
-priorita' alta, domani, stale, pianificato, poi fallback. La prio resta
-davanti ai segnali temporali deboli: solo i task oggi in fallback cambiano
-frase. NOT_SCHEDULED distingue overflow (obbligatori oltre capacita') dal
-taglio in graduatoria; DEFERRED/CONSTRAINED hanno un template ciascuna.
+per prima; dentro SCHEDULED contano i flag in ordine overdue, due-today
+(con slack misurato -> variante tight F5), priorita' alta, domani, stale,
+pianificato, poi fallback. La prio resta davanti ai segnali temporali
+deboli: solo i task oggi in fallback cambiano frase. NOT_SCHEDULED
+distingue overflow (obbligatori oltre capacita') dal taglio in
+graduatoria; DEFERRED/CONSTRAINED hanno un template ciascuna.
 
 Ritorna PhraseRef per T(ref.key, **ref.params) nella view, o None
 con reasons vuote (il chiamante non deve inventare testo). Mai importare
@@ -30,12 +31,14 @@ from src.planner.phrases import PhraseRef
 
 STORY_SCHED_OVERDUE = "why_story_sched_overdue"
 STORY_SCHED_DUE_TODAY = "why_story_sched_due_today"
+STORY_SCHED_TIGHT = "why_story_sched_tight"
 STORY_SCHED_PRIO = "why_story_sched_prio"
 STORY_SCHED_TOMORROW = "why_story_sched_tomorrow"
 STORY_SCHED_STALE = "why_story_sched_stale"
 STORY_SCHED = "why_story_sched"
 STORY_PROP_OVERDUE = "why_story_prop_overdue"
 STORY_PROP_DUE_TODAY = "why_story_prop_due_today"
+STORY_PROP_TIGHT = "why_story_prop_tight"
 STORY_PROP_PRIO = "why_story_prop_prio"
 STORY_PROP_TOMORROW = "why_story_prop_tomorrow"
 STORY_PROP_STALE = "why_story_prop_stale"
@@ -49,12 +52,14 @@ _ALL_KEYS = frozenset(
     {
         STORY_SCHED_OVERDUE,
         STORY_SCHED_DUE_TODAY,
+        STORY_SCHED_TIGHT,
         STORY_SCHED_PRIO,
         STORY_SCHED_TOMORROW,
         STORY_SCHED_STALE,
         STORY_SCHED,
         STORY_PROP_OVERDUE,
         STORY_PROP_DUE_TODAY,
+        STORY_PROP_TIGHT,
         STORY_PROP_PRIO,
         STORY_PROP_TOMORROW,
         STORY_PROP_STALE,
@@ -77,6 +82,7 @@ def _sched_variant(
     ev: dict,
     overdue: str,
     due_today: str,
+    tight: str,
     prio: str,
     tomorrow: str,
     stale: str,
@@ -87,11 +93,16 @@ def _sched_variant(
     Niente ramo planned: l'appartenenza al piano la dicono gia' etichetta
     ("Nel piano di oggi" / noslot "Confermato...") e motivo principale
     ("gia' in piano") — una story dedicata triplicherebbe il messaggio.
+    Tight (F5): scadenza odierna con slack misurato (evidence slack_min da
+    decide con now) — piu' informativa della generica due-today perche'
+    dice che l'urgenza temporale ha guidato anche l'ordine di scheduling.
     """
     keys = {k for k, _p in reasons}
     if OVERDUE in keys or bool(ev.get("overdue")):
         return PhraseRef(overdue, {}, "story")
     if DUE_TODAY in keys:
+        if ev.get("slack_min") is not None:
+            return PhraseRef(tight, {}, "story")
         return PhraseRef(due_today, {}, "story")
     if PRIO in keys or str(ev.get("priority") or "") == "alta":
         return PhraseRef(prio, {}, "story")
@@ -124,6 +135,7 @@ def explain_decision(decision: _dec.PlanningDecision) -> PhraseRef | None:
             ev,
             STORY_SCHED_OVERDUE,
             STORY_SCHED_DUE_TODAY,
+            STORY_SCHED_TIGHT,
             STORY_SCHED_PRIO,
             STORY_SCHED_TOMORROW,
             STORY_SCHED_STALE,
@@ -165,6 +177,7 @@ def explain_proposed(decision: _dec.PlanningDecision) -> PhraseRef | None:
         decision.evidence or {},
         STORY_PROP_OVERDUE,
         STORY_PROP_DUE_TODAY,
+        STORY_PROP_TIGHT,
         STORY_PROP_PRIO,
         STORY_PROP_TOMORROW,
         STORY_PROP_STALE,

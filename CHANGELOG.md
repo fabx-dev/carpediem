@@ -32,6 +32,14 @@ Entries in English from now on.
   gaps exist), then due/id; `None` context keeps the legacy order
   byte-identical; new decision evidence `slack_min`/`gap_waste_min`/
   `residual_pomo`/`remaining_min` for the F5 narrative.
+- Explainable planning (F5): Buongiorno's unscheduled tail shows the real
+  cause from `diagnose()` (`Senza orario: X (90 min consecutivi, buco max
+  60 min)`); day-plan header shows free future minutes next to the window
+  (time vs capacity never confused); Detail Why receives the day window
+  and `now` from all three callers so temporal blockers compose the full
+  sentence; new `why_story_*_tight` variants for measured urgency; gap
+  cause fragments with real numbers; honest generic fallback for unknown
+  blocker kinds instead of silent `KeyError` (it/en).
 - Morning briefing reuses the previous valid day's hours (start/end only,
   editable, events never carried over) with an explicit note, so confirming
   with `s` no longer silently produces a plan without a timeline.

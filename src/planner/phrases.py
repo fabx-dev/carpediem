@@ -7,9 +7,10 @@ né UI; la UI non ricostruisce il mapping dei tipi del Planner.
 - ``PhraseRef`` e' solo dati: chiave catalogo + params template + origin
   diagnostica (developer-only, mai necessaria al rendering).
 - ``phrase_for(kind, family, detail=None)`` e' l'UNICA fonte per i mapping
-  kind -> chiave (blocked/replan/decision). Kind ignoto o detail mancante
-  -> KeyError (errore programmatore, mai input utente: i caller restano
-  difensivi come prima).
+  kind -> chiave (blocked/replan/decision). Kind ignoto nelle famiglie
+  blocked -> fallback generico onesto (mai KeyError, mai causa falsa);
+  famiglia ignota o detail mancante per kind che lo richiede -> KeyError
+  (errore programmatore, mai input utente: i caller restano difensivi).
 - I motivi ``explain.*`` restano tuple grezze per compat (usati in
   scoring/partition/capacity); la conversione e' ``tuple(ref)[:2]``.
 """
@@ -34,6 +35,15 @@ _BLOCKED_LINE = {
     "tasks": "why_blocked_tasks",
 }
 
+# Varianti con numeri reali (F5, solo quando il detail porta le evidence
+# max_gap_min/needed_min da diagnose): spiegano il buco insufficiente con
+# i minuti veri, mai ricostruiti in UI.
+_BLOCKED_LINE_GAP = {
+    "busy": "why_blocked_busy_gap",
+    "busy_named": "why_blocked_busy_named_gap",
+    "window": "why_blocked_window_gap",
+}
+
 _BLOCKED_FRAG = {
     # Niente user_skip: DEFERRED usa why_alt_deferred, mai un frammento.
     "tasks": "why_frag_c_tasks",
@@ -43,6 +53,17 @@ _BLOCKED_FRAG = {
     "window": "why_frag_c_window",
     "duration": "why_frag_c_duration",
 }
+
+_BLOCKED_FRAG_GAP = {
+    "busy": "why_frag_c_busy_gap",
+    "busy_named": "why_frag_c_busy_named_gap",
+    "window": "why_frag_c_window_gap",
+}
+
+# Fallback onesto (F5): kind futuri/sconosciuti non sollevano piu' KeyError
+# ma rendono una riga generica che ammette il limite, mai una causa falsa.
+_BLOCKED_LINE_UNKNOWN = "why_blocked_unknown"
+_BLOCKED_FRAG_UNKNOWN = "why_frag_c_unknown"
 
 _REPLAN = {
     "kept": "cli_replan_kept",
@@ -78,16 +99,40 @@ def _detail_value(detail, name: str):
     return value or None
 
 
+def _gap_params(detail) -> dict | None:
+    """{g, n} dai numeri reali di diagnose, o None se assenti/invalidi."""
+    try:
+        detail = dict(detail or {})
+        gap = int(detail.get("max_gap_min"))
+        need = int(detail.get("needed_min"))
+    except (TypeError, ValueError, AttributeError):
+        return None
+    if gap < 0 or need <= 0:
+        return None
+    return {"g": gap, "n": need}
+
+
 def phrase_for(kind: str, family: str, detail=None) -> PhraseRef:
     """(kind, family) -> PhraseRef con params gia' pronti per T().
 
     Varianti con dettaglio: busy/tasks usano i titoli solo se presenti
-    (named), deadline solo con HH:MM — senza, KeyError come per kind ignoto.
+    (named), deadline solo con HH:MM, window/busy usano la variante gap
+    con i minuti veri solo se presenti (max_gap_min + needed_min).
+    Kind ignoto -> fallback generico onesto (mai KeyError, mai causa
+    falsa); famiglia ignota o detail mancante per kind che lo richiede
+    -> KeyError (errore programmatore, mai input utente: i caller restano
+    difensivi come prima).
     """
     try:
         table, origin = _FAMILIES[family]
     except KeyError:
         raise KeyError(f"unknown phrase family: {family!r}") from None
+    if kind not in table:
+        if family == "blocked-line":
+            return PhraseRef(_BLOCKED_LINE_UNKNOWN, {}, origin)
+        if family == "blocked-frag":
+            return PhraseRef(_BLOCKED_FRAG_UNKNOWN, {}, origin)
+        raise KeyError(f"unknown kind {kind!r} for family {family!r}") from None
     try:
         key = table[kind]
     except KeyError:
@@ -104,9 +149,36 @@ def phrase_for(kind: str, family: str, detail=None) -> PhraseRef:
         # Stringa display gia' pronta (la UI fa escape+join prima):
         # tupla grezza solo da chiamanti che garantiscono testo sicuro.
         names = _detail_value(detail, "busy_titles")
-        if names is not None:
+        gap = _gap_params(detail)
+        if names is not None and gap is not None:
+            key = (
+                _BLOCKED_LINE_GAP["busy_named"]
+                if family == "blocked-line"
+                else _BLOCKED_FRAG_GAP["busy_named"]
+            )
+            params = {
+                "e": names if isinstance(names, str) else ", ".join(names),
+                **gap,
+            }
+        elif names is not None:
             key += "_named"
             params = {"e": names if isinstance(names, str) else ", ".join(names)}
+        elif gap is not None:
+            key = (
+                _BLOCKED_LINE_GAP["busy"]
+                if family == "blocked-line"
+                else _BLOCKED_FRAG_GAP["busy"]
+            )
+            params = gap
+    elif kind == "window":
+        gap = _gap_params(detail)
+        if gap is not None:
+            key = (
+                _BLOCKED_LINE_GAP["window"]
+                if family == "blocked-line"
+                else _BLOCKED_FRAG_GAP["window"]
+            )
+            params = gap
     elif kind == "tasks":
         try:
             ids = (detail or {}).get("task_ids")

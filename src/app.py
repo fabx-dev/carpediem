@@ -1147,6 +1147,20 @@ class TodoApp(App):
             hours = 6.0
         return today, hours
 
+    def _today_window(self, today: str) -> dict | None:
+        """Finestra operativa odierna dal config (F5, stesso gate ovunque).
+
+        Solo dict con date == today: ieri/stale/assente = None (mai default
+        di orari, mai stale). Condivisa dai caller Why cosi' la card spiega
+        i blocchi temporali della timeline visibile.
+        """
+        cfg_window = self.config.get("day_window")
+        return (
+            cfg_window
+            if isinstance(cfg_window, dict) and cfg_window.get("date") == today
+            else None
+        )
+
     def _open_edit_form(self, todo: TodoItem, reopen_detail: bool = False) -> None:
         def on_submit(result: dict | None) -> None:
             if result:
@@ -1154,7 +1168,13 @@ class TodoApp(App):
                 self._commit_refresh("n_updated", t=_escape_markup(todo.title))
                 if reopen_detail:
                     today, hours = self._detail_context()
-                    _dec, _alt = plan_context(self.todos, today, hours)
+                    _dec, _alt = plan_context(
+                        self.todos,
+                        today,
+                        hours,
+                        self._today_window(today),
+                        now=datetime.now(),
+                    )
                     self.push_screen(
                         DetailScreen(
                             todo,
@@ -1370,7 +1390,9 @@ class TodoApp(App):
                 self._open_edit_form(fresh, reopen_detail=True)
 
         today, hours = self._detail_context()
-        _decisions, _alternatives = plan_context(self.todos, today, hours)
+        _decisions, _alternatives = plan_context(
+            self.todos, today, hours, self._today_window(today), now=datetime.now()
+        )
         self.push_screen(
             DetailScreen(
                 todo,

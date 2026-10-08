@@ -60,7 +60,7 @@ from src.planner.models import (
     ScheduledItem,
     TimeWindow,
 )
-from src.planner.time_model import fuse
+from src.planner.time_model import as_moment, fuse
 from src.planner.time_model import slack as canonical_slack
 
 
@@ -236,7 +236,7 @@ def schedule(plan, availability, busy=(), deadlines=None, now=None) -> Scheduled
     avail = _normalize(availability, lo, hi)
     busy_n = _merge(_normalize(busy, lo, hi))
     free = _subtract(avail, busy_n)
-    moment = now if isinstance(now, datetime) else None
+    moment = as_moment(now)
     # Urgenza temporale (F2): le voci con scadenza odierna si ordinano per
     # slack crescente — una deadline stretta non resta stranded dietro una
     # voce capiente. Stable sort: l'ordine di merito del DayPlan resta

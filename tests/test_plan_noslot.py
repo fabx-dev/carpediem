@@ -142,7 +142,11 @@ def test_noslot_sentence_nomina_altri_task():
 
 
 def test_noslot_sentence_fallback_senza_pezzi():
-    """_noslot_sentence pura: None se merito/causa ignoti (legacy invariato)."""
+    """_noslot_sentence pura: None se merito/causa non componibili.
+
+    F5: kind ignoto -> fallback generico onesto (mai None silenzioso),
+    merito ignoto -> None come prima (niente frase senza membro).
+    """
     import src.planner.decisions as dec
     from src.planner.models import PlanAlternative
     from src.screens.views import _noslot_sentence
@@ -156,9 +160,8 @@ def test_noslot_sentence_fallback_senza_pezzi():
         is None
     )
     d2 = dec.PlanningDecision(1, dec.SCHEDULED, (("plan_due_today", {}),), {}, None)
-    assert (
-        _noslot_sentence(d2, PlanAlternative(1, dec.SCHEDULED, "buco_nero", {})) is None
-    )
+    sent = _noslot_sentence(d2, PlanAlternative(1, dec.SCHEDULED, "buco_nero", {}))
+    assert sent is not None and "non classificato" in sent
     ok = _noslot_sentence(
         d2, PlanAlternative(1, dec.SCHEDULED, "busy", {"needed_min": 5})
     )

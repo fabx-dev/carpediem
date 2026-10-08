@@ -1177,7 +1177,11 @@ class KanbanScreen(CloseMixin, ModalScreen[None]):
 
 
 def plan_decisions(
-    all_todos: list[TodoItem], today: str | None, hours: float
+    all_todos: list[TodoItem],
+    today: str | None,
+    hours: float,
+    window: dict | None = None,
+    now=None,
 ) -> tuple[PlanningDecision, ...]:
     """Decisioni del planner per il contesto dato (condiviso, mai eccezioni).
 
@@ -1188,8 +1192,10 @@ def plan_decisions(
     costruito dall'adapter (stessi input, stesso output — E1). Fallimento
     loggato, non silenzioso: `()` renderebbe la card Why indistinguibile
     da "task non valutato" (lezione §7 radar loggato).
+    window/now (F5): inoltrati al contesto (blocchi temporali + slack);
+    None = legacy senza scheduling.
     """
-    decisions, _alts = plan_context(all_todos, today, hours)
+    decisions, _alts = plan_context(all_todos, today, hours, window, now=now)
     return decisions
 
 

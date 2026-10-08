@@ -56,6 +56,15 @@ def _as_moment(now):
     return None
 
 
+def as_moment(now):
+    """Forma pubblica di _as_moment: qualunque date/datetime -> datetime.
+
+    Usa le classi stdlib reali (mai nomi patchabili dai test): gli adapter
+    UI la usano per normalizzare `now` in modo freeze-proof.
+    """
+    return _as_moment(now)
+
+
 def fuse(windows) -> list:
     """Fonde finestre sovrapposte/contenute/contigue/duplicati (puro).
 

@@ -33,6 +33,7 @@ from src.planner.models import (
     TaskView,
     todo_to_task,
 )
+from src.planner.time_model import as_moment
 
 
 @dataclass(frozen=True)
@@ -91,7 +92,7 @@ class Planner:
             if self.factor is not None
             else calibration.factor_for(self.todos)
         )
-        moment = self.now if isinstance(self.now, datetime) else None
+        moment = as_moment(self.now)
         return _PlannerInput(
             day=day,
             today_s=day.strftime("%Y-%m-%d"),
