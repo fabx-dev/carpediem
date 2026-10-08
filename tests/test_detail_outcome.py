@@ -9,15 +9,15 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.lang import T as _T
-from src.models import Priority
+from carpediem.lang import T as _T
+from carpediem.models import Priority
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 
 @pytest.fixture(autouse=True)
 def _buongiorno_al_mattino(monkeypatch):
     """F1 clip-a-now: congela l'ora alle 08:00 di oggi (scenari mattutini)."""
-    import src.screens.plan as plan_mod
+    import carpediem.screens.plan as plan_mod
 
     fixed = datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M")
 
@@ -179,7 +179,7 @@ def test_4_ritardo_obbligatorio_non_inserito(tmp_files):
 
 def test_5_senza_outcome_fallback_invariato(tmp_files):
     """Detail senza alternatives: legacy, 'Nel piano' come prima."""
-    from src.screens.views import DetailScreen
+    from carpediem.screens.views import DetailScreen
 
     async def t():
         app = make_app([make_todo("A", todo_id=1, planned_for=_day(0))])

@@ -7,8 +7,8 @@ motivi reali. Puro: non muta i todos, non scrive.
 
 from datetime import date, datetime
 
-from src.planner.models import TimeWindow
-from src.planner.replan import ADDED, DROPPED, KEPT, MOVED, replan
+from carpediem.planner.models import TimeWindow
+from carpediem.planner.replan import ADDED, DROPPED, KEPT, MOVED, replan
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"
@@ -106,8 +106,8 @@ def test_pianificati_mai_dropped_privilegio():
 
 
 def test_apply_replan_conteggi_e_skip():
-    import src.domain as domain
-    from src.planner.replan import ReplanMove, ReplanProposal
+    import carpediem.domain as domain
+    from carpediem.planner.replan import ReplanMove, ReplanProposal
 
     todos = [
         make_todo("A", todo_id=1, planned_for=TODAY),
@@ -141,5 +141,5 @@ def test_move_kinds_costanti():
     import sys
 
     assert (KEPT, MOVED, DROPPED, ADDED) == ("kept", "moved", "dropped", "added")
-    mod = sys.modules["src.planner.replan"]
+    mod = sys.modules["carpediem.planner.replan"]
     assert set(mod._KIND_ORDER) == {KEPT, MOVED, DROPPED, ADDED}

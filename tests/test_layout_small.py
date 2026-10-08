@@ -116,8 +116,8 @@ def test_calendar_layout_terminale_piccolo(tmp_files):
 
 def test_welcome_body_non_sborda(tmp_files):
     """Il testo del popup iniziale resta dentro la cornice (it + en)."""
-    import src.lang as lang
-    from src.screens.system import WelcomeScreen
+    import carpediem.lang as lang
+    from carpediem.screens.system import WelcomeScreen
 
     async def t():
         for language in ("it", "en"):
@@ -183,9 +183,9 @@ def test_day_layout_terminale_piccolo(tmp_files):
 
 
 def test_theme_templateproject_impcsv_restore_layout_piccolo(tmp_files):
-    from src.screens.form import RadarPickScreen, ThemeListScreen
-    from src.screens.system import RestoreScreen
-    from src.screens.views import ImportCsvScreen, TemplateProjectScreen
+    from carpediem.screens.form import RadarPickScreen, ThemeListScreen
+    from carpediem.screens.system import RestoreScreen
+    from carpediem.screens.views import ImportCsvScreen, TemplateProjectScreen
 
     async def t():
         cases = [

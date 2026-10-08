@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 
 from textual.widgets import ListView
 
-from src import domain
-from src.lang import T
+from carpediem import domain
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 

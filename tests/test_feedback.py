@@ -2,8 +2,8 @@
 
 from datetime import date, datetime
 
-from src.domain import calibration_factor, credit_pomodoro, record_actual
-from src.planner import DayPlan, PlanItem, Planner, TimeWindow, feedback, schedule
+from carpediem.domain import calibration_factor, credit_pomodoro, record_actual
+from carpediem.planner import DayPlan, PlanItem, Planner, TimeWindow, feedback, schedule
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"
@@ -101,7 +101,7 @@ def test_feedback_non_tocca_nulla():
 
 
 def test_conversione_unica_fonte():
-    from src.planner.capacity import POMO_HOURS
+    from carpediem.planner.capacity import POMO_HOURS
 
     assert POMO_HOURS == 0.5
     todos = [make_todo("A", todo_id=1, stima_pomo=4)]

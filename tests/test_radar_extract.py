@@ -1,7 +1,7 @@
 """Equivalenza E3: src/radar.py == originali in app.py."""
 
-import src.app as app_module
-import src.radar as radar
+import carpediem.app as app_module
+import carpediem.radar as radar
 from tests.conftest import make_todo
 
 

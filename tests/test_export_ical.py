@@ -1,7 +1,9 @@
 """Equivalenza E1: src/export_ical.py == metodi originali di TodoApp."""
 
-import src.export_ical as ei
-from src.models import Priority
+import pathlib
+
+import carpediem.export_ical as ei
+from carpediem.models import Priority
 from tests.conftest import make_app, make_todo
 
 
@@ -63,18 +65,29 @@ def test_uid_fallback_deterministico_cross_seed():
     import sys
 
     code = (
-        "from src.export_ical import ical_event_lines;"
+        "from carpediem.export_ical import ical_event_lines;"
         "from tests.conftest import make_todo;"
         "t = make_todo('X', todo_id=None, due='2026-01-02 09:30');"
         "print([l for l in ical_event_lines(t, '2026-01-02', '09:30', 'S') if l.startswith('UID:')][0])"
     )
     uids = set()
+    root = pathlib.Path(__file__).resolve().parent.parent
     for seed in ("0", "1", "42"):
         import os
 
-        env = dict(os.environ, PYTHONHASHSEED=seed)
+        env = dict(
+            os.environ,
+            PYTHONHASHSEED=seed,
+            PYTHONPATH=str(root / "src")
+            + os.pathsep
+            + os.environ.get("PYTHONPATH", ""),
+        )
         out = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, env=env
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(root),
         )
         assert out.returncode == 0, out.stderr
         uids.add(out.stdout.strip())

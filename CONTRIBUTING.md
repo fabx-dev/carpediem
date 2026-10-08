@@ -36,10 +36,10 @@ python -m pytest tests/ -q
 - Every change ships with or updates tests in `tests/` (isolated temp files only —
   never touch real `~/.todo_*` files; see `tests/conftest.py`).
 - Keep `ruff check` and `ruff format --check` green on `src/` and `tests/`.
-- UI text goes through `src/lang.py` in **both** languages (`T("key")` + parity test).
+- UI text goes through `src/carpediem/lang.py` in **both** languages (`T("key")` + parity test).
 - Small, focused commits; one feature per PR.
 
-## Layout (`src/`)
+## Layout (`src/carpediem/`; `src/` is the source root, the package is `carpediem`)
 
 - `models.py` — TodoItem, priorità, ricorrenze, validazioni
 - `domain.py` — pure domain rules (state, pomodoros, smart-match, calibration)
@@ -61,7 +61,7 @@ python -m pytest tests/ -q
 Architectural guardrails live in `tests/test_arch.py`: screens never duplicate
 scoring, capacity or scheduling, and production code never calls legacy
 `plan_day()`. Screenshots for the README are generated isolated
-(fresh `TASKO_HOME` per run, `TASKO_LANG` + `set_lang` reload) — see AGENTS.md §5.
+(fresh `CARPEDIEM_HOME` per run, `CARPEDIEM_LANG` + `set_lang` reload) — see AGENTS.md §5.
 
 ## What gets rejected
 

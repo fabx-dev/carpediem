@@ -6,8 +6,8 @@ se planned; 4. alta -> !; 5. media/bassa -> niente; 6. niente wrap indesiderato.
 
 from datetime import datetime
 
-import src.screens.plan as plan_mod
-from src.models import Priority
+import carpediem.screens.plan as plan_mod
+from carpediem.models import Priority
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 _row = plan_mod.DailyPlanScreen._row

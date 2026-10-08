@@ -1,9 +1,9 @@
 """Contratto del Planner (Fase 3: propose() -> DayPlan; legacy via to_legacy())."""
 
-from src.domain import calibration_factor
-from src.models import Priority
-from src.plan import plan_day
-from src.planner import Planner
+from carpediem.domain import calibration_factor
+from carpediem.models import Priority
+from carpediem.plan import plan_day
+from carpediem.planner import Planner
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"

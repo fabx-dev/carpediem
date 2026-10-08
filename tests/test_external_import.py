@@ -2,9 +2,9 @@
 
 from datetime import datetime
 
-from src.models import TodoItem
-from src.planner import Planner, schedule
-from src.planner.models import TimeWindow
+from carpediem.models import TodoItem
+from carpediem.planner import Planner, schedule
+from carpediem.planner.models import TimeWindow
 from tests.conftest import make_app, make_todo
 
 

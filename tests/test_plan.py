@@ -1,7 +1,7 @@
 """Test planner deterministico (funzione pura, nessun file)."""
 
-from src.models import Priority
-from src.plan import plan_day
+from carpediem.models import Priority
+from carpediem.plan import plan_day
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"
@@ -158,7 +158,7 @@ def test_skip_vecchio_riproposto():
 
 
 def test_roundtrip_plan_skip():
-    from src.models import TodoItem
+    from carpediem.models import TodoItem
 
     t = make_todo("X", todo_id=1, plan_skip=TODAY)
     assert TodoItem.from_dict(t.to_dict()).plan_skip == TODAY
@@ -168,7 +168,7 @@ def test_roundtrip_plan_skip():
 
 
 def test_factor_retrocompatibile_e_motivo():
-    import src.plan as plan_module
+    import carpediem.plan as plan_module
 
     todos = [make_todo("E", todo_id=1, stima_pomo=2)]
     assert "plan_calibrated" not in _reasons(plan_day(todos, TODAY), 1)

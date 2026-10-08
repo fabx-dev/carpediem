@@ -4,8 +4,8 @@ Tu = stima originale (mai riscritta); CarpeDiem = previsione calibrata
 (fallback = stima senza storia); Reale = actual o dash.
 """
 
-import src.screens.views as views_mod
-from src.lang import T
+import carpediem.screens.views as views_mod
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 

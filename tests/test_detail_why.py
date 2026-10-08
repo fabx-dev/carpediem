@@ -9,10 +9,10 @@ from datetime import datetime
 
 from textual.widgets import Label
 
-import src.planner.decisions as dec
-from src.lang import T
-from src.planner import Planner, decide
-from src.screens.views import DetailScreen
+import carpediem.planner.decisions as dec
+from carpediem.lang import T
+from carpediem.planner import Planner, decide
+from carpediem.screens.views import DetailScreen
 from tests.conftest import (
     label_texts,
     make_app,
@@ -477,7 +477,7 @@ def test_why_senza_duplicazioni(tmp_files):
 
 def test_detail_usa_decisions_senza_ricalcolo(tmp_files, monkeypatch):
     # Percorso normale (§12): decisions precalcolate, Planner mai toccato.
-    import src.screens.views as views_mod
+    import carpediem.screens.views as views_mod
 
     calls = []
     orig_plan = views_mod.plan_request
@@ -519,7 +519,7 @@ def test_detail_usa_decisions_senza_ricalcolo(tmp_files, monkeypatch):
 def test_why_blocker_capacity_in_coda(tmp_files):
     """P6-4 UIf: voce tagliata con alternatives -> riga Blocco in coda,
     invariante story intatta (una sola riga fra decisione e Dettagli)."""
-    from src.screens.views import plan_context
+    from carpediem.screens.views import plan_context
 
     def t():
         async def inner():
@@ -558,7 +558,7 @@ def test_why_blocker_capacity_in_coda(tmp_files):
 
 def test_why_blocker_deadline_con_window(tmp_files):
     """P6-4 UIf: scadenza stretta + finestra -> riga Blocco con orario."""
-    from src.screens.views import plan_context
+    from carpediem.screens.views import plan_context
 
     def t():
         async def inner():
@@ -595,7 +595,7 @@ def test_why_senza_alternatives_nessuna_riga_blocco(tmp_files):
 
     def t():
         async def inner():
-            from src.lang import T as _T
+            from carpediem.lang import T as _T
 
             app = make_app([make_todo(f"T{i}", todo_id=i) for i in range(1, 8)])
             async with app.run_test(size=(120, 40)) as pilot:

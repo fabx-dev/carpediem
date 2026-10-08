@@ -7,10 +7,10 @@ mandatory senza slot valido.
 
 from datetime import datetime
 
-import src.planner.decisions as dec
-from src.models import Priority
-from src.planner import Planner, decide, primary_reason, refine_with_schedule
-from src.planner.models import TimeWindow
+import carpediem.planner.decisions as dec
+from carpediem.models import Priority
+from carpediem.planner import Planner, decide, primary_reason, refine_with_schedule
+from carpediem.planner.models import TimeWindow
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"
@@ -199,7 +199,7 @@ def test_evidence_overdue_allineato_a_scoring():
     """B12: garbage due mai phantom overdue (parse_day come scoring)."""
     from datetime import date
 
-    import src.planner.models as pmod
+    import carpediem.planner.models as pmod
 
     day = date(2026, 9, 10)
     for due, expected in [

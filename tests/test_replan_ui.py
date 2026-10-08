@@ -7,8 +7,8 @@ Preview = solo Planner/replan esistenti; commit solo via s (apply_replan
 import hashlib
 from datetime import datetime
 
-import src.storage as st
-from src.lang import T
+import carpediem.storage as st
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 

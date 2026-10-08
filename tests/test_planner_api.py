@@ -10,8 +10,8 @@ test per farlo passare in silenzio.
 import dataclasses
 from datetime import date
 
-import src.planner as p
-from src.planner import models as m
+import carpediem.planner as p
+from carpediem.planner import models as m
 
 
 def test_contract_version_e_2():
@@ -96,7 +96,7 @@ def test_costruzione_kwargs_minima():
 
 
 def test_classi_promesse_frozen():
-    from src.planner import decisions as d
+    from carpediem.planner import decisions as d
 
     for cls in (
         m.PlanningRequest,

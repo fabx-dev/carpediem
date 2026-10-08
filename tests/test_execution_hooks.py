@@ -6,9 +6,9 @@ Dedup su (task_id, ended_at): nessuna doppia registrazione.
 
 from datetime import datetime
 
-import src.storage as st
-from src.cli import _cli_main
-from src.store import TodoStore
+import carpediem.storage as st
+from carpediem.cli import _cli_main
+from carpediem.store import TodoStore
 from tests.conftest import make_app, make_todo, run, wait_for
 
 

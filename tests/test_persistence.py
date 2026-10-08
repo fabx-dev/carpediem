@@ -2,7 +2,7 @@
 
 import json
 
-import src.main as m
+import carpediem.main as m
 from tests.conftest import make_todo
 
 
@@ -113,8 +113,8 @@ def test_backup_nomi_unici_e_concorrenti(tmp_files):
     import threading
     import zipfile
 
-    import src.main as m
-    from src.store import TodoStore
+    import carpediem.main as m
+    from carpediem.store import TodoStore
 
     s = TodoStore.load()
     s.add(make_todo("A", todo_id=None))
@@ -152,8 +152,8 @@ def test_restore_fallito_lascia_tutto_intatto(tmp_files, monkeypatch):
     """B5: errore a meta' restore -> file gia' scritti ripristinati, altri mai toccati."""
     import json as _json
 
-    import src.main as m
-    import src.storage as s
+    import carpediem.main as m
+    import carpediem.storage as s
 
     m.DATA_FILE.write_text(_json.dumps([{"id": 1, "title": "VECCHIO"}]))
     m.ARCHIVE_FILE.write_text(_json.dumps([{"id": 1, "title": "ARC-VECCHIO"}]))
@@ -186,7 +186,7 @@ def test_restore_entry_non_json_rifiutata(tmp_files):
     import json as _json
     import zipfile
 
-    import src.main as m
+    import carpediem.main as m
 
     m.DATA_FILE.write_text(_json.dumps([{"id": 1, "title": "VECCHIO"}]))
     bad = m.BACKUP_DIR / "tasko_20990101_000000.zip"
@@ -218,7 +218,7 @@ def test_backup_corrotto_rifiutato(tmp_files):
 def test_backup_retention(tmp_files, monkeypatch):
     from datetime import datetime as _dt
 
-    import src.storage as s
+    import carpediem.storage as s
 
     m.DATA_FILE.write_text("[]")
 
@@ -239,7 +239,7 @@ def test_backup_retention(tmp_files, monkeypatch):
 
 def test_config_roundtrip_tutte_le_chiavi(tmp_files):
     """Guardrail whitelist: ogni chiave DEFAULT_CONFIG sopravvive a save/load."""
-    import src.storage as s
+    import carpediem.storage as s
 
     cfg = s.load_config()
     for key in s.DEFAULT_CONFIG:
@@ -255,7 +255,7 @@ def test_config_roundtrip_tutte_le_chiavi(tmp_files):
 
 
 def test_smart_lists_validazione_e_roundtrip(tmp_files):
-    import src.storage as s
+    import carpediem.storage as s
 
     s.save_config(
         {

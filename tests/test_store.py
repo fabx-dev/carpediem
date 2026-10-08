@@ -1,7 +1,7 @@
 """Test TodoStore: id, lookup, mutazioni, commit unico."""
 
-import src.main as m
-from src.store import TodoStore
+import carpediem.main as m
+from carpediem.store import TodoStore
 from tests.conftest import make_app, make_todo
 
 
@@ -128,7 +128,7 @@ def test_plain_mai_in_produzione():
     """B6 guardrail: app/screens/cli scrivono solo via store.commit()."""
     from pathlib import Path
 
-    root = Path(__file__).resolve().parent.parent / "src"
+    root = Path(__file__).resolve().parent.parent / "src" / "carpediem"
     vietati = []
     for path in [root / "app.py", root / "cli.py", root / "commands.py"]:
         if "_save_todos_plain" in path.read_text(encoding="utf-8"):
@@ -143,7 +143,7 @@ def test_plain_mai_in_produzione():
 
 def test_commit_skipped_visibile_e_non_perde_validi(tmp_files, monkeypatch):
     """B2: dict non parsabili nel merged contati in last_skipped, validi intatti."""
-    import src.store as store_module
+    import carpediem.store as store_module
 
     s = TodoStore([make_todo("A", todo_id=1)], base=[])
     reali = [t.to_dict() for t in s.all()]

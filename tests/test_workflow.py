@@ -1,7 +1,7 @@
 """Workflow consigliato: voce menu Giornata + screen checklist."""
 
-import src.commands as commands_module
-from src.lang import T
+import carpediem.commands as commands_module
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 

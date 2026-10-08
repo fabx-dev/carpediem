@@ -2,8 +2,8 @@
 
 import threading
 
-import src.storage as m
-from src.store import TodoStore
+import carpediem.storage as m
+from carpediem.store import TodoStore
 from tests.conftest import make_todo
 
 

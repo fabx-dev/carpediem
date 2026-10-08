@@ -1,8 +1,8 @@
 """#53 Shortcut consistency: inventario binding, G/W, s/Esc coerenti."""
 
-import src.app as app_mod
-import src.screens.plan as plan_mod
-import src.screens.views as views_mod
+import carpediem.app as app_mod
+import carpediem.screens.plan as plan_mod
+import carpediem.screens.views as views_mod
 from tests.conftest import make_app, make_todo, run, wait_for
 
 

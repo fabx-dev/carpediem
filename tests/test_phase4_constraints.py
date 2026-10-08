@@ -7,9 +7,9 @@ vietano). Vocabolario eseguibile prima di qualunque refactor.
 
 from datetime import date, datetime
 
-from src.planner import Planner
-from src.planner.models import TimeWindow
-from src.planner.replan import replan
+from carpediem.planner import Planner
+from carpediem.planner.models import TimeWindow
+from carpediem.planner.replan import replan
 from tests.conftest import make_todo
 
 TODAY_S = "2026-09-10"
@@ -93,7 +93,7 @@ def test_h6_busy_mai_overlap():
 
 
 def test_h7_scadenza_oggi_ora_vincola_collocazione():
-    from src.planner.scheduler import deadlines_for
+    from carpediem.planner.scheduler import deadlines_for
 
     todos = [make_todo("A", todo_id=1, due=f"{TODAY_S} 09:30", stima_pomo=2)]
     plan = Planner(todos, today=TODAY_S, hours=6.0).propose()
@@ -130,7 +130,7 @@ def test_h9_replan_slot_passati_indisponibili():
 
 
 def test_s_merito_non_vieta():
-    from src.models import Priority
+    from carpediem.models import Priority
 
     # S1: bassa priorita' comunque pianificata con capacita'.
     plan = Planner(
@@ -138,7 +138,7 @@ def test_s_merito_non_vieta():
     ).propose()
     assert [it.todo_id for it in plan.planned] == [1]
     # S2: progetto fermo aggiunge (stale_days=40) ma non veta mai.
-    from src.planner import scoring as scoring_mod
+    from carpediem.planner import scoring as scoring_mod
 
     assert scoring_mod.stale_days("vuoto", [], DAY) is None
     fermi = [

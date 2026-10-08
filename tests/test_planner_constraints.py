@@ -1,6 +1,6 @@
 """Unit test constraints del Planner (ammissibilita', senza Textual)."""
 
-from src.planner import constraints
+from carpediem.planner import constraints
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"

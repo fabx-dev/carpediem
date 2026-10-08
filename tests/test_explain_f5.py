@@ -5,12 +5,12 @@ from datetime import datetime, timedelta
 
 import pytest
 
-import src.planner.decisions as dec
-from src.lang import T as _T
-from src.planner.narrative import explain_decision, explain_proposed
-from src.planner.phrases import phrase_for
-from src.screens.plan import PlanProposalScreen
-from src.screens.views import plan_context
+import carpediem.planner.decisions as dec
+from carpediem.lang import T as _T
+from carpediem.planner.narrative import explain_decision, explain_proposed
+from carpediem.planner.phrases import phrase_for
+from carpediem.screens.plan import PlanProposalScreen
+from carpediem.screens.views import plan_context
 from tests.conftest import make_app, make_todo, screen_texts
 
 
@@ -21,7 +21,7 @@ def _day(offset: int) -> str:
 @pytest.fixture(autouse=True)
 def _buongiorno_al_mattino(monkeypatch):
     """Freeze 08:00 per i pilot (scenari mattutini deterministici)."""
-    import src.screens.plan as plan_mod
+    import carpediem.screens.plan as plan_mod
 
     fixed = datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M")
 
@@ -121,7 +121,7 @@ def test_buongiorno_coda_con_causa_reale():
 
 
 def test_buongiorno_coda_non_inseriti_per_gara():
-    from src.planner.outcomes import OUT_ELIGIBLE, classify
+    from carpediem.planner.outcomes import OUT_ELIGIBLE, classify
 
     todos = [
         make_todo("A", todo_id=1, stima_pomo=1),

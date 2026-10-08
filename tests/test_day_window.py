@@ -12,16 +12,16 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.lang import T as _T
-from src.models import Priority
-from src.storage import _validate_day_window
+from carpediem.lang import T as _T
+from carpediem.models import Priority
+from carpediem.storage import _validate_day_window
 from tests.conftest import make_app, make_todo, screen_texts
 
 
 @pytest.fixture(autouse=True)
 def _buongiorno_al_mattino(monkeypatch):
     """F1 clip-a-now: congela l'ora alle 08:00 di oggi (scenari mattutini)."""
-    import src.screens.plan as plan_mod
+    import carpediem.screens.plan as plan_mod
 
     fixed = datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M")
 
@@ -115,7 +115,7 @@ def test_day_window_eventi_scartati_cap_e_troncamento(tmp_files):
 
 
 def test_day_window_roundtrip_whitelist(tmp_files):
-    import src.storage as s
+    import carpediem.storage as s
 
     w = _window(_day(0), [{"start": "13:00", "end": "14:00", "title": "Pranzo"}])
     s.save_config({**s.load_config(), "day_window": w})
@@ -176,7 +176,7 @@ def test_buongiorno_conferma_scrive_finestra_strutturata(tmp_files):
                 _day(0), [{"start": "13:00", "end": "14:00", "title": "Pranzo"}]
             )
             assert app.config["day_window"] == expected
-            import src.storage as s
+            import carpediem.storage as s
 
             assert s.load_config()["day_window"] == expected
 
@@ -504,7 +504,7 @@ def test_piano_righe_timed_operative(tmp_files):
     (task_id, "planned") e Enter apre il dettaglio dalla riga timed."""
     from textual.widgets import ListView
 
-    from src.screens.plan import PlanRow
+    from carpediem.screens.plan import PlanRow
 
     async def t():
         app = make_app(_todos(planned=True))
@@ -545,7 +545,7 @@ def test_piano_riga_timed_x_rimuove(tmp_files):
     """x su una riga con orario la rimuove dal piano (operativita' piena)."""
     from textual.widgets import ListView
 
-    from src.screens.plan import PlanRow
+    from carpediem.screens.plan import PlanRow
 
     async def t():
         app = make_app(_todos(planned=True))
@@ -576,7 +576,7 @@ def test_piano_eventi_disabled_e_task_operativi(tmp_files):
     slot) restano righe abilitate."""
     from textual.widgets import ListItem, ListView
 
-    from src.screens.plan import PlanRow
+    from carpediem.screens.plan import PlanRow
 
     async def t():
         app = make_app(_todos(planned=True))

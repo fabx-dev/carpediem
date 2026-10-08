@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 from textual.widgets import Input
 
-import src.main as m
-from src.lang import T
+import carpediem.main as m
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 
@@ -70,7 +70,7 @@ def test_export_csv_scrive_file(tmp_files, monkeypatch):
             content = files[0].read_text(encoding="utf-8")
             assert "A" in content and "casa" in content
 
-    import src.app as app_module
+    import carpediem.app as app_module
 
     monkeypatch.setattr(app_module, "_home", lambda: tmp_files)
     run(t())
@@ -90,7 +90,7 @@ def test_export_stats_csv_e_markdown(tmp_files, monkeypatch):
             assert len(md) == 1
             assert "A" in md[0].read_text(encoding="utf-8")
 
-    import src.app as app_module
+    import carpediem.app as app_module
 
     monkeypatch.setattr(app_module, "_home", lambda: tmp_files)
     run(t())

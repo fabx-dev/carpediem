@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-import src.main as m
+import carpediem.main as m
 
 
 def test_roundtrip_minimale():

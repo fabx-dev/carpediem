@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from src.planner.models import PlanItem, ScheduledItem, TimeWindow
-from src.planner.replan import (
+from carpediem.planner.models import PlanItem, ScheduledItem, TimeWindow
+from carpediem.planner.replan import (
     ADDED,
     DROPPED,
     KEPT,
@@ -34,7 +34,7 @@ def test_kept_quando_nulla_cambia():
         make_todo("B", todo_id=2, planned_for=TODAY, stima_pomo=2),
         make_todo("C", todo_id=3, stima_pomo=1),
     ]
-    from src.screens.plan import scheduled_for_today
+    from carpediem.screens.plan import scheduled_for_today
 
     sched, _, _, _, _ = scheduled_for_today(
         todos,
@@ -57,7 +57,7 @@ def test_moved_solo_se_costretto_dal_busy():
         make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2),
         make_todo("B", todo_id=2, planned_for=TODAY, stima_pomo=2),
     ]
-    from src.screens.plan import scheduled_for_today
+    from carpediem.screens.plan import scheduled_for_today
 
     window = {"date": TODAY, "start": "09:00", "end": "18:00"}
     sched, _, _, _, _ = scheduled_for_today(todos, TODAY, 6.0, window, now=at(9))
@@ -87,7 +87,7 @@ def test_nuovo_task_non_ruba_lo_slot_al_confermato():
         make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2),
         make_todo("Z", todo_id=9, stima_pomo=2),
     ]
-    from src.screens.plan import scheduled_for_today
+    from carpediem.screens.plan import scheduled_for_today
 
     window = {"date": TODAY, "start": "09:00", "end": "18:00"}
     sched, _, _, _, _ = scheduled_for_today(todos, TODAY, 6.0, window, now=at(9))
@@ -164,7 +164,7 @@ def test_current_senza_slot_kept_senza_orario():
 
 def test_move_senza_slot_portano_alternativa_reale():
     """I move senza new_start (non DROPPED) espongono alt da diagnose."""
-    from src.planner.outcomes import OUT_ELIGIBLE, OUT_OUTSIDE, classify
+    from carpediem.planner.outcomes import OUT_ELIGIBLE, OUT_OUTSIDE, classify
 
     todos = [
         make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2),
@@ -187,7 +187,7 @@ def test_move_senza_slot_portano_alternativa_reale():
 
 def test_added_che_perde_la_gara_con_i_confermati():
     """Caso B §5: da solo entrerebbe, ma i confermati occupano -> ELIGIBLE."""
-    from src.planner.outcomes import OUT_ELIGIBLE, classify
+    from carpediem.planner.outcomes import OUT_ELIGIBLE, classify
 
     todos = [
         make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2),
@@ -205,7 +205,7 @@ def test_added_che_perde_la_gara_con_i_confermati():
 
 def test_kept_senza_orario_con_alt_fuori_disponibilita():
     """KEPT (None,None) a finestra esaurita: alt window, mai MOVED."""
-    from src.planner.outcomes import OUT_OUTSIDE, classify
+    from carpediem.planner.outcomes import OUT_OUTSIDE, classify
 
     todos = [make_todo("A", todo_id=1, planned_for=TODAY, stima_pomo=2)]
     p = replan(todos, TODAY, 6.0, avail(), now=at(20))

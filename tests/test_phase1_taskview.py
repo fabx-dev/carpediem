@@ -10,8 +10,8 @@ import types
 
 import pytest
 
-from src.models import Priority
-from src.planner.models import TaskView, todo_to_task
+from carpediem.models import Priority
+from carpediem.planner.models import TaskView, todo_to_task
 from tests.conftest import make_todo
 
 EXPECTED_FIELDS = [

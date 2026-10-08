@@ -1,8 +1,8 @@
 """Test boundary di calibrazione (Fase 6: adapter sottile, senza Textual)."""
 
-from src.domain import calibrated_estimate, calibration_factor
-from src.planner import calibration, capacity
-from src.planner.models import ExecutionFeedback
+from carpediem.domain import calibrated_estimate, calibration_factor
+from carpediem.planner import calibration, capacity
+from carpediem.planner.models import ExecutionFeedback
 from tests.conftest import make_todo
 
 
@@ -78,8 +78,8 @@ def test_edge_pochi_dati_outlier_determinismo():
 
 def test_b1_observe_usano_raw_non_calibrata():
     """B1: observe(fb) ricostruisce actual/raw anche con factor attivo."""
-    from src.planner import Planner, feedback
-    from src.planner.models import ScheduledDayPlan
+    from carpediem.planner import Planner, feedback
+    from carpediem.planner.models import ScheduledDayPlan
 
     t = make_todo("T", todo_id=1, stima_pomo=2)
     plan = Planner([t], today="2026-09-10", hours=6.0, factor=2.0).propose()

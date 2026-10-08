@@ -7,7 +7,7 @@ determinismo, niente duplicati, coerenza interna del DayPlan.
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-import src.planner.service as svc
+import carpediem.planner.service as svc
 from tests.conftest import make_todo
 
 TODAY = "2026-09-30"

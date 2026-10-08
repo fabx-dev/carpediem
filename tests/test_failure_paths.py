@@ -5,9 +5,9 @@ import zipfile
 
 import pytest
 
-import src.main as m
-from src import crypto as crypto_mod
-from src.store import TodoStore
+import carpediem.main as m
+from carpediem import crypto as crypto_mod
+from carpediem.store import TodoStore
 from tests.conftest import make_todo
 
 
@@ -25,7 +25,7 @@ def test_store_su_file_corrotto(tmp_files):
     assert s.all() == []
     assert m.DATA_FILE.with_suffix(".corrotto.json").exists()
     # fail-closed: commit su disco corrotto solleva, primary intatto
-    import src.storage as st
+    import carpediem.storage as st
 
     s.add(make_todo("Nuovo", todo_id=None))
     with pytest.raises(st.StorageUnreadable):
@@ -116,7 +116,7 @@ def test_snapshot_con_todos_corrotto(tmp_files):
 
 
 def test_merge_con_disco_corrotto(tmp_files):
-    import src.storage as st
+    import carpediem.storage as st
 
     m.DATA_FILE.write_text("{{{")
     prima = m.DATA_FILE.read_bytes()

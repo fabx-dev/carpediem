@@ -9,14 +9,14 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.lang import T as _T
+from carpediem.lang import T as _T
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 
 @pytest.fixture(autouse=True)
 def _buongiorno_al_mattino(monkeypatch):
     """F1 clip-a-now: congela l'ora alle 08:00 di oggi (scenari mattutini)."""
-    import src.screens.plan as plan_mod
+    import carpediem.screens.plan as plan_mod
 
     fixed = datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M")
 
@@ -115,9 +115,9 @@ def test_detail_coda_frase_unica(tmp_files):
 
 def test_noslot_sentence_nomina_eventi_con_escape():
     """La causa busy nomina gli eventi (escaping markup) nella frase unica."""
-    import src.planner.decisions as dec
-    from src.planner.models import PlanAlternative
-    from src.screens.views import _noslot_sentence
+    import carpediem.planner.decisions as dec
+    from carpediem.planner.models import PlanAlternative
+    from carpediem.screens.views import _noslot_sentence
 
     d = dec.PlanningDecision(1, dec.SCHEDULED, (("plan_due_today", {}),), {}, None)
     alt = PlanAlternative(
@@ -131,9 +131,9 @@ def test_noslot_sentence_nomina_eventi_con_escape():
 
 def test_noslot_sentence_nomina_altri_task():
     """La causa tasks nomina i titoli (fallback #id), con escape markup."""
-    import src.planner.decisions as dec
-    from src.planner.models import PlanAlternative
-    from src.screens.views import _noslot_sentence
+    import carpediem.planner.decisions as dec
+    from carpediem.planner.models import PlanAlternative
+    from carpediem.screens.views import _noslot_sentence
 
     d = dec.PlanningDecision(1, dec.SCHEDULED, (("plan_due_today", {}),), {}, None)
     alt = PlanAlternative(1, dec.SCHEDULED, "tasks", {"task_ids": (2, 9)})
@@ -153,9 +153,9 @@ def test_noslot_sentence_fallback_senza_pezzi():
     F5: kind ignoto -> fallback generico onesto (mai None silenzioso),
     merito ignoto -> None come prima (niente frase senza membro).
     """
-    import src.planner.decisions as dec
-    from src.planner.models import PlanAlternative
-    from src.screens.views import _noslot_sentence
+    import carpediem.planner.decisions as dec
+    from carpediem.planner.models import PlanAlternative
+    from carpediem.screens.views import _noslot_sentence
 
     d = dec.PlanningDecision(1, dec.SCHEDULED, (("plan_x", {}),), {}, None)
     assert _noslot_sentence(d, None) is None
@@ -178,8 +178,8 @@ def test_detail_timed_non_contraddice_la_timeline(tmp_files):
     """Regressione card reale: task con slot visibile non deve mai dirsi
     senza orario — le alternative del Detail sono quelle della timeline
     (confermati), non del piano intero (Z non confermata ruba lo slot lì)."""
-    from src.planner import plan as plan_request
-    from src.screens.plan import build_planning_request
+    from carpediem.planner import plan as plan_request
+    from carpediem.screens.plan import build_planning_request
 
     async def t():
         app = make_app(
@@ -234,10 +234,10 @@ def test_detail_timed_etichetta_invariata(tmp_files):
 
 def test_b10_tasks_senza_slot_etichetta_noslot(tmp_files):
     """B10: SCHEDULED unscheduled per gara persa -> mai etichetta liscia."""
-    import src.planner.decisions as dec
-    import src.planner.models as pmod
-    from src.lang import T
-    from src.screens.views import DetailScreen
+    import carpediem.planner.decisions as dec
+    import carpediem.planner.models as pmod
+    from carpediem.lang import T
+    from carpediem.screens.views import DetailScreen
 
     today = _day(0)
 

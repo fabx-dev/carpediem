@@ -2,7 +2,7 @@
 
 from rich.markup import render
 
-from src.screens._shared import _escape_markup
+from carpediem.screens._shared import _escape_markup
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 EVIL = "Report [/] crash"
@@ -45,7 +45,7 @@ def test_agenda_e_settimana_con_titoli_maligni(tmp_files):
     async def t():
         from datetime import datetime
 
-        from src.models import Priority
+        from carpediem.models import Priority
 
         today = datetime.now().strftime("%Y-%m-%d")
         app = make_app(

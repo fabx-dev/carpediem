@@ -7,8 +7,8 @@ E-equivalenza date-only pinnata: con sole date, la mappa non cambia nulla.
 
 from datetime import date, datetime
 
-from src.planner.models import DayPlan, PlanItem, TimeWindow, todo_to_task
-from src.planner.scheduler import deadlines_for, schedule
+from carpediem.planner.models import DayPlan, PlanItem, TimeWindow, todo_to_task
+from carpediem.planner.scheduler import deadlines_for, schedule
 from tests.conftest import make_todo
 
 DAY = date(2026, 9, 10)
@@ -140,7 +140,7 @@ def test_p1_placeable_congiunzione():
     """P1 (P4-4, F2 best-fit): fit + entro-scadenza come congiunti nominati."""
     from datetime import timedelta
 
-    from src.planner.scheduler import _best_gap
+    from carpediem.planner.scheduler import _best_gap
 
     slot = _win(9, 0, 18, 0)
     assert _best_gap([slot], timedelta(minutes=30), None) == 0
@@ -158,7 +158,7 @@ def test_e_date_only_identico_con_e_senza_mappa():
         make_todo("B", todo_id=2, due=TODAY_S),
         make_todo("C", todo_id=3),
     ]
-    from src.planner import Planner
+    from carpediem.planner import Planner
 
     plan = Planner(todos, today=TODAY_S, hours=6.0).propose()
     avail = [_win(9, 0, 18, 0)]
@@ -168,7 +168,7 @@ def test_e_date_only_identico_con_e_senza_mappa():
 def test_b3_una_cifra_padded_come_storage():
     """B3: H:MM al boundary planner come models._normalize_due (pad),
     mai vincolo orario perso. Grammatica non allargata oltre."""
-    from src.planner.models import _due_time_part
+    from carpediem.planner.models import _due_time_part
 
     assert _due_time_part("2026-09-10 9:00") == "09:00"
     assert _due_time_part("2026-09-10 09:00") == "09:00"

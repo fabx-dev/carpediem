@@ -7,9 +7,9 @@ token separato 0600 mai nei backup/log.
 
 import pathlib
 
-import src.storage as storage
-from src.integrations import outlook as o
-from src.integrations import outlook_auth as oa
+import carpediem.storage as storage
+from carpediem.integrations import outlook as o
+from carpediem.integrations import outlook_auth as oa
 
 
 def test_scope_congelato():
@@ -71,7 +71,7 @@ def test_screen_mai_rete_outlook():
 
     _import = re.compile(r"^\s*(import|from)\s+[\w.]*outlook_auth", re.M)
     _browser = re.compile(r"^\s*(import|from)\s+webbrowser", re.M)
-    for path in sorted(pathlib.Path("src/screens").glob("*.py")):
+    for path in sorted(pathlib.Path("src/carpediem/screens").glob("*.py")):
         src = path.read_text(encoding="utf-8")
         assert not _import.search(src), f"{path} importa il modulo di rete"
         assert not _browser.search(src), f"{path} apre il browser"

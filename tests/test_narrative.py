@@ -5,18 +5,18 @@ Verifica: un template per stato/variante, determinismo, solo lettura
 delle reasons/evidence reali, parita' it/en, planner invariato.
 """
 
-import src.lang as lang
-import src.planner.decisions as dec
-from src.planner import Planner, decide
-from src.planner.explain import (
+import carpediem.lang as lang
+import carpediem.planner.decisions as dec
+from carpediem.planner import Planner, decide
+from carpediem.planner.explain import (
     CUT,
     DUE_TODAY,
     OVERDUE,
     PRIO,
     SKIPPED,
 )
-from src.planner.narrative import explain_decision, explain_proposed, story_keys
-from src.planner.phrases import PhraseRef
+from carpediem.planner.narrative import explain_decision, explain_proposed, story_keys
+from carpediem.planner.phrases import PhraseRef
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"

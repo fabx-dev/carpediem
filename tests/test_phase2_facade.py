@@ -8,11 +8,11 @@ Unica differenza documentata: evidence `due` normalizzata alla parte data
 import random
 from datetime import date, datetime
 
-import src.planner.service as service_mod
-from src.domain import calibration_factor, calibration_samples
-from src.models import Priority
-from src.planner import Planner, decide, plan
-from src.planner.models import PlanningRequest, TimeWindow
+import carpediem.planner.service as service_mod
+from carpediem.domain import calibration_factor, calibration_samples
+from carpediem.models import Priority
+from carpediem.planner import Planner, decide, plan
+from carpediem.planner.models import PlanningRequest, TimeWindow
 from tests.conftest import make_todo
 
 TODAY_S = "2026-09-10"

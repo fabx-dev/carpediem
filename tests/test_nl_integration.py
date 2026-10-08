@@ -8,7 +8,7 @@ from pathlib import Path as _P
 
 from textual.widgets import Input, Label, Select
 
-from src.models import Priority, Recurrence
+from carpediem.models import Priority, Recurrence
 from tests.conftest import make_app
 
 PHRASE = "Report *lavoro #ufficio !1 ~2 2026-12-01 09:30"
@@ -119,7 +119,7 @@ def test_form_ctrl_l_merge_non_overwrite(tmp_files):
             await pilot.pause()
             assert scr.query_one("#due-input", Input).value == domani
             assert scr.query_one("#project-input", Input).value == "casa"
-            from src.models import Priority as _P
+            from carpediem.models import Priority as _P
 
             assert scr.query_one("#priority-select", Select).value == _P.MEDIUM
 
@@ -171,7 +171,7 @@ def test_form_anteprima_live(tmp_files):
             assert scr.query_one("#due-input", Input).value == ""  # non compilato
             scr.query_one("#title-input", Input).value = "Solo titolo"
             await pilot.pause()
-            from src.lang import T as _T
+            from carpediem.lang import T as _T
 
             assert _T("nl_hint") in str(scr.query_one("#nl-preview", Label).render())
 
@@ -199,7 +199,7 @@ def test_form_ctrl_l_nessun_campo(tmp_files):
 def _nl_example_of_day():
     from datetime import date as _date
 
-    from src.lang import T as _T
+    from carpediem.lang import T as _T
 
     examples = [_T("nl_exa1"), _T("nl_exa2"), _T("nl_exa3")]
     return examples[_date.today().toordinal() % len(examples)]
@@ -247,7 +247,7 @@ def test_inserisci_esempio_titolo_pieno(tmp_files):
 
 def test_placeholder_rotante(tmp_files):
     async def t():
-        from src.lang import T as _T
+        from carpediem.lang import T as _T
 
         app = make_app([])
         async with app.run_test(size=(120, 40)) as pilot:
@@ -279,10 +279,15 @@ def test_striscia_non_troncata(tmp_files):
 
 
 def _cli(args, home):
-    env = dict(os.environ, TASKO_HOME=str(home))
+    root = _P(__file__).resolve().parent.parent
+    env = dict(
+        os.environ,
+        TASKO_HOME=str(home),
+        PYTHONPATH=str(root / "src") + os.pathsep + os.environ.get("PYTHONPATH", ""),
+    )
     return subprocess.run(
-        [sys.executable, "-m", "src.main", *args],
-        cwd=str(_P(__file__).resolve().parent.parent),
+        [sys.executable, "-m", "carpediem.main", *args],
+        cwd=str(root),
         env=env,
         capture_output=True,
         text=True,

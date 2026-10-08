@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
-import src.main as m
+import carpediem.main as m
 from tests.conftest import make_app, make_todo
 
 
@@ -35,7 +35,7 @@ def test_solo_con_orario_una_tantum(tmp_files, capsys):
 
 def test_reminder_persistente_fino_al_click(tmp_files):
     """Il toast del reminder usa timeout lungo (default Textual: 5 s)."""
-    from src.app import REMINDER_TOAST_TIMEOUT
+    from carpediem.app import REMINDER_TOAST_TIMEOUT
 
     assert REMINDER_TOAST_TIMEOUT >= 600
     app = make_app([make_todo("VICINO", due=_due_in(5), todo_id=1)])

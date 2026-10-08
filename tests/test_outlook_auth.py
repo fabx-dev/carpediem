@@ -10,8 +10,8 @@ import pathlib
 
 import pytest
 
-import src.storage as storage
-from src.integrations.outlook_auth import OutlookClient, OutlookError, disconnect
+import carpediem.storage as storage
+from carpediem.integrations.outlook_auth import OutlookClient, OutlookError, disconnect
 
 DAY = "2026-09-23"
 CFG = {
@@ -201,7 +201,7 @@ def test_authcode_finish_salva_cache_0600(tmp_files):
 
 
 def test_authcode_denied_e_mismatch(tmp_files):
-    from src.integrations.outlook_auth import OutlookError as OE
+    from carpediem.integrations.outlook_auth import OutlookError as OE
 
     c = OutlookClient(
         dict(CFG),
@@ -231,7 +231,7 @@ def test_authcode_denied_e_mismatch(tmp_files):
 def test_loopback_reale_solo_locale(tmp_files):
     import urllib.request
 
-    from src.integrations.outlook_auth import LoopbackListener
+    from carpediem.integrations.outlook_auth import LoopbackListener
 
     lst = LoopbackListener()
     assert lst.redirect_uri.startswith("http://127.0.0.1:")
@@ -242,7 +242,7 @@ def test_loopback_reale_solo_locale(tmp_files):
 
 
 def test_loopback_timeout_chiude(tmp_files):
-    from src.integrations.outlook_auth import LoopbackListener
+    from carpediem.integrations.outlook_auth import LoopbackListener
 
     lst = LoopbackListener()
     with pytest.raises(OutlookError) as ei:
@@ -263,10 +263,12 @@ def test_cancel_authcode_chiude_listener(tmp_files):
 def test_loopback_solo_127_0_0_1(tmp_files):
     import re
 
-    from src.integrations import outlook_auth as auth_mod
+    from carpediem.integrations import outlook_auth as auth_mod
 
     assert auth_mod.LOOPBACK_HOST == "127.0.0.1"
-    src = pathlib.Path("src/integrations/outlook_auth.py").read_text(encoding="utf-8")
+    src = pathlib.Path("src/carpediem/integrations/outlook_auth.py").read_text(
+        encoding="utf-8"
+    )
     # Niente bind su wildcard (i commenti possono nominarlo, il codice no).
     assert not re.search(r"""\(["']0\.0\.0\.0["']""", src)
 
@@ -380,7 +382,7 @@ def test_screen_mai_import_outlook_auth():
     import re
 
     pat = re.compile(r"^\s*(import|from)\s+[\w.]*outlook_auth", re.M)
-    for path in sorted(pathlib.Path("src/screens").glob("*.py")):
+    for path in sorted(pathlib.Path("src/carpediem/screens").glob("*.py")):
         src = path.read_text(encoding="utf-8")
         assert not pat.search(src), f"{path}: le screen non toccano rete/auth"
 
@@ -450,7 +452,7 @@ def test_abort_sveglia_wait_reale(tmp_files):
     import threading
     import time
 
-    from src.integrations.outlook_auth import LoopbackListener
+    from carpediem.integrations.outlook_auth import LoopbackListener
 
     lst = LoopbackListener()
     outcome = {}
@@ -509,7 +511,7 @@ def test_http_401_429_timeout_mappati(tmp_files, monkeypatch):
 
 def test_outlook_error_text_codici_failure():
     """C5: 401/timeout hanno testo dedicato, 429 resta generico visibile."""
-    from src.screens._shared import outlook_error_text
+    from carpediem.screens._shared import outlook_error_text
 
     assert outlook_error_text("unauthorized") != outlook_error_text("network")
     assert "429" in outlook_error_text("http_429")

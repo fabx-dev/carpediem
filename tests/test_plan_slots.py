@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 import pytest
 from textual.widgets import Input, TextArea
 
-from src.lang import T as _T
-from src.models import Priority
-from src.planner import Planner
-from src.planner.models import TimeWindow
+from carpediem.lang import T as _T
+from carpediem.models import Priority
+from carpediem.planner import Planner
+from carpediem.planner.models import TimeWindow
 from tests.conftest import make_app, make_todo, screen_texts
 
 
@@ -21,7 +21,7 @@ def _buongiorno_al_mattino(monkeypatch):
     09:00: senza freeze sarebbero nel passato dopo le 09:00 reali e la
     clip li sposterebbe (comportamento voluto, non regressione).
     """
-    import src.screens.plan as plan_mod
+    import carpediem.screens.plan as plan_mod
 
     fixed = datetime.strptime(f"{_day(0)} 08:00", "%Y-%m-%d %H:%M")
 

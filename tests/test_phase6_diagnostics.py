@@ -6,9 +6,9 @@ Risultati assemblati a mano (nessun consumer ancora — P6-3 li popola).
 
 from datetime import date, datetime
 
-from src.planner import Planner
-from src.planner.diagnostics import diagnose
-from src.planner.models import (
+from carpediem.planner import Planner
+from carpediem.planner.diagnostics import diagnose
+from carpediem.planner.models import (
     DayPlan,
     PlanItem,
     PlanningRequest,
@@ -31,7 +31,7 @@ def _result(todos, hours=6.0, avail=(), busy=(), factor=None):
     )
     plan = Planner(todos, today=TODAY_S, hours=hours, factor=factor).propose()
     if avail:
-        from src.planner.scheduler import deadlines_for
+        from carpediem.planner.scheduler import deadlines_for
 
         sched = Planner.schedule(plan, avail, busy, deadlines_for(todos))
     else:
@@ -178,7 +178,7 @@ def test_sano_niente_diagnostics_e_determinismo():
 def test_facade_popola_coerente_con_manuale():
     """P6-3: plan() riempie alternatives/diagnostics come diagnose() manuale;
     i campi vecchi restano identici (E1)."""
-    from src.planner import plan
+    from carpediem.planner import plan
 
     todos = [
         make_todo("A", todo_id=1, due=f"{TODAY_S} 09:30", stima_pomo=2),
@@ -204,13 +204,13 @@ def test_facade_popola_coerente_con_manuale():
 def test_coerenza_probe_scheduler_e_totalita():
     """D2: per ogni unscheduled, il re-schedule single-item con vincoli pieni
     fallisce come lo scheduler reale; diagnose() mai solleva."""
-    from src.planner.scheduler import schedule
+    from carpediem.planner.scheduler import schedule
 
     todos = [make_todo("A", todo_id=1, due=f"{TODAY_S} 09:30", stima_pomo=2)]
     res = _result(todos, avail=[_win(9, 0, 18, 0)])
     (alt,) = diagnose(res)[0]
     solo = DayPlan(day=DAY, planned=tuple(res.plan.planned[:1]))
-    from src.planner.scheduler import deadlines_for
+    from carpediem.planner.scheduler import deadlines_for
 
     assert schedule(solo, [_win(9, 0, 18, 0)], (), deadlines_for(todos)).scheduled == ()
     assert diagnose(object()) == ((), ())
@@ -226,7 +226,7 @@ def test_scaduto_senza_orario_mai_deadline():
     (alt,) = diagnose(res)[0]
     assert alt.blocked_by != "deadline"
     assert "deadline" not in (alt.detail or {})
-    from src.screens.views import _blocked_line
+    from carpediem.screens.views import _blocked_line
 
     line = _blocked_line(alt)
     assert line is None or "alle ." not in line
@@ -242,8 +242,8 @@ def test_deadline_sempre_con_orario():
 
 def test_blocked_line_senza_orario_non_rende():
     """Difesa in profondità: deadline senza HH:MM = nessuna riga, mai testo rotto."""
-    from src.planner.models import PlanAlternative
-    from src.screens.views import _blocked_line
+    from carpediem.planner.models import PlanAlternative
+    from carpediem.screens.views import _blocked_line
 
     assert _blocked_line(None) is None
     assert _blocked_line(PlanAlternative(1, "scheduled", "deadline", {})) is None
@@ -259,8 +259,8 @@ def test_blocked_line_senza_orario_non_rende():
 def test_busy_nomina_gli_eventi():
     """Blocco busy con eventi noti: i titoli finiscono nel detail (di che
     impegni si parla); senza eventi, causa generica come prima."""
-    from src.planner.diagnostics import diagnose
-    from src.planner.models import FixedEvent, PlanningRequest, PlanningResult
+    from carpediem.planner.diagnostics import diagnose
+    from carpediem.planner.models import FixedEvent, PlanningRequest, PlanningResult
 
     big = [make_todo("B", todo_id=2, stima_pomo=6)]  # 3h: in 16-18 non entra
     plan2 = Planner(big, today=TODAY_S, hours=6.0).propose()

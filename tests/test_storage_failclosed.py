@@ -8,11 +8,11 @@ import hashlib
 
 import pytest
 
-import src.crypto as crypto_mod
-import src.storage as st
-from src.crypto import encode_password
-from src.models import TodoItem
-from src.store import TodoStore
+import carpediem.crypto as crypto_mod
+import carpediem.storage as st
+from carpediem.crypto import encode_password
+from carpediem.models import TodoItem
+from carpediem.store import TodoStore
 
 
 def _md5(p) -> str:
@@ -81,7 +81,7 @@ def test_d1_chiave_errata_non_crea_corrotto():
 
 
 def test_d2_append_execution_su_envelope_non_tocca_file():
-    from src.models import TaskExecution
+    from carpediem.models import TaskExecution
 
     crypto_mod.set_key(encode_password("segreta12"))
     try:
@@ -292,7 +292,7 @@ def test_d5_unlock_poi_commit_funziona():
 
 
 def _seed_executions(n=3, actual=2):
-    from src.models import TaskExecution
+    from carpediem.models import TaskExecution
 
     recs = [
         TaskExecution(
@@ -379,7 +379,7 @@ def test_b1_token_preservato_dalla_rotation(tmp_files):
 
 def test_b1_calibration_stessa_prima_e_dopo(tmp_files):
     """B1: la calibration sui todos non cambia con la rotation."""
-    from src.domain import calibration_factor
+    from carpediem.domain import calibration_factor
     from tests.conftest import make_app, run
 
     async def t():
@@ -408,8 +408,8 @@ def test_b1_calibration_stessa_prima_e_dopo(tmp_files):
 
 def test_t1_save_config_fallita_ritorna_false(tmp_files, monkeypatch):
     """T1: errore config mai silenzioso (toast + False, niente successo)."""
-    import src.app as app_module
-    import src.storage as storage_mod
+    import carpediem.app as app_module
+    import carpediem.storage as storage_mod
     from tests.conftest import make_app
 
     app = make_app([])
@@ -428,8 +428,8 @@ def test_t1_save_config_fallita_ritorna_false(tmp_files, monkeypatch):
 def test_b1_rotation_failure_niente_successo_bugiardo(tmp_files, monkeypatch):
     """P1 review: I/O a meta' rotation -> errore (mai successo),
     backup pre-change creato, file non toccati dal passo fallito."""
-    import src.app as app_module
-    import src.storage as storage_mod
+    import carpediem.app as app_module
+    import carpediem.storage as storage_mod
     from tests.conftest import make_app, run
 
     async def t():

@@ -5,6 +5,21 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Changed
+- Packaging: the import package is now `carpediem` (`src/` is the source
+  root, no longer an installable `src` application package); entry point
+  `carpediem.main:main`; wheel contains `carpediem/`, never `src/`.
+- Data paths are now platform-standard (Linux XDG
+  `~/.config/carpediem` + `~/.local/share/carpediem`, macOS
+  `~/Library/Application Support/CarpeDiem`, Windows
+  `%APPDATA%\\CarpeDiem` / `%LOCALAPPDATA%\\CarpeDiem`) with new file
+  names (`todos.json`, `config.json`, …) and `backups/carpediem_*.zip`.
+  Legacy `~/.todo_*.json` / `~/Tasko_backups/` are migrated once on
+  startup (byte-identical, verified, idempotent, never deleted; new files
+  always win). `CARPEDIEM_HOME` is the canonical override, `TASKO_HOME`
+  stays as a legacy alias; same for `CARPEDIEM_LANG` over `TASKO_LANG`.
+  Planner behavior untouched.
+
 ## [0.21.0] - 2026-10-08
 
 ### Added

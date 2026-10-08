@@ -8,8 +8,8 @@ connect->poll->salvataggio+ricarica, gate lock, merge puro.
 
 import pytest
 
-import src.screens.plan as plan_mod
-from src.screens._shared import outlook_error_text
+import carpediem.screens.plan as plan_mod
+from carpediem.screens._shared import outlook_error_text
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 
@@ -289,7 +289,7 @@ def test_setup_esc_chiude_attesa_e_listener(tmp_files):
 
 
 def test_gate_lock_blocca_fetch(tmp_files):
-    from src import crypto as crypto_mod
+    from carpediem import crypto as crypto_mod
 
     app = make_app(_todos())
     assert app._outlook_fetch_sync() == {"ok": False, "code": "need_lock"}

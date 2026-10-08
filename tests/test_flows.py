@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 from textual.widgets import Input
 
-import src.app as app_module
-import src.main as m
+import carpediem.app as app_module
+import carpediem.main as m
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 
@@ -354,7 +354,7 @@ def test_settings_e_menu(tmp_files):
         app = make_app([make_todo("A")])
         async with app.run_test(size=(140, 50)) as pilot:
             await pilot.pause()
-            from src.main import CarpeDiemMenuProvider, SettingsScreen
+            from carpediem.main import CarpeDiemMenuProvider, SettingsScreen
 
             names = [t for t, _, _ in CarpeDiemMenuProvider.MENU_IT]
             assert "Impostazioni" in names and "Backup: crea ora" in names

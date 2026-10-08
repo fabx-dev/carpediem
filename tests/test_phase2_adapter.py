@@ -6,9 +6,9 @@ contratto dell'adapter + equivalenza via facade."""
 
 from datetime import datetime
 
-from src.domain import calibration_factor
-from src.planner import Planner, plan
-from src.screens.plan import build_planning_request
+from carpediem.domain import calibration_factor
+from carpediem.planner import Planner, plan
+from carpediem.screens.plan import build_planning_request
 from tests.conftest import make_todo
 
 TODAY_S = "2026-09-10"
@@ -77,7 +77,7 @@ def test_adapter_ore_e_today_tolleranti():
 def test_e2_scheduled_for_today_golden():
     """E2 (P2-6): scheduled_for_today via facade — slot espliciti pinnati,
     completati-oggi fuori dal dayplan ma nei confermati (briefing)."""
-    from src.screens.plan import scheduled_for_today
+    from carpediem.screens.plan import scheduled_for_today
 
     done = make_todo("C", todo_id=3, completed_at=f"{TODAY_S} 16:00")
     done.done = True
@@ -118,9 +118,9 @@ def test_b4_orfano_stessa_policy_del_dayplan(monkeypatch):
     from datetime import date
     from types import SimpleNamespace
 
-    import src.screens.plan as plan_mod
-    from src.planner.models import DayPlan, PlanItem
-    from src.screens.plan import scheduled_for_today
+    import carpediem.screens.plan as plan_mod
+    from carpediem.planner.models import DayPlan, PlanItem
+    from carpediem.screens.plan import scheduled_for_today
 
     day = date(2026, 9, 10)
     a = make_todo("A", todo_id=1, planned_for=TODAY_S, stima_pomo=2)

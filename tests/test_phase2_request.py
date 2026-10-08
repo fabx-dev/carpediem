@@ -9,7 +9,7 @@ from datetime import date, datetime
 
 import pytest
 
-from src.planner.models import (
+from carpediem.planner.models import (
     PlanningRequest,
     PlanningResult,
     TaskView,
@@ -93,7 +93,7 @@ def test_u1_capacita_coercizione():
 
 
 def test_u2_result_eco_e_default():
-    from src.planner import Planner
+    from carpediem.planner import Planner
 
     todos = [make_todo("A", todo_id=1, due="2026-09-10")]
     req = PlanningRequest(day=TODAY, tasks=todos, capacity_pomo=12.0)

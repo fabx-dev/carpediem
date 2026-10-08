@@ -1,8 +1,8 @@
 """Equivalenza E4: src/import_csv == metodo originale di TodoApp."""
 
-import src.import_csv as csv_mod
-import src.storage as storage
-from src.store import TodoStore
+import carpediem.import_csv as csv_mod
+import carpediem.storage as storage
+from carpediem.store import TodoStore
 from tests.conftest import make_app
 
 CSV = """id,title,priority,due,project,tags,note,stima_pomo,padre
@@ -55,7 +55,7 @@ def test_idempotenza_identica(tmp_path):
 
 def test_export_import_roundtrip_identita(tmp_files, monkeypatch):
     """C2: source/external_id sopravvivono all'export: reimport = skip."""
-    import src.app as app_module
+    import carpediem.app as app_module
     from tests.conftest import run
 
     async def t():
@@ -110,8 +110,8 @@ def test_import_bom_strippato(tmp_path):
 
 def test_f5_import_save_failure_niente_falso_salvato(tmp_files, monkeypatch):
     """F5: commit fallito dopo import -> errore, memoria riallineata."""
-    import src.app as app_module
-    from src.store import TodoStore
+    import carpediem.app as app_module
+    from carpediem.store import TodoStore
     from tests.conftest import make_app, run
 
     # Guida pilot completa: apri import, clicca il file, commit che fallisce.

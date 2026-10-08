@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from src.lang import T as _T
-from src.screens.plan import (
+from carpediem.lang import T as _T
+from carpediem.screens.plan import (
     PlanProposalScreen,
     build_planning_request,
     scheduled_for_today,
@@ -55,7 +55,7 @@ def test_scheduled_for_today_senza_now_legacy():
 
 
 def test_build_request_inoltra_now_e_plan_clippa():
-    import src.planner as p
+    import carpediem.planner as p
 
     req = build_planning_request(_todos(), TODAY, 6.0, WINDOW, now=NOW)
     assert req.now == NOW

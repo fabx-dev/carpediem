@@ -2,11 +2,11 @@
 
 from datetime import datetime
 
-from src.lang import T as _T
-from src.planner.models import TimeWindow
-from src.planner.outcomes import OUT_ELIGIBLE, OUT_OUTSIDE, classify
-from src.planner.replan import replan
-from src.screens.plan import (
+from carpediem.lang import T as _T
+from carpediem.planner.models import TimeWindow
+from carpediem.planner.outcomes import OUT_ELIGIBLE, OUT_OUTSIDE, classify
+from carpediem.planner.replan import replan
+from carpediem.screens.plan import (
     PlanProposalScreen,
     ReplanPreviewScreen,
     scheduled_for_today,
@@ -50,9 +50,9 @@ def test_g_remaining_mostra_minuti():
 
 
 def test_cli_outcome_e_remaining(tmp_files, capsys):
-    import src.storage as st
-    from src.cli import _cli_main
-    from src.store import TodoStore
+    import carpediem.storage as st
+    from carpediem.cli import _cli_main
+    from carpediem.store import TodoStore
 
     today = datetime.now().strftime("%Y-%m-%d")
     store = TodoStore(

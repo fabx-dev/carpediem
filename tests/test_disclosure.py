@@ -4,7 +4,7 @@ L1 non contiene analytics; L2 raggiungibile da L1 con Enter; L3 (Why) e'
 co-locato nel Detail; L4 (Stats/Briefing) raggiungibile dalla home.
 """
 
-from src.lang import T
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 

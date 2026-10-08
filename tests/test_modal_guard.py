@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from src.lang import T
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 
@@ -131,7 +131,7 @@ def test_pomodoro_bar_click_puntano_a_handler_reali(tmp_files):
     app.focus_paused_secs = None
     text = app._pomodoro_text()
     assert "app.action_start_pomodoro" not in text  # markup morto: assente
-    import src.app as app_mod
+    import carpediem.app as app_mod
 
     bar = app_mod.PomodoroBar("")
     for word, action in bar._hints():

@@ -2,10 +2,10 @@
 
 from datetime import date, datetime
 
-from src.planner import outcomes as o
-from src.planner.decisions import decide
-from src.planner.diagnostics import diagnose
-from src.planner.models import (
+from carpediem.planner import outcomes as o
+from carpediem.planner.decisions import decide
+from carpediem.planner.diagnostics import diagnose
+from carpediem.planner.models import (
     DETAIL_KEYS,
     DayPlan,
     PlanItem,
@@ -13,8 +13,8 @@ from src.planner.models import (
     PlanningResult,
     TimeWindow,
 )
-from src.planner.outcomes import OUT_ELIGIBLE, OUT_OUTSIDE, OUT_SCHEDULED
-from src.planner.scheduler import schedule
+from carpediem.planner.outcomes import OUT_ELIGIBLE, OUT_OUTSIDE, OUT_SCHEDULED
+from carpediem.planner.scheduler import schedule
 
 DAY = date(2026, 10, 8)
 TODAY_S = "2026-10-08"
@@ -82,7 +82,7 @@ def test_3_gara_persa_eligible():
 
 
 def test_4_disponibilita_trascorsa_outside():
-    from src.planner.time_model import clip_future
+    from carpediem.planner.time_model import clip_future
 
     plan = make_plan(item(1))
     future = clip_future([win(9, 10)], at(12))

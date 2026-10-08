@@ -6,8 +6,8 @@ sono calcolati a mano dalla policy documentata) e il guard che ne fa
 capacity.py l'unico importatore nel planner. Solo test, zero produzione.
 """
 
-from src.planner import capacity
-from src.planner.models import todo_to_task
+from carpediem.planner import capacity
+from carpediem.planner.models import todo_to_task
 from tests.conftest import make_todo
 
 # (stima, factor) -> atteso. Policy: base = stima o 1 se assente;

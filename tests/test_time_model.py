@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from src.planner.models import TimeWindow
-from src.planner.time_model import clip_future, fuse, residual, slack
+from carpediem.planner.models import TimeWindow
+from carpediem.planner.time_model import clip_future, fuse, residual, slack
 
 
 def _w(s, e):
@@ -76,8 +76,8 @@ def test_slack_canonico():
 def test_plan_now_vincolante_niente_slot_passato():
     from datetime import date
 
-    import src.planner as p
-    from src.planner.models import PlanningRequest
+    import carpediem.planner as p
+    from carpediem.planner.models import PlanningRequest
 
     def task(tid):
         return p.TaskView(id=tid, state="attivo", estimate_pomo=2, created="2026-10-01")
@@ -107,7 +107,7 @@ def test_plan_now_vincolante_niente_slot_passato():
 
 
 def test_replan_clip_wrapper_stessi_risultati():
-    from src.planner.replan import _clip_future
+    from carpediem.planner.replan import _clip_future
 
     avail = [_w((9, 0), (18, 0))]
     now = datetime(2026, 10, 8, 10, 30)

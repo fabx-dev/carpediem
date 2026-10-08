@@ -4,7 +4,7 @@ import asyncio
 
 from textual.widgets import Button, Input
 
-import src.domain as domain
+import carpediem.domain as domain
 from tests.conftest import make_app, make_todo, screen_texts, wait_for
 
 
@@ -76,7 +76,7 @@ def test_elimina_da_screen(tmp_files):
                 pilot, lambda: app.config.get("smart_lists", ["x"]) == []
             )
             assert ok
-            import src.lang as lang_module
+            import carpediem.lang as lang_module
 
             texts = screen_texts(app.screen)
             assert "Una" not in texts
@@ -111,7 +111,7 @@ def test_empty_state_e_snapshot(tmp_files):
             app.action_open_smart_lists()
             await pilot.pause()
             await pilot.pause()
-            import src.lang as lang_module
+            import carpediem.lang as lang_module
 
             assert lang_module.T("smart_empty") in screen_texts(app.screen)
 

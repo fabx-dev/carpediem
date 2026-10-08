@@ -1,9 +1,9 @@
 """Test menu per funzioni (m): voci a sinistra, sottomenu a destra, filtro."""
 
-import src.app as app_module
-import src.commands as commands_module
-import src.lang as lang_module
-from src.lang import T
+import carpediem.app as app_module
+import carpediem.commands as commands_module
+import carpediem.lang as lang_module
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 

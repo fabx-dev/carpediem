@@ -6,10 +6,10 @@ Un replan non applicato non modifica dati (verifica via hash file);
 
 import hashlib
 
-import src.storage as st
-from src.cli import _cli_main
-from src.lang import T
-from src.store import TodoStore
+import carpediem.storage as st
+from carpediem.cli import _cli_main
+from carpediem.lang import T
+from carpediem.store import TodoStore
 from tests.conftest import make_todo
 
 
@@ -45,7 +45,7 @@ def test_preview_readonly(tmp_files, capsys, monkeypatch):
 
     today = datetime.now().strftime("%Y-%m-%d")
     _seed(today)
-    monkeypatch.setattr("src.cli.datetime", _FakeDateTime(today, 15, 0))
+    monkeypatch.setattr("carpediem.cli.datetime", _FakeDateTime(today, 15, 0))
     before = _hashes()
     assert _cli_main(["replan", "--now", "15:00"]) == 0
     assert _hashes() == before  # zero scritture
@@ -116,7 +116,7 @@ def test_b2_now_oltre_fine_riga_senza_orario(tmp_files, capsys, monkeypatch):
 
     today = datetime.now().strftime("%Y-%m-%d")
     _seed(today)
-    monkeypatch.setattr("src.cli.datetime", _FakeDateTime(today, 20, 0))
+    monkeypatch.setattr("carpediem.cli.datetime", _FakeDateTime(today, 20, 0))
     before = _hashes()
     assert _cli_main(["replan", "--now", "20:00"]) == 0
     assert _hashes() == before  # zero scritture
@@ -129,7 +129,7 @@ def test_c4_finestra_corrotta_exit_1_senza_scritture(tmp_files, capsys, monkeypa
     """C4: errore reale con finestra odierna -> exit 1, mai degrado."""
     from datetime import datetime
 
-    import src.screens.plan as plan_mod
+    import carpediem.screens.plan as plan_mod
 
     today = datetime.now().strftime("%Y-%m-%d")
     _seed(today)
@@ -153,7 +153,7 @@ def test_c4_sched_failure_exit_1_senza_apply(tmp_files, capsys, monkeypatch):
     """C4: errore scheduling con finestra valida -> exit 1, apply rifiutato."""
     from datetime import datetime
 
-    import src.screens.plan as plan_mod
+    import carpediem.screens.plan as plan_mod
 
     today = datetime.now().strftime("%Y-%m-%d")
     _seed(today)

@@ -7,23 +7,24 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
-import src.app as app_module  # noqa: E402  (serve sys.path sopra)
-import src.cli as cli_module  # noqa: E402
-import src.commands as commands_module  # noqa: E402
-import src.lang as lang  # noqa: E402
-import src.main as main  # noqa: E402
-import src.models as models  # noqa: E402
-import src.screens as screens  # noqa: E402
-import src.screens._shared as screens_shared  # noqa: E402
-import src.screens.form as screens_form  # noqa: E402
-import src.screens.menu as screens_menu  # noqa: E402
-import src.screens.plan as screens_plan  # noqa: E402
-import src.screens.system as screens_system  # noqa: E402
-import src.screens.views as screens_views  # noqa: E402
-import src.storage as storage  # noqa: E402
+import carpediem.app as app_module  # noqa: E402  (serve sys.path sopra)
+import carpediem.cli as cli_module  # noqa: E402
+import carpediem.commands as commands_module  # noqa: E402
+import carpediem.lang as lang  # noqa: E402
+import carpediem.main as main  # noqa: E402
+import carpediem.models as models  # noqa: E402
+import carpediem.screens as screens  # noqa: E402
+import carpediem.screens._shared as screens_shared  # noqa: E402
+import carpediem.screens.form as screens_form  # noqa: E402
+import carpediem.screens.menu as screens_menu  # noqa: E402
+import carpediem.screens.plan as screens_plan  # noqa: E402
+import carpediem.screens.system as screens_system  # noqa: E402
+import carpediem.screens.views as screens_views  # noqa: E402
+import carpediem.storage as storage  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -34,7 +35,8 @@ def _italian_module():
     import importlib
     import os
 
-    os.environ["TASKO_LANG"] = "it"
+    os.environ["CARPEDIEM_LANG"] = "it"
+    os.environ.pop("TASKO_LANG", None)
     lang.set_lang("it")
     for mod in (
         storage,
@@ -54,7 +56,7 @@ def _italian_module():
     lang.set_lang("it")
     yield
     lang.set_lang("it")
-    os.environ.pop("TASKO_LANG", None)
+    os.environ.pop("CARPEDIEM_LANG", None)
 
 
 def _widget_text(w) -> str:
@@ -99,6 +101,19 @@ def tmp_files(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "OUTLOOK_TOKEN_FILE", tmp_path / "outlook-token.json")
     monkeypatch.setattr(storage, "EXECUTIONS_FILE", tmp_path / "executions.json")
     monkeypatch.setattr(storage, "BACKUP_DIR", tmp_path / "backups")
+    # I writer usano le funzioni canoniche: redirezionarle allo stesso modo.
+    monkeypatch.setattr(storage, "todos_file", lambda: tmp_path / "todo.json")
+    monkeypatch.setattr(storage, "templates_file", lambda: tmp_path / "templates.json")
+    monkeypatch.setattr(storage, "pomodoro_file", lambda: tmp_path / "pomo.json")
+    monkeypatch.setattr(storage, "config_file", lambda: tmp_path / "config.json")
+    monkeypatch.setattr(storage, "archive_file", lambda: tmp_path / "archive.json")
+    monkeypatch.setattr(
+        storage, "outlook_token_file", lambda: tmp_path / "outlook-token.json"
+    )
+    monkeypatch.setattr(
+        storage, "executions_file", lambda: tmp_path / "executions.json"
+    )
+    monkeypatch.setattr(storage, "backup_dir", lambda: tmp_path / "backups")
     # Mirror su main (re-export di compatibilita' usati in qualche test).
     monkeypatch.setattr(main, "DATA_FILE", tmp_path / "todo.json")
     monkeypatch.setattr(main, "TEMPLATE_FILE", tmp_path / "templates.json")

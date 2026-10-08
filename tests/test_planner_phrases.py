@@ -7,12 +7,12 @@ mapping dinamici non verificati (T(f"...")) vietati per il Planner.
 import pathlib
 import string
 
-from src.lang import STRINGS
-from src.planner import Planner
-from src.planner.models import BLOCKED_KINDS
-from src.planner.narrative import explain_decision, explain_proposed, story_keys
-from src.planner.phrases import PhraseRef, phrase_for
-from src.planner.replan import ADDED, DROPPED, KEPT, MOVED
+from carpediem.lang import STRINGS
+from carpediem.planner import Planner
+from carpediem.planner.models import BLOCKED_KINDS
+from carpediem.planner.narrative import explain_decision, explain_proposed, story_keys
+from carpediem.planner.phrases import PhraseRef, phrase_for
+from carpediem.planner.replan import ADDED, DROPPED, KEPT, MOVED
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"
@@ -39,7 +39,7 @@ def test_narrative_tutti_rami_con_chiavi_valide():
     ]
     plan = Planner(todos, today=TODAY, hours=0.5).propose()
     seen = set()
-    from src.planner import decide
+    from carpediem.planner import decide
 
     for d in decide(plan, todos):
         for fn in (explain_decision, explain_proposed):
@@ -132,7 +132,11 @@ def test_origin_solo_vocabolario_valido():
 def test_niente_t_f_dinamici_planner():
     """Il mapping dinamico T(f\"why_blocked_…\") e' sparito: grep-test."""
     hits = []
-    for path in ("src/screens/views.py", "src/screens/plan.py", "src/cli.py"):
+    for path in (
+        "src/carpediem/screens/views.py",
+        "src/carpediem/screens/plan.py",
+        "src/carpediem/cli.py",
+    ):
         for i, line in enumerate(
             pathlib.Path(path).read_text(encoding="utf-8").splitlines(), 1
         ):

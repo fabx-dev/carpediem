@@ -2,8 +2,8 @@
 
 import pytest
 
-from src import domain
-from src.models import Priority, Recurrence
+from carpediem import domain
+from carpediem.models import Priority, Recurrence
 from tests.conftest import make_todo
 
 
@@ -200,10 +200,19 @@ def test_arch_purezza_no_import_app_ui():
     """Guardrail god-class: domain/plan/planner/models mai verso app/screens/T()."""
     import pathlib
 
-    files = ["src/domain.py", "src/plan.py", "src/models.py"]
-    files += sorted(str(p) for p in pathlib.Path("src/planner").glob("*.py"))
+    files = [
+        "src/carpediem/domain.py",
+        "src/carpediem/plan.py",
+        "src/carpediem/models.py",
+    ]
+    files += sorted(str(p) for p in pathlib.Path("src/carpediem/planner").glob("*.py"))
     for path in files:
         src = pathlib.Path(path).read_text(encoding="utf-8")
-        assert "from src.app" not in src and "import src.app" not in src
-        assert "from src.screens" not in src and "import src.screens" not in src
-        assert "from src.lang import" not in src or path == "src/models.py"
+        assert "from carpediem.app" not in src and "import carpediem.app" not in src
+        assert (
+            "from carpediem.screens" not in src
+            and "import carpediem.screens" not in src
+        )
+        assert (
+            "from carpediem.lang import" not in src or path == "src/carpediem/models.py"
+        )

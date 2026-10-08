@@ -1,6 +1,6 @@
 """Equivalenza E2: src/security_validation == metodi originali di TodoApp."""
 
-import src.security_validation as sv
+import carpediem.security_validation as sv
 from tests.conftest import make_app
 
 

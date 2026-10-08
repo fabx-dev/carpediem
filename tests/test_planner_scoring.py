@@ -2,9 +2,9 @@
 
 from datetime import date
 
-from src.models import Priority
-from src.planner import scoring
-from src.planner.models import todo_to_task
+from carpediem.models import Priority
+from carpediem.planner import scoring
+from carpediem.planner.models import todo_to_task
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"

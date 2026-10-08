@@ -4,8 +4,8 @@ Minuti = unita' canonica; pomodori = evidence + snapshot stima. Mai sollevare
 su dati invalidi; actual 0 = senza actual (non inventare durate).
 """
 
-import src.domain as domain
-import src.models as models
+import carpediem.domain as domain
+import carpediem.models as models
 from tests.conftest import make_todo
 
 

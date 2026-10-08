@@ -7,7 +7,7 @@ i test della proposta unificata vivono in test_plan_ui.py.
 import asyncio
 from datetime import datetime, timedelta
 
-from src.lang import T
+from carpediem.lang import T
 from tests.conftest import commands_module, make_app, make_todo, screen_texts
 
 

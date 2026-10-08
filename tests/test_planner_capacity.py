@@ -1,6 +1,6 @@
 """Unit test capacity del Planner (monte-ore e selezione, senza Textual)."""
 
-from src.planner import capacity
+from carpediem.planner import capacity
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"

@@ -4,9 +4,9 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from src.models import Priority
-from src.plan import plan_day
-from src.planner import DayPlan, PlanItem, Planner
+from carpediem.models import Priority
+from carpediem.plan import plan_day
+from carpediem.planner import DayPlan, PlanItem, Planner
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"

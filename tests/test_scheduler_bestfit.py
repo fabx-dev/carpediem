@@ -2,8 +2,8 @@
 
 from datetime import date, datetime
 
-from src.planner import DayPlan, PlanItem, TimeWindow, diagnose, schedule
-from src.planner.models import PlanningRequest, PlanningResult
+from carpediem.planner import DayPlan, PlanItem, TimeWindow, diagnose, schedule
+from carpediem.planner.models import PlanningRequest, PlanningResult
 
 DAY = date(2026, 10, 8)
 TODAY_S = "2026-10-08"

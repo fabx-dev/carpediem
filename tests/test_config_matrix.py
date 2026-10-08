@@ -1,7 +1,7 @@
 """Matrice di validazione config (P1 §15): input invalido -> default/None,
 mai stato persistito corrotto."""
 
-import src.storage as m
+import carpediem.storage as m
 
 
 def _roundtrip(cfg):

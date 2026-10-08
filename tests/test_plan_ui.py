@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 
 from textual.widgets import Input, SelectionList
 
-import src.main as m
-from src.models import Priority
+import carpediem.main as m
+from carpediem.models import Priority
 from tests.conftest import commands_module, make_app, make_todo, screen_texts
 
 
@@ -60,7 +60,7 @@ def test_tagliati_non_preselezionati(tmp_files):
             await pilot.pause()
             opts = app.screen.query_one("#planp-list", SelectionList)
             assert set(opts.selected) == {1, 2}
-            from src.lang import T as _T
+            from carpediem.lang import T as _T
 
             labels = " ".join(str(o.prompt) for o in opts._options)
             assert _T("plan_cut") in labels
@@ -77,7 +77,7 @@ def test_tagliati_non_preselezionati(tmp_files):
 def test_rientro_ricorda_scarti(tmp_files):
     """Deseleziona -> conferma -> rientra: pianificati nascosti, scarto in fondo
     deselezionato con motivo; riseleziona -> skip azzerato e ripianificato."""
-    from src.lang import T as _T
+    from carpediem.lang import T as _T
 
     async def t():
         app = make_app(_todos())
@@ -144,7 +144,7 @@ def test_piano_completo_e_additivo(tmp_files):
             app.action_plan_day()
             await pilot.pause()
             await pilot.pause()
-            from src.lang import T as _T
+            from carpediem.lang import T as _T
 
             assert _T("planp_done") in screen_texts(app.screen)
 
@@ -177,8 +177,8 @@ def test_buongiorno_mostra_contesto_e_motivi(tmp_files):
     legend con salva e cornice che contiene i bottoni."""
     from textual.widgets import Button, SelectionList
 
-    from src.lang import T as _T
-    from src.screens import _hero_row as _hero
+    from carpediem.lang import T as _T
+    from carpediem.screens import _hero_row as _hero
 
     async def t():
         todos = [
@@ -233,8 +233,8 @@ def test_buongiorno_mostra_contesto_e_motivi(tmp_files):
 def test_label_motivi_senza_id_e_senza_parentesi_vuote(tmp_files):
     """Label compatte: niente #id in coda (i motivi non vengono troncati),
     niente () quando i motivi sono vuoti."""
-    from src.lang import T as _T
-    from src.screens import PlanProposalScreen
+    from carpediem.lang import T as _T
+    from carpediem.screens import PlanProposalScreen
 
     app = make_app(
         [
@@ -259,7 +259,7 @@ def test_label_motivi_senza_id_e_senza_parentesi_vuote(tmp_files):
 
 def test_buongiorno_db_vuoto_mostra_messaggio(tmp_files):
     """Zero task attivi: il messaggio di vuoto e' sempre visibile (era un bug)."""
-    from src.lang import T as _T
+    from carpediem.lang import T as _T
 
     async def t():
         app = make_app([])
@@ -325,7 +325,7 @@ def test_buongiorno_layout_terminale_piccolo(tmp_files):
 
 
 def test_buongiorno_prima_voce_giornata(tmp_files):
-    from src.lang import T as _T
+    from carpediem.lang import T as _T
 
     cats = commands_module.menu_categories()
     day = [c for c in cats if c[0] == _T("menu_cat_day_t")][0]
@@ -393,7 +393,7 @@ def test_bottone_piano_giorno_conferma_e_apre(tmp_files):
     """Cross-link P->p: 'Piano giorno »' conferma e apre DailyPlanScreen."""
 
     async def t():
-        from src.lang import T as _T
+        from carpediem.lang import T as _T
 
         app = make_app(_todos())
         async with app.run_test(size=(120, 40)) as pilot:
@@ -422,7 +422,7 @@ def test_piano_giorno_hint_replan_solo_con_finestra(tmp_files):
     """Hint P/G nel piano giorno solo con finestra attiva (mai default)."""
 
     async def t():
-        from src.lang import T as _T
+        from carpediem.lang import T as _T
 
         todos = [make_todo("A-piano", todo_id=1, planned_for=_day(0))]
         app = make_app(todos)

@@ -2,7 +2,7 @@
 
 from textual.widgets import Button
 
-from src.lang import T
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 

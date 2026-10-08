@@ -130,7 +130,7 @@ def test_picker_tastiera_frecce(tmp_files):
 
 
 def test_picker_layout_terminale_piccolo(tmp_files):
-    from src.screens.form import CalendarPickScreen
+    from carpediem.screens.form import CalendarPickScreen
 
     async def t():
         for size in ((120, 40), (80, 24), (70, 20)):
@@ -155,7 +155,7 @@ def test_picker_layout_terminale_piccolo(tmp_files):
 
 def test_picker_giorni_visibili(tmp_files):
     """I numeri dei giorni devono rendere davvero (height:2 li collassava a 0)."""
-    from src.screens.form import CalendarPickScreen
+    from carpediem.screens.form import CalendarPickScreen
 
     async def t():
         app = make_app([])
@@ -172,7 +172,7 @@ def test_picker_giorni_visibili(tmp_files):
 
 
 def test_picker_box_centrato(tmp_files):
-    from src.screens.form import CalendarPickScreen
+    from carpediem.screens.form import CalendarPickScreen
 
     async def t():
         app = make_app([])
@@ -206,7 +206,7 @@ def test_picker_oggi_numero_intero(tmp_files):
 
     Il bordo `thick` consumava le colonne della cella 1fr e "17" rendeva "1".
     """
-    from src.screens.form import CalendarPickScreen
+    from carpediem.screens.form import CalendarPickScreen
 
     today = datetime.now().date()
 
@@ -229,7 +229,7 @@ def test_picker_selezionato_terminale_stretto(tmp_files):
     Con `border: thick` il contenuto collassava a 0 colonne e il renderer
     sollevava ValueError invece di mostrare il numero.
     """
-    from src.screens.form import CalendarPickScreen
+    from carpediem.screens.form import CalendarPickScreen
 
     async def t():
         app = make_app([])

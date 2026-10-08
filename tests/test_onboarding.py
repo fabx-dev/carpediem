@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-import src.main as m
+import carpediem.main as m
 
 
 def test_demo_validi():
@@ -89,7 +89,7 @@ def test_nessun_welcome_se_gia_visto(tmp_files):
 def test_welcome_mostra_hint_cifratura(tmp_files):
     import asyncio
 
-    from src.lang import T
+    from carpediem.lang import T
     from tests.conftest import make_app, screen_texts
 
     async def t():

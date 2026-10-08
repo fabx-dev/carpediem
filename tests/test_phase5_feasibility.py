@@ -7,8 +7,8 @@ riscored). Senza scadenze la sequenza e' identica a prima (E3).
 
 from datetime import date, datetime
 
-from src.planner.models import DayPlan, PlanItem, TimeWindow
-from src.planner.scheduler import schedule
+from carpediem.planner.models import DayPlan, PlanItem, TimeWindow
+from carpediem.planner.scheduler import schedule
 from tests.conftest import make_todo
 
 DAY = date(2026, 9, 10)
@@ -75,7 +75,7 @@ def test_end_to_end_con_timed_dues():
     """Via pipeline reale: C overdue (100+) precede B per merito ma B ha la
     scadenza stretta — feasibility la colloca prima, C slitta restando
     pianificata. Selezione (DayPlan) invariata."""
-    from src.planner import Planner
+    from carpediem.planner import Planner
 
     todos = [
         make_todo("C", todo_id=1, due="2026-09-01", stima_pomo=8),
@@ -83,7 +83,7 @@ def test_end_to_end_con_timed_dues():
     ]
     plan = Planner(todos, today=TODAY_S, hours=9.0).propose()
     assert [it.todo_id for it in plan.planned] == [1, 2]  # selezione invariata
-    from src.planner.scheduler import deadlines_for
+    from carpediem.planner.scheduler import deadlines_for
 
     s = Planner.schedule(plan, [_win(9, 0, 18, 0)], (), deadlines_for(todos))
     assert _hhmm(s) == [(2, "09:00", "09:30"), (1, "09:30", "13:30")]

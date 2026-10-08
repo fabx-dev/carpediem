@@ -4,10 +4,10 @@ import threading
 
 import pytest
 
-import src.cli as cli_mod
-import src.main as m
-import src.storage as storage_mod
-from src.store import TodoStore
+import carpediem.cli as cli_mod
+import carpediem.main as m
+import carpediem.storage as storage_mod
+from carpediem.store import TodoStore
 from tests.conftest import make_todo
 
 
@@ -109,7 +109,7 @@ def test_cancellazione_da_altro_processo_non_viene_risuscitata(tmp_files):
 def test_item_senza_id_non_duplicati_dal_merge(tmp_files):
     import json
 
-    import src.main as m
+    import carpediem.main as m
 
     m.DATA_FILE.write_text(json.dumps([{"title": "L1"}, {"title": "L2"}]))
     s = TodoStore.load()

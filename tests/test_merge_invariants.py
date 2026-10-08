@@ -4,7 +4,7 @@ Non rendono il merge "piu' intelligente": fissano il comportamento
 esistente di src/storage.py cosi' un refactor non puo' cambiarlo in silenzio.
 """
 
-import src.storage as m
+import carpediem.storage as m
 
 
 def _d(i, **kw):

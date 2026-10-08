@@ -7,9 +7,9 @@ tutto-il-giorno, su Europe/Rome, UTC e America/New_York.
 
 from datetime import datetime
 
-import src.integrations.outlook as o
-import src.planner.scheduler as sched
-from src.planner.models import TimeWindow
+import carpediem.integrations.outlook as o
+import carpediem.planner.scheduler as sched
+from carpediem.planner.models import TimeWindow
 
 
 def _item(title, start, end, tz="Europe/Rome", show_as="busy", allday=False):
@@ -121,7 +121,7 @@ def test_politica_core_naive_su_transizione_dst():
     l'unico punto tz-aware."""
     from datetime import timedelta
 
-    from src.planner.models import DayPlan, PlanItem
+    from carpediem.planner.models import DayPlan, PlanItem
 
     plan = DayPlan(
         day=datetime(2026, 3, 29).date(), planned=(PlanItem(1, 10, (), 1, False),)

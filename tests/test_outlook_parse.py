@@ -7,7 +7,7 @@ guardrail di sicurezza (scope/endpoint congelati, niente import di rete).
 
 import pathlib
 
-from src.integrations import (
+from carpediem.integrations import (
     GRAPH_BASE_URL,
     GRAPH_SCOPES,
     LOGIN_AUTHORITY,
@@ -166,7 +166,9 @@ def test_scope_congelato_solo_calendars_read():
 
 
 def test_niente_rete_nell_adapter():
-    src = pathlib.Path("src/integrations/outlook.py").read_text(encoding="utf-8")
+    src = pathlib.Path("src/carpediem/integrations/outlook.py").read_text(
+        encoding="utf-8"
+    )
     for mod in ("msal", "httpx", "requests", "urllib", "aiohttp"):
         assert f"import {mod}" not in src, f"rete vietata in B1: {mod}"
     assert "http://" not in src

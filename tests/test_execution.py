@@ -11,8 +11,8 @@ Non tocca tests/test_ui_regression.py / ui_framework.py (WIP pre-esistenti).
 import asyncio
 from datetime import datetime, timedelta
 
-import src.screens.plan as plan_mod
-from src.lang import T as _T
+import carpediem.screens.plan as plan_mod
+from carpediem.lang import T as _T
 from tests.conftest import make_app, make_todo, screen_texts
 
 

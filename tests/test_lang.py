@@ -1,6 +1,6 @@
 """Test i18n: parita catalogo, fallback, detect, resolve."""
 
-import src.lang as lang
+import carpediem.lang as lang
 
 
 def test_parita_chiavi(italian_lang):

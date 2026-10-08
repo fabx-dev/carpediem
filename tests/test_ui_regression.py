@@ -30,7 +30,7 @@ from pathlib import Path
 import pytest
 from textual.screen import ModalScreen
 
-import src.storage as storage
+import carpediem.storage as storage
 from tests.conftest import make_app, make_todo, run
 from tests.ui_framework import SIZES, Scenario, run_scenario
 
@@ -48,7 +48,7 @@ def _due_today_todos(n=8):
 
 
 def _high_priority_todos(n=8):
-    from src.models import Priority
+    from carpediem.models import Priority
 
     return _basic_todos(n, priority=Priority.HIGH)
 
@@ -79,68 +79,68 @@ def _open_new_todo(app, pilot):
 
 
 def _open_edit_todo(app, pilot):
-    from src.screens.form import TodoFormScreen
+    from carpediem.screens.form import TodoFormScreen
 
     todo = app.todos[0]
     app.push_screen(TodoFormScreen(todo=todo, title="Modifica"))
 
 
 def _open_calpick(app, pilot):
-    from src.screens.form import CalendarPickScreen
+    from carpediem.screens.form import CalendarPickScreen
 
     app.push_screen(CalendarPickScreen(initial=_today()))
 
 
 def _open_state(app, pilot):
-    from src.screens.form import StateChoiceScreen
+    from carpediem.screens.form import StateChoiceScreen
 
     app.push_screen(StateChoiceScreen("Task A", "attivo"))
 
 
 def _open_confirm(app, pilot):
-    from src.screens.form import ConfirmScreen
+    from carpediem.screens.form import ConfirmScreen
 
     app.push_screen(ConfirmScreen("Confermi questa azione?"))
 
 
 def _open_confirm_long(app, pilot):
-    from src.screens.form import ConfirmScreen
+    from carpediem.screens.form import ConfirmScreen
 
     app.push_screen(ConfirmScreen("Messaggio di errore lungo " * 8))
 
 
 def _open_theme(app, pilot):
-    from src.screens.form import ThemeListScreen
+    from carpediem.screens.form import ThemeListScreen
 
     app.push_screen(ThemeListScreen([f"tema-{i}" for i in range(20)], "tema-0"))
 
 
 def _open_radar_pick(app, pilot):
-    from src.screens.form import RadarPickScreen
+    from carpediem.screens.form import RadarPickScreen
 
     app.push_screen(RadarPickScreen([(i, f"task-{i}", i) for i in range(1, 9)]))
 
 
 def _open_actual(app, pilot):
-    from src.screens.form import ActualScreen
+    from carpediem.screens.form import ActualScreen
 
     app.push_screen(ActualScreen("Task A", 3, 2))
 
 
 def _open_nl_help(app, pilot):
-    from src.screens.form import NLHelpScreen
+    from carpediem.screens.form import NLHelpScreen
 
     app.push_screen(NLHelpScreen())
 
 
 def _open_detail(app, pilot):
-    from src.screens.views import DetailScreen
+    from carpediem.screens.views import DetailScreen
 
     app.push_screen(DetailScreen(app.todos[0], app.todos))
 
 
 def _open_pomodoro(app, pilot):
-    from src.screens.views import PomodoroScreen
+    from carpediem.screens.views import PomodoroScreen
 
     state = {
         "empty": False,
@@ -164,25 +164,25 @@ def _open_pomodoro(app, pilot):
 
 
 def _open_welcome(app, pilot):
-    from src.screens.system import WelcomeScreen
+    from carpediem.screens.system import WelcomeScreen
 
     app.push_screen(WelcomeScreen())
 
 
 def _open_lock(app, pilot):
-    from src.screens.system import LockScreen
+    from carpediem.screens.system import LockScreen
 
     app.push_screen(LockScreen())
 
 
 def _open_security(app, pilot):
-    from src.screens.system import SecurityScreen
+    from carpediem.screens.system import SecurityScreen
 
     app.push_screen(SecurityScreen(True))
 
 
 def _open_password(app, pilot):
-    from src.screens.system import PasswordScreen
+    from carpediem.screens.system import PasswordScreen
 
     app.push_screen(
         PasswordScreen("sec_pw_title_enable", ["sec_pw_new", "sec_pw_repeat"])
@@ -190,31 +190,31 @@ def _open_password(app, pilot):
 
 
 def _open_outlook_setup(app, pilot):
-    from src.screens.system import OutlookSetupScreen
+    from carpediem.screens.system import OutlookSetupScreen
 
     app.push_screen(OutlookSetupScreen(None, False, None))
 
 
 def _open_tpl_create(app, pilot):
-    from src.screens.views import TemplateCreateScreen
+    from carpediem.screens.views import TemplateCreateScreen
 
     app.push_screen(TemplateCreateScreen())
 
 
 def _open_tpl_project(app, pilot):
-    from src.screens.views import TemplateProjectScreen
+    from carpediem.screens.views import TemplateProjectScreen
 
     app.push_screen(TemplateProjectScreen([(f"prog-{i}", i) for i in range(8)]))
 
 
 def _open_import_csv(app, pilot):
-    from src.screens.views import ImportCsvScreen
+    from carpediem.screens.views import ImportCsvScreen
 
     app.push_screen(ImportCsvScreen([Path(f"/tmp/csv-{i}.csv") for i in range(3)]))
 
 
 def _open_restore(app, pilot):
-    from src.screens.system import RestoreScreen
+    from carpediem.screens.system import RestoreScreen
 
     app.push_screen(RestoreScreen([Path(f"/tmp/snap-{i}.zip") for i in range(3)]))
 
@@ -713,7 +713,7 @@ def test_registry_nomi_unici():
 def test_registry_copre_tutte_le_screen():
     """Guardrail §15: ogni ModalScreen esportata da src.screens deve avere
     almeno uno scenario. Una nuova interfaccia senza registry rompe questo test."""
-    import src.screens as screens
+    import carpediem.screens as screens
 
     modali = {
         name

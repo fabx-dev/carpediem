@@ -9,12 +9,12 @@ capacity/explain: qui solo il contratto del service.
 
 from datetime import datetime
 
-import src.planner.capacity as capacity_mod
-import src.planner.constraints as constraints_mod
-import src.planner.scoring as scoring_mod
-from src.models import Priority
-from src.planner import Planner
-from src.planner.models import DayPlan, ScheduledDayPlan
+import carpediem.planner.capacity as capacity_mod
+import carpediem.planner.constraints as constraints_mod
+import carpediem.planner.scoring as scoring_mod
+from carpediem.models import Priority
+from carpediem.planner import Planner
+from carpediem.planner.models import DayPlan, ScheduledDayPlan
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"

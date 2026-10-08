@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from textual.widgets import SelectionList
 
-import src.main as m
+import carpediem.main as m
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 
@@ -99,7 +99,7 @@ def test_review_senza_candidati(tmp_files):
 
 def test_review_riga_semantica_e_label_senza_id(tmp_files):
     """Riga additiva/sovrascrittiva visibile; label senza #id interni."""
-    from src.lang import T as _T
+    from carpediem.lang import T as _T
 
     async def t():
         app = make_app(
@@ -129,7 +129,7 @@ def test_review_notify_con_rimossi_e_esc_no_write(tmp_files):
     """Notify con aggiunti/rimossi; Esc non scrive nulla."""
     from unittest.mock import patch
 
-    from src.lang import T as _T
+    from carpediem.lang import T as _T
 
     async def t():
         app = make_app(

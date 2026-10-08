@@ -2,8 +2,8 @@
 
 from datetime import date, datetime, timedelta
 
-from src.plan import plan_day
-from src.planner import (
+from carpediem.plan import plan_day
+from carpediem.planner import (
     DayPlan,
     PlanItem,
     Planner,
@@ -199,8 +199,8 @@ def test_b6_stima_enorme_mai_crash_unscheduled():
 
 def test_b6_probe_duration_senza_crash():
     """B6: la probe riusa schedule() -> BLOCKED_DURATION, mai OverflowError."""
-    import src.planner.diagnostics as dg
-    import src.planner.models as m
+    import carpediem.planner.diagnostics as dg
+    import carpediem.planner.models as m
 
     plan = make_plan(item(1, pomo=10**15))
     sched = schedule(plan, [win(9, 18)])

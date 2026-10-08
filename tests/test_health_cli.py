@@ -6,7 +6,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta
 
-import src.main as m
+import carpediem.main as m
 from tests.conftest import make_app, make_todo, screen_texts
 
 
@@ -73,7 +73,7 @@ def test_health_ui(tmp_files):
             assert "CRITICO" in content or "A RISCHIO" in content, content
             await pilot.press("escape")
             await pilot.pause()
-            from src.main import CarpeDiemMenuProvider
+            from carpediem.main import CarpeDiemMenuProvider
 
             assert "Salute progetti" in [t for t, _, _ in CarpeDiemMenuProvider.MENU_IT]
 
@@ -83,10 +83,15 @@ def test_health_ui(tmp_files):
 def _cli(args, home):
     from pathlib import Path as _P
 
-    env = dict(os.environ, TASKO_HOME=str(home))
+    root = _P(__file__).resolve().parent.parent
+    env = dict(
+        os.environ,
+        TASKO_HOME=str(home),
+        PYTHONPATH=str(root / "src") + os.pathsep + os.environ.get("PYTHONPATH", ""),
+    )
     return subprocess.run(
-        [sys.executable, "-m", "src.main", *args],
-        cwd=str(_P(__file__).resolve().parent.parent),
+        [sys.executable, "-m", "carpediem.main", *args],
+        cwd=str(root),
         env=env,
         capture_output=True,
         text=True,
@@ -181,9 +186,9 @@ def test_cli_porcelain_contratto(tmp_path):
 
 def test_cli_sotto_lock_exit_pulito(tmp_files, capsys, monkeypatch):
     """C6: storage bloccato -> exit 1 con messaggio, mai traceback."""
-    from src.cli import _cli_main
-    from src.storage import StorageLocked
-    from src.store import TodoStore
+    from carpediem.cli import _cli_main
+    from carpediem.storage import StorageLocked
+    from carpediem.store import TodoStore
 
     def _boom(self, **kw):
         raise StorageLocked("File occupato oltre timeout: x")
@@ -196,10 +201,10 @@ def test_cli_sotto_lock_exit_pulito(tmp_files, capsys, monkeypatch):
 
 def test_cli_unreadable_esce_1(tmp_files, capsys):
     """C2: disco cifrato senza chiave mai presentato come vuoto."""
-    import src.crypto as crypto_mod
-    import src.storage as st
-    from src.cli import _cli_main
-    from src.crypto import encode_password
+    import carpediem.crypto as crypto_mod
+    import carpediem.storage as st
+    from carpediem.cli import _cli_main
+    from carpediem.crypto import encode_password
     from tests.conftest import make_todo
 
     crypto_mod.set_key(encode_password("segreta12"))
@@ -217,8 +222,8 @@ def test_cli_unreadable_esce_1(tmp_files, capsys):
 
 def test_cli_priority_invalida_exit_2(tmp_files, capsys):
     """C1: --priority ignota rifiutata come --due/--state, mai fallback."""
-    from src.cli import _cli_main
-    from src.store import TodoStore
+    from carpediem.cli import _cli_main
+    from carpediem.store import TodoStore
 
     assert _cli_main(["add", "X", "--priority", "pippo"]) == 2
     assert "carpediem:" in capsys.readouterr().err

@@ -45,16 +45,22 @@
 
 ## File generati — matrice
 
+Percorsi nuovi standard per piattaforma (Linux `~/.local/share/carpediem`,
+config `~/.config/carpediem`; macOS `~/Library/Application Support/CarpeDiem`;
+Windows `%LOCALAPPDATA%\CarpeDiem` / `%APPDATA%\CarpeDiem`; override
+`CARPEDIEM_HOME`). I nomi legacy (`~/.todo_*.json`, `~/Tasko_backups/`) sono
+solo sorgenti di migrazione (copia byte-identica, mai cancellati).
+
 | File | Contenuto | Permessi | Backup | Cifratura |
 | --- | --- | --- | --- | --- |
-| `.todo_app.json` | task | default | sì | envelope se lock |
-| `.todo_templates.json` | template | default | sì | envelope se lock |
-| `.todo_config.json` | config (mai segreti) | default | sì | no (solo non-segreti) |
-| `.todo_pomodoro.json` | timer | default | sì | envelope se lock |
-| `.todo_archive.json` | archivio | default | sì | envelope se lock |
-| `.todo_executions.json` | history M2 | default | no | envelope se lock |
-| `.todo_outlook_token.json` | token MSAL | `0600` | **mai** | envelope se lock |
-| `Tasko_backups/tasko_*.zip` | snapshot | `0600`, dir `0700` | n/a | come le sorgenti |
+| `todos.json` | task | default | sì | envelope se lock |
+| `templates.json` | template | default | sì | envelope se lock |
+| `config.json` | config (mai segreti) | default | sì | no (solo non-segreti) |
+| `pomodoro.json` | timer | default | sì | envelope se lock |
+| `archive.json` | archivio | default | sì | envelope se lock |
+| `executions.json` | history M2 | default | no | envelope se lock |
+| `outlook-token.json` | token MSAL | `0600` | **mai** | envelope se lock |
+| `backups/carpediem_*.zip` | snapshot | `0600`, dir `0700` | n/a | come le sorgenti |
 | `*.tmp` / `*.restore_tmp` | scritture in corso | default | n/a | già cifrati |
 | `*.lock` | lock inter-processo | `0644` | n/a | vuoti |
 

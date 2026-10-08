@@ -7,13 +7,13 @@ un refactor ne altera algoritmo, vincoli o determinismo.
 import sys
 from datetime import datetime, timedelta
 
-import src.planner.replan  # noqa: F401  (registra sys.modules)
-import src.planner.service as svc
-from src.planner.capacity import POMO_HOURS
-from src.planner.models import TimeWindow
+import carpediem.planner.replan  # noqa: F401  (registra sys.modules)
+import carpediem.planner.service as svc
+from carpediem.planner.capacity import POMO_HOURS
+from carpediem.planner.models import TimeWindow
 from tests.conftest import make_todo
 
-replan_mod = sys.modules["src.planner.replan"]
+replan_mod = sys.modules["carpediem.planner.replan"]
 
 TODAY = "2026-09-30"
 

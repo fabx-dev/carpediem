@@ -1,7 +1,7 @@
 """Test reason keys del Planner (compatibilita' congelata con i18n e UI)."""
 
-from src.lang import STRINGS
-from src.planner import explain
+from carpediem.lang import STRINGS
+from carpediem.planner import explain
 
 
 def test_chiavi_congelate():

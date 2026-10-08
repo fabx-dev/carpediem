@@ -4,7 +4,7 @@ import os
 import stat
 import zipfile
 
-import src.storage as m
+import carpediem.storage as m
 
 
 def _posix() -> bool:
@@ -62,7 +62,7 @@ def test_restore_corrotto_fallisce_sicuro(tmp_files):
 def test_crypto_derive_cache_documentata():
     # Guardrail: la cache KDF e' una decisione documentata (Opzione C),
     # non un dettaglio rimovibile per caso.
-    import src.crypto as c
+    import carpediem.crypto as c
 
     assert hasattr(c._derive, "cache_info")
     assert c._derive.cache_info().maxsize == 8

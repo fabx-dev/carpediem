@@ -5,9 +5,9 @@ gli slot misurano ancora 30min/pomo (nessuna deriva da float)."""
 
 from datetime import date
 
-from src.planner import capacity
-from src.planner.models import DayPlan, PlanItem, TimeWindow
-from src.planner.scheduler import schedule
+from carpediem.planner import capacity
+from carpediem.planner.models import DayPlan, PlanItem, TimeWindow
+from carpediem.planner.scheduler import schedule
 
 
 def test_m1_tabella_minuti():

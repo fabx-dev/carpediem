@@ -2,7 +2,7 @@
 
 from textual.widgets import Button, Input
 
-import src.domain as domain
+import carpediem.domain as domain
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 
@@ -93,7 +93,7 @@ def test_actual_valore_custom_e_scarto(tmp_files):
             assert ok
             app.screen.query_one("#actual-input", Input).value = "5"
             await pilot.pause()
-            import src.lang as lang_module
+            import carpediem.lang as lang_module
 
             assert "+3" in screen_texts(app.screen) or "+3" in str(
                 app.screen.query_one("#actual-diff").renderable
@@ -159,7 +159,7 @@ def test_buongiorno_mostra_calibrata(tmp_files):
             assert type(app.screen).__name__ == "PlanProposalScreen"
             from textual.widgets import SelectionList
 
-            import src.lang as lang_module
+            import carpediem.lang as lang_module
 
             labels = " ".join(
                 str(o.prompt)
@@ -175,7 +175,7 @@ def test_detail_e_stats_mostrano_actual(tmp_files):
         app = make_app(_seed_calibrazione())
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
-            import src.lang as lang_module
+            import carpediem.lang as lang_module
 
             app.action_view_stats()
             await pilot.pause()

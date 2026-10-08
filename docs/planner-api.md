@@ -6,7 +6,7 @@
 
 ## 1. Superficie promessa
 
-Solo questi nomi sono stabili. Tutto il resto di `src/planner/` è
+Solo questi nomi sono stabili. Tutto il resto di `carpediem/planner/` è
 interno non versionato (usabile in-repo, mai promesso):
 
 ```text
@@ -29,7 +29,7 @@ semantica non congelata.
 
 ```python
 from datetime import date
-from src.planner import PlanningRequest, plan
+from carpediem.planner import PlanningRequest, plan
 
 req = PlanningRequest(day=date(2026, 10, 2), tasks=todos, capacity_pomo=12.0)
 res = plan(req)
@@ -58,7 +58,7 @@ ma con `now` diverso gli slot cambiano (mai slot nel passato).
   `ReplanPreviewScreen` + CLI (semantica non congelata, vedi §1);
   `feedback()` per il briefing sera (osservazione).
 - `Planner.propose()` resta solo dentro `replan.py` + wrapper legacy
-  `src/plan.py` (zero consumer produzione, solo test): nessuna migrazione
+  `carpediem/plan.py` (zero consumer produzione, solo test): nessuna migrazione
   richiesta, nessuna deprecazione in v1.
 
 ## 4. Policy di compatibilità

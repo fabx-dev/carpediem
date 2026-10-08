@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 import pytest
 from textual.widgets import Button
 
-import src.app as app_module
-import src.radar as radar_module
-from src.domain import RADAR_CAP, kanban_plot_data, radar_hit
-from src.lang import T
-from src.models import Priority
+import carpediem.app as app_module
+import carpediem.radar as radar_module
+from carpediem.domain import RADAR_CAP, kanban_plot_data, radar_hit
+from carpediem.lang import T
+from carpediem.models import Priority
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 TODAY = "2026-09-16"
@@ -359,7 +359,7 @@ def test_doppio_enter_popup_un_solo_dettaglio(tmp_files, monkeypatch):
 
 
 def test_popup_id_duplicati_senza_crash(tmp_files):
-    from src.screens.form import RadarPickScreen
+    from carpediem.screens.form import RadarPickScreen
 
     async def t():
         app = make_app([])

@@ -22,19 +22,19 @@ import sys
 import types
 from datetime import datetime
 
-import src.planner.service as service_mod
-from src.domain import calibration_factor
-from src.models import Priority
-from src.plan import plan_day
-from src.planner import Planner
-from src.planner.models import TimeWindow
-from src.planner.replan import replan
+import carpediem.planner.service as service_mod
+from carpediem.domain import calibration_factor
+from carpediem.models import Priority
+from carpediem.plan import plan_day
+from carpediem.planner import Planner
+from carpediem.planner.models import TimeWindow
+from carpediem.planner.replan import replan
 from tests.conftest import make_todo
 
-# NOTA shadowing: `import src.planner.replan as x` lega la FUNZIONE replan
+# NOTA shadowing: `import carpediem.planner.replan as x` lega la FUNZIONE replan
 # (attributo del package dopo gli import di __init__), non il modulo —
 # usare sys.modules (lezione AGENTS.md §7, M4).
-replan_mod = sys.modules["src.planner.replan"]
+replan_mod = sys.modules["carpediem.planner.replan"]
 
 TODAY = "2026-09-10"
 DAY = (2026, 9, 10)
@@ -172,7 +172,7 @@ def test_t1_esclusioni_invisibili_anche_via_mirror():
 def test_input_normalizzato_forma_e_coerenza():
     """Step 5: _normalize() e' la sola via di risoluzione input — giorno,
     viste TaskView, capacita', factor coerenti con propose()."""
-    from src.planner.models import TaskView
+    from carpediem.planner.models import TaskView
 
     todos = [
         make_todo("A", todo_id=1, due=TODAY, stima_pomo=2),
@@ -360,7 +360,7 @@ def test_t9_plan_day_uguale_a_propose_to_legacy():
 
 
 def test_t9_layout_modelli_frozen_invariato():
-    import src.planner.models as m
+    import carpediem.planner.models as m
 
     assert [f.name for f in dataclasses.fields(m.PlanItem)] == [
         "todo_id",
@@ -434,7 +434,7 @@ def test_t9_layout_modelli_frozen_invariato():
 
 
 def test_t9_export_boundary_invariati():
-    import src.planner as p
+    import carpediem.planner as p
 
     assert set(p.__all__) == {
         "ADDED",

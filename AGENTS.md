@@ -8,11 +8,11 @@
 
 ## 1. Cos'è
 
-**CarpeDiem** (progetto `carpediem` su PyPI, entry-point `carpediem = src.main:main`) è una
+**CarpeDiem** (progetto `carpediem` su PyPI, entry-point `carpediem = carpediem.main:main`) è una
 TUI todo-list in italiano/inglese costruita con **Textual** (>=0.86,<4; in venv: 3.7.1).
 Python >= 3.12. Repo: `git@github.com:fabx-dev/carpediem.git`, branch `main`.
 
-Avvio: `carpediem` (TUI) oppure `python -m src.main ...` / `.venv/bin/python -m src.main ...`.
+Avvio: `carpediem` (TUI) oppure `python -m carpediem.main ...` / `.venv/bin/python -m carpediem.main ...` (con `PYTHONPATH=src` dal checkout).
 CLI non interattiva: `carpediem add|list|done|show` (+ `--porcelain`).
 
 Feature principali: task con 3 stati, sotto-task annidati, ricorrenze, progetti/tag/priorità,
@@ -28,17 +28,17 @@ Detail `Tu/CarpeDiem/Reale`, replan preview `G`, review settimana `W`).
 ## 2. Mappa del codice
 
 ```
-src/main.py      entry point + re-export compatibilità + init lingua PRIMA degli import
-src/app.py       TodoApp(App): orchestratore (~2570 righe, 166 funzioni) — è la god-class nota
-src/screens/     package per area (form/views/plan/system/menu + _shared + re-export
+src/carpediem/main.py      entry point + re-export compatibilità + init lingua PRIMA degli import
+src/carpediem/app.py       TodoApp(App): orchestratore (~2570 righe, 166 funzioni) — è la god-class nota
+src/carpediem/screens/     package per area (form/views/plan/system/menu + _shared + re-export
                  in __init__): 34 modali + MenuRow; dipendono solo da models/storage/
                  lang/nlparse/plan/domain (+ _shared), mai app — via push_screen+callback;
                  MenuScreen a 2 colonne (voci a sx -> sottomenu a dx,
                  conftest ricarica i sottomoduli in ordine per le stringhe it)
-src/nlparse.py   parser deterministico NL it/en → dict uguale al result di TodoFormScreen;
+src/carpediem/nlparse.py   parser deterministico NL it/en → dict uguale al result di TodoFormScreen;
                  sigilli #tag *progetto !prio ~stima //note, parse_with_found() per merge
-src/plan.py      plan_day() pura: score, capacita' ore/0.5 🍅, motivi (chiave, params)
-src/planner/     service Planner (application boundary, Fase 1: propose() delega
+src/carpediem/plan.py      plan_day() pura: score, capacita' ore/0.5 🍅, motivi (chiave, params)
+src/carpediem/planner/     service Planner (application boundary, Fase 1: propose() delega
                  a plan_day); usato da PlanProposalScreen; contratto in tests/test_planner.py
                  Fase 2: Planner orchestratore (scoring/constraints/capacity/explain);
                  plan.py resta wrapper compatibile; factor None = auto-calibrazione
@@ -74,25 +74,25 @@ src/planner/     service Planner (application boundary, Fase 1: propose() delega
                  ReplanMove.alt additivo (diagnose sul merged, nessun bump:
                  replan fuori contratto); code Buongiorno/piano sdoppiate
                  con causa reale, G/CLI con riga outcome + minuti residui
-src/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
+src/carpediem/domain.py    regole di dominio pure (stato+ricorrenza, pomodori, form, piani):
                  mutano solo i TodoItem passati, timestamp espliciti, mai I/O/UI;
                  app/screen applicano e persistono via store.commit();
                  M2: make_execution/variance/stats/confidence/predicted + POMO_MINUTES=30
                  (lock-step con planner.capacity.POMO_HOURS, import inverso = ciclo)
-src/models.py    TodoItem, Priority, Recurrence, validazioni date, MAX_DEPTH=6;
+src/carpediem/models.py    TodoItem, Priority, Recurrence, validazioni date, MAX_DEPTH=6;
                  campi extra: stima_pomo, planned_for, plan_skip (scarto piano smart, data);
                  M2: TaskExecution frozen-less (minuti canonici + snapshot estimate_pomo)
-src/store.py     TodoStore: lookup id, mutazioni, next_id, commit() = UNICO punto di scrittura todos
-src/storage.py   paths, load/save (todos/template/config/archive/pomodoro), lock, merge, backup;
+src/carpediem/store.py     TodoStore: lookup id, mutazioni, next_id, commit() = UNICO punto di scrittura todos
+src/carpediem/storage.py   paths, load/save (todos/template/config/archive/pomodoro), lock, merge, backup;
                  config include day_hours (default 6, clamp 1-16);
                  M2: EXECUTIONS_FILE + load/append (append-only, dedup atomica, cap 5000)
-src/crypto.py    Fernet + PBKDF2 (600k iter), chiave solo in RAM, envelope {"v","salt","data"}
-src/cli.py       add/list/done/show/replan (add/done via TodoStore: lock+merge gratis); add senza flag = NL
-src/commands.py  MENU_STRUCTURE (4 categorie: giornata/viste/dati/sistema, chiavi i18n +
+src/carpediem/crypto.py    Fernet + PBKDF2 (600k iter), chiave solo in RAM, envelope {"v","salt","data"}
+src/carpediem/cli.py       add/list/done/show/replan (add/done via TodoStore: lock+merge gratis); add senza flag = NL
+src/carpediem/commands.py  MENU_STRUCTURE (4 categorie: giornata/viste/dati/sistema, chiavi i18n +
                  action + shortcut) + CarpeDiemMenuProvider (palette `ctrl+p`, titoli
                  "Categoria › Voce"); MENU_IT piatta tenuta per compatibilita'
                  M-UI: ReplanPreviewScreen/WeekReviewScreen (cockpit #50/#51)
-src/lang.py      catalogo STRINGS it/en + key_sections (help) — vedi §4
+src/carpediem/lang.py      catalogo STRINGS it/en + key_sections (help) — vedi §4
 tests/           ~146 test; conftest.py con fixture di isolamento (vedi §5)
 ```
 
@@ -101,9 +101,7 @@ Flusso dati standard nelle action: muta oggetti → `store` → `_save_data()` (
 
 ## 3. Dati e persistenza
 
-File in home (o `TASKO_HOME` se impostata — usata dai test): `.todo_app.json`,
-`.todo_templates.json`, `.todo_config.json`, `.todo_pomodoro.json`, `.todo_archive.json`,
-più `.bak.json` / `.corrotto.json` / `.lock` collaterali e `Tasko_backups/*.zip`.
+File nei percorsi standard (`src/carpediem/storage.py`: `config_dir()`/`data_dir()`/`backup_dir()`; override `CARPEDIEM_HOME`, legacy `TASKO_HOME` — usati dai test): `todos.json`, `templates.json`, `config.json`, `pomodoro.json`, `archive.json`, `executions.json`, `outlook-token.json`, più `.bak.json` / `.corrotto.json` / `.lock` collaterali e `backups/carpediem_*.zip`. I nomi legacy (`~/.todo_*.json`, `~/Tasko_backups/`) sono solo sorgenti di migrazione (copia byte-identica via `migrate_legacy()`, mai cancellati).
 
 Regole dure:
 - Scritture sempre atomiche tmp+fsync+replace, sotto lock fcntl (`_locked`, timeout 10s,
@@ -157,13 +155,13 @@ Regole dure:
 ## 5. Verifica (obbligatoria prima di dire "fatto")
 
 - Test: `.venv/bin/python -m pytest tests/ -q`. Mai toccare i file reali di `~`:
-  usare `TASKO_HOME` temporanea o la fixture `tmp_files` di conftest (autouse, redireziona
-  tutti i path). Precedente grave: un test scrisse su `~/.todo_app.json` cancellando dati veri.
+  usare `CARPEDIEM_HOME` temporanea o la fixture `tmp_files` di conftest (autouse, redireziona
+  tutti i path, costanti + funzioni `*_file()`/`backup_dir()`). Precedente grave: un test scrisse su `~/.todo_app.json` cancellando dati veri.
 - Gate completi prima del push: `pytest` + `ruff check` + `ruff format --check` +
   `mypy src/` (la CI corre tutti e quattro; un push e' fallito solo per mypy mai
   lanciato in locale: `getattr` non restringe `str | None` per mypy).
 - `conftest` fa `reload()` dei moduli a inizio sessione: nei test usare import di modulo
-  (`import src.storage as s`) e non `from ... import nomi` (restano stali).
+  (`import carpediem.storage as s`) e non `from ... import nomi` (restano stali).
 - Pilot Textual: `async with app.run_test(size=(120, 40))`, `await pilot.pause()` doppia dopo
   le action modali. `SelectionList`: option `(label, value, selected_init)`, metodi
   `select/deselect/toggle(value)`, prop `selected`.
@@ -171,10 +169,10 @@ Regole dure:
   attese via `T(chiave)` non stringhe hardcodate (la lingua effettiva dipende dall'env).
   Mai `.content` diretto: non esiste in tutte le versioni di Textual (la CI installa
   la più recente <4, diversa dalla venv) — ha rotto la CI una volta.
-- Script ad-hoc (`python -c`, screenshot): senza `TASKO_LANG=it` l'app parte in inglese
-  (auto→locale container). Per output italiani: `TASKO_LANG=it` davanti al comando.
-- Script ad-hoc con pilot (`make_app` + `run_test` fuori pytest): SEMPRE con `TASKO_HOME`
-  fresca e isolata (`export TASKO_HOME=$(mktemp -d)`), perché qualunque action che
+- Script ad-hoc (`python -c`, screenshot): senza `CARPEDIEM_LANG=it` l'app parte in inglese
+  (auto→locale container; `TASKO_LANG` resta come alias legacy). Per output italiani: `CARPEDIEM_LANG=it` davanti al comando.
+- Script ad-hoc con pilot (`make_app` + `run_test` fuori pytest): SEMPRE con `CARPEDIEM_HOME`
+  fresca e isolata (`export CARPEDIEM_HOME=$(mktemp -d)`), perché qualunque action che
   chiama `store.commit()` (es. `+` nel piano) scrive sui path reali. Precedente
   2026-09-14: script senza `TASKO_HOME` sovrascrisse `~/.todo_app.json` con 4 task
   finti, recuperato dal backup zip del giorno prima (i test `pytest` erano salvi
@@ -182,7 +180,7 @@ Regole dure:
   debug di 10 righe senza isolamento durante il fix di test -> wipe dei dati reali
   cifrati (recuperati dal zip auto-backup del mattino) — vedi incidente in §7. Le
   due regole dure: (a) nessun `TodoApp()`/`run_test`/import di `src.app` senza
-  `TASKO_HOME` nel MEDesimo comando, verificato con `echo` prima dei run sensibili;
+  `CARPEDIEM_HOME` nel MEDesimo comando, verificato con `echo` prima dei run sensibili;
   (b) dopo un debug sospetto, controllare mtime/dimensione di `~/.todo_app.json`
   PRIMA di continuare (un wipe e' un file non-envelope o un envelope minuscolo).
   **Chiusura strutturale 2026-10-02 (Phase 1 fail-closed)**: i writer ora
@@ -195,11 +193,11 @@ Regole dure:
   regression suite `tests/test_storage_failclosed.py` con invariante
   byte-for-byte. Un debug non isolato oggi fallisce rumorosamente invece
   di wipare.
-- Screenshot SVG per cambi visivi: script con `TASKO_HOME` **fresca per run** (il restore del
+- Screenshot SVG per cambi visivi: script con `CARPEDIEM_HOME` **fresca per run** (il restore del
   pomodoro altera i run successivi!), estrazione testo via regex `<text>` + `html.unescape`
   (gli spazi sono `&#160;`: normalizzare prima di cercare), verifica sopra+SOTTO il fold
   (`scroll_end` per i bottoni). Byte-compare = falso.
-- LockScreen nei test ad-hoc = file reali cifrati sotto `~`: usare sempre `TASKO_HOME` isolata.
+- LockScreen nei test ad-hoc = file reali cifrati sotto `~`: usare sempre `CARPEDIEM_HOME` isolata.
 
 ## 6. Git e CI
 
@@ -261,13 +259,13 @@ Regole dure:
 - **S5**: `ReviewScreen` (riepilogo oggi vs goal + pomodori, `SelectionList` candidati con top-3
   preselezionati, conferma = piano di domani esatto); ingresso da palette/menu + tasto `R`;
   `test_review.py`. Fix successivi: bottoni uniformati, box 100 col, label help "chiusura giornata".
-- **AI-1**: `src/nlparse.py` (`parse(text, lang)` → dict del form; `#tag *progetto !prio ~stima`,
+- **AI-1**: `src/carpediem/nlparse.py` (`parse(text, lang)` → dict del form; `#tag *progetto !prio ~stima`,
   date it/en, regole ambiguità nel docstring) + `tests/test_nlparse.py` (57 it + 49 en).
 - **AI-2**: `ctrl+l` nel form (pre-compila + anteprima persistente) + `carpediem add "<frase>"` NL
   (con flag = modalità classica, titolo alla lettera); chiavi `nl_*`, `cli_empty_title`;
   `tests/test_nl_integration.py`. Lezione: binding finito per sbaglio su ImportCsvScreen
   (blocchi BINDINGS duplicati) — vedi §4.
-- **AI-3**: `src/plan.py` (`plan_day`: pesi espliciti, capacità ore/0.5, `plan_cut`, motivi
+- **AI-3**: `src/carpediem/plan.py` (`plan_day`: pesi espliciti, capacità ore/0.5, `plan_cut`, motivi
   `(chiave, params)`) + chiavi `plan_*` + `tests/test_plan.py` (9 scenari).
 - **AI-4**: `PlanProposalScreen` (tasto `P` + palette; conferma SOLO additiva: i già
   pianificati non si ripropongono, per togliere c'è il piano `p` con `x`; scarti del
@@ -363,9 +361,9 @@ Regole dure:
   - Aggregatori condivisi: `_completed_by_date`/`_pomodoros_by_date` come helper di
     modulo; Review/Briefing/Stats non reimplementano più streak/done/pomo per giorno.
 - **Refactor Fase 3/4/5 (fatti)**:
-  - `src/domain.py`: transizioni stato+ricorrenza, pomodori, form, piani come funzioni
+  - `src/carpediem/domain.py`: transizioni stato+ricorrenza, pomodori, form, piani come funzioni
     senza I/O/UI (timestamp espliciti); app/screen applicano e persistono via store.
-  - `src/screens/` package per area (form/views/plan/system/menu + _shared, re-export
+  - `src/carpediem/screens/` package per area (form/views/plan/system/menu + _shared, re-export
     in `__init__`); conftest ricarica i sottomoduli in ordine per le stringhe it.
   - Dati: `restore_snapshot` con backup preventivo + lock; `descendants`/`depth`
     resistenti a cicli parent_id; `created` vuoto resta vuoto (lo stampa `store.add`);
@@ -542,13 +540,13 @@ Regole dure:
   `test_plan.py`. Lezione: validazione pure testabile senza DOM vale anche qui
    (`_save_smart` precedent); gli hook duplicati home/piano condividono la
    stessa popup dumb invece di un nuovo seam.
-- **Planner boundary Fase 1 (2026-09-18, fatto)**: `src/planner/` package
+- **Planner boundary Fase 1 (2026-09-18, fatto)**: `src/carpediem/planner/` package
   (`__init__` re-export + `service.Planner`, delega pura a `plan_day()`,
   nessuna normalizzazione, nessuna eccezione trasformata);
   `PlanProposalScreen` usa `Planner(...).propose()` (unico call-site);
   `factor` resta calcolato nella screen (equivalenza byte-identica);
   contratto in `tests/test_planner.py` (6 test) + guardrail purezza esteso
-  a `src/planner/*.py`. Niente bump versione (cambio invisibile).
+  a `src/carpediem/planner/*.py`. Niente bump versione (cambio invisibile).
 - **Planner Fase 2 (2026-09-18, fatto)**: `Planner` da boundary a orchestratore
   (`scoring.py` merito+mandatory, `constraints.py` eleggibilita'/skip,
   `capacity.py` monte-ore+selezione, `explain.py` chiavi reason congelate +
@@ -562,7 +560,7 @@ Regole dure:
   lock chiavi contro `STRINGS` it/en; `domain`/`app` intoccati. Niente bump
   versione (cambio invisibile).
 - **Planner Fase 3 (2026-09-18, fatto)**: `Planner.propose()` restituisce
-  `DayPlan` esplicito (`src/planner/models.py`: `PlanItem`/`DayPlan` frozen,
+  `DayPlan` esplicito (`src/carpediem/planner/models.py`: `PlanItem`/`DayPlan` frozen,
   tuple immutabili, unita' in pomodori); sezioni `planned`/`cut`/`skipped`
   (hard-excluded fuori dal modello, come prima invisibili) +
   `capacity_pomo`/`planned_pomo` (il mandatory puo' sforare: nessun
@@ -579,7 +577,7 @@ Regole dure:
   temporale, niente persistenza/serializzazione, pesi intoccati.
   Niente bump versione (cambio invisibile).
 - **Planner Fase 4 (2026-09-18, fatto)**: scheduling temporale deterministico
-  (`src/planner/scheduler.py` puro: `schedule(plan, availability, busy)` greedy
+  (`src/carpediem/planner/scheduler.py` puro: `schedule(plan, availability, busy)` greedy
   first-fit nell'ordine Planner, niente secondo scoring, durate da
   `estimate_pomo` x 30min senza arrotondamenti); modelli in `models.py`
   (`TimeWindow`, `ScheduledItem` che riusa `PlanItem`, `ScheduledDayPlan` con
@@ -594,7 +592,7 @@ Regole dure:
   pomodoro intoccati, niente calendario esterno, niente AI.
   Niente bump versione (estensione non usata ancora da nessun consumer).
 - **Planner Fase 5 (2026-09-18, fatto)**: feedback di esecuzione come pura
-  derivazione (`src/planner/feedback.py`: `feedback(scheduled, todos)` →
+  derivazione (`src/carpediem/planner/feedback.py`: `feedback(scheduled, todos)` →
   un `ExecutionFeedback` per voce planned, stesso ordine, niente scritture);
   modello in `models.py` (frozen: `estimate_pomo` unita' astratta +
   `estimate_minutes` via `POMO_HOURS`, `scheduled_start/end` o None,
@@ -608,7 +606,7 @@ Regole dure:
   `tests/test_feedback.py` (9 test); `domain`/`app`/pomodoro/scoring/
   scheduler intoccati. Niente bump versione (solo derivazione).
 - **Planner Fase 6 (2026-09-18, fatto)**: boundary di calibrazione come adapter
-  sottile (`src/planner/calibration.py`: `observe`/`observe_all` derivano
+  sottile (`src/carpediem/planner/calibration.py`: `observe`/`observe_all` derivano
   coppie (estimate, actual) dagli `ExecutionFeedback` completati con entrambi
   > 0 — sessions escluse, fonte resta `actual_pomo` manuale;
   `factor_for` delega a `domain.calibration_factor`; mediana/min-samples/
@@ -630,7 +628,7 @@ Regole dure:
   `planned_for` invariata, niente auto-start/rescheduling/pomodoro/calendario;
   chiavi `planp_start(_ph/_bad)` + `planp_slots_none/un` it/en;
   `tests/test_plan_slots.py` (6 pilot: vuoto, slot+ordine, invalido,
-  unscheduled, midnight-clippato, conferma); `src/planner/` intoccato.
+  unscheduled, midnight-clippato, conferma); `src/carpediem/planner/` intoccato.
   Niente bump versione (solo display).
 - **Fallback stima assente (2026-09-18, convenzione esplicitata, non cambio)**:
   task senza `stima_pomo` (= 0 nel modello) vale 1 pomodoro → 30 min negli
@@ -907,7 +905,7 @@ Regole dure:
   (le classi from-importate restano stale per `isinstance` dopo il reload
   di conftest). Niente bump versione (invisibile).
 - **M3 Explainable Planner (2026-09-24, fatto, 0.15.0)**:
-  `src/planner/decisions.py` puro (`PlanningDecision` frozen +
+  `src/carpediem/planner/decisions.py` puro (`PlanningDecision` frozen +
   `decide()` lettura del DayPlan: planned→SCHEDULED, cut→NOT_SCHEDULED,
   skipped→DEFERRED; `refine_with_schedule()` restituisce NUOVE decisioni
   con slot, solo mandatory-senza-slot→CONSTRAINED; `primary_reason()`
@@ -922,10 +920,10 @@ Regole dure:
   coerenza Planner/Detail a parita' di input; summary Buongiorno splittato
   tagliati/rimandati (`planp_summary` it/en); chiavi `why_*` it/en;
   guardrail anti stadi-planner in `views.py`. Lezioni: `views.py` non
-  importava domain/planner (ordine isort `from src import` prima di
-  `from src.lang`); stub `_why_lines` aveva inghiottito il `def compose`
+  importava domain/planner (ordine isort `from carpediem import` prima di
+  `from carpediem.lang`); stub `_why_lines` aveva inghiottito il `def compose`
   (verificare sempre con read dopo edit di firme).
-- **M4 Replanning (2026-09-24, fatto, 0.16.0)**: `src/planner/replan.py`
+- **M4 Replanning (2026-09-24, fatto, 0.16.0)**: `src/carpediem/planner/replan.py`
   puro (`replan()` riusa propose+schedule senza toccarli: completati fuori
   da soli, pianificati privilegiati in allocate, slot passati esclusi via
   availability clippata a [now, fine]; `ReplanProposal` con kept/moved/
@@ -960,7 +958,7 @@ Regole dure:
   nelle due nuove screen;   i test #51 scrivono via `save_todos_synced` +
   `append_execution` (la screen legge dallo storage, non da una lista
   locale).
-- **Why naturale (2026-09-25, fatto, 0.18.0)**: `src/planner/narrative.py`
+- **Why naturale (2026-09-25, fatto, 0.18.0)**: `src/carpediem/planner/narrative.py`
   puro (`explain_decision(decision)` → `(chiave_i18n, params) | None`,
   7 template `why_story_*` it/en; solo lettura di decisione+reasons+
   evidence, niente scoring, niente `T()` nel planner per il guardrail
@@ -1052,6 +1050,24 @@ Regole dure:
   cross-view test (Buongiorno == P == G a parita' di stato). Lezioni:
   `_cause_text` con `escape=False` per output CLI puro; mypy vuole
   l'alias `_imported_*` per gli import lazy con fallback None.
+- **Packaging + paths standard + migrazione legacy (fatto)**:
+  `git mv src/* -> src/carpediem/*` (`src/` resta source root, package
+  installabile solo `carpediem`); `pyproject` con `where=["src"]` +
+  entry `carpediem.main:main`; import interni/test/CI/smoke su
+  `carpediem.*`; `storage.py` con API canonica `config_dir()/data_dir()/
+  backup_dir()` + `*_file()` (XDG/Linux, Application Support/macOS,
+  AppData/Windows; writer sulle funzioni, costanti maiuscole solo alias
+  compat per conftest); `migrate_legacy()` esplicita a startup da
+  `main()` (mai all'import): copia byte-identica verificata, idempotente,
+  nuovo vince sempre, legacy mai cancellato, zip `tasko_*` copiati e
+  ripristinabili, prune solo sui nuovi; `CARPEDIEM_HOME/LANG` canonici
+  con alias legacy `TASKO_*`; `list_snapshots` legge anche i legacy.
+  Lezioni: dir `build/` stantia riusata da setuptools infilava il vecchio
+  `src/` nella wheel (rm build prima di fidarsi del contenuto); `src/`
+  senza `__init__.py` resta namespace package importabile dal tree, il
+  test vero e' il contenuto della wheel; `_legacy_candidate_bases` con
+  override attivo non guarda mai la home reale (test non importano dati
+  veri); `tests/test_{packaging,paths,migration}.py` nuovi.
 
 ## 8. Decisioni aperte (non implementare senza discuterle)
 
@@ -1115,7 +1131,7 @@ prerequisito architetturale (zero rete nel planning).
 
 ### 9.2 Stato attuale (da non confondere con la roadmap)
 
-Il planning esiste già in `src/plan.py` (`plan_day(todos, today, hours,
+Il planning esiste già in `src/carpediem/plan.py` (`plan_day(todos, today, hours,
 factor)`, funzione pura, niente I/O/UI). Considera già: deadline, scaduto,
 oggi/domani, priorità, progetti fermi (`STALE_DAYS`), task già pianificati
 (`planned_for`), capacità giornaliera (`hours` → pomodori da 0.5h), stime
@@ -1131,7 +1147,7 @@ tasks → scoring → ordering → capacity → ranked proposal
 
 I motivi (`plan_*`) sono già spiegabili e consumati da `PlanProposalScreen`.
 `plan_day` è un wrapper compatibile che delega a `Planner.propose()`
-(`src/planner/service.py` orchestra scoring → constraints → capacity, motivi
+(`src/carpediem/planner/service.py` orchestra scoring → constraints → capacity, motivi
 da `explain`) e converte il `DayPlan` in formato legacy via `to_legacy()`;
 `DailyPlanScreen` e `ReviewScreen` lavorano su
 `planned_for` senza passare dal planner. Il flusso di conferma è già
@@ -1373,7 +1389,7 @@ Preferire evoluzioni incrementali a una migrazione big-bang.
 
 ### 9.6 Regole per `app.py`
 
-`src/app.py` è la god-class nota (~2570 righe, 166 funzioni). **Non è
+`src/carpediem/app.py` è la god-class nota (~2570 righe, 166 funzioni). **Non è
 richiesto riscriverlo ora, e non fare una mega-refactor.**
 
 ```text
@@ -1446,15 +1462,15 @@ implementare automaticamente l'intera fase successiva.**
 
 Stato al 2026-09-18, basato sul codice reale (non su aspirazioni). Phase 0 è
 completata di fatto (architettura mappata e documentata in §2/§7/§9.2). Phase 1
-completata: esiste `Planner` (`src/planner/service.py`), usato da
+completata: esiste `Planner` (`src/carpediem/planner/service.py`), usato da
 `PlanProposalScreen`. Phase 2 completata: `Planner` orchestra
 `scoring`/`constraints`/`capacity`/`explain`, `plan.py` e' wrapper compatibile,
 `factor=None` auto-calibra; contratto in `tests/test_planner*.py`. Phase 3
 completata: `Planner.propose()` restituisce `DayPlan`
-(`src/planner/models.py`, niente scheduling temporale), `plan_day()` e'
+(`src/carpediem/planner/models.py`, niente scheduling temporale), `plan_day()` e'
 `propose().to_legacy()`; contratto in `tests/test_planner*.py` +
 `test_planner_dayplan.py`. Phase 4 completata: `schedule()` deterministico
-su `DayPlan` + `availability` esplicita (`src/planner/scheduler.py`,
+su `DayPlan` + `availability` esplicita (`src/carpediem/planner/scheduler.py`,
 `ScheduledDayPlan` in `models.py`); `Planner.schedule()` wrapper;
 `propose()`/`plan_day()`/UI intoccati; `tests/test_scheduler.py`. Phase 5
 completata: `feedback()` deriva `ExecutionFeedback` da scheduled+todos
@@ -1495,10 +1511,10 @@ degli utenti** (vedi `CONTRIBUTING.md`); le milestone si tracciano qui e in
 | Milestone | Stato | Dove vive |
 | --- | --- | --- |
 | M1 Planning Foundation | Done | `tests/test_planner_contract.py`, `_fixtures.py`, `_perf.py`; guardrail in `test_arch.py` |
-| M2 Task Reality | Done | `src/domain.py` (`TaskExecution`, `execution_summary`), `src/storage.py` (`EXECUTIONS_FILE`) |
-| M3 Explainable Planner | Done | `src/planner/decisions.py` + `narrative.py`; card Why in `DetailScreen` |
-| M4 Replanning | Done | `src/planner/replan.py`, `domain.apply_replan`, `ReplanPreviewScreen` (`G`), CLI `carpediem replan` |
-| M5 Calendar & Intelligence | Done | `FixedEvent`/`events_to_busy` in `src/planner/`, `day_window` in config, `WeekReviewScreen` (`W`) |
+| M2 Task Reality | Done | `src/carpediem/domain.py` (`TaskExecution`, `execution_summary`), `src/carpediem/storage.py` (`EXECUTIONS_FILE`) |
+| M3 Explainable Planner | Done | `src/carpediem/planner/decisions.py` + `narrative.py`; card Why in `DetailScreen` |
+| M4 Replanning | Done | `src/carpediem/planner/replan.py`, `domain.apply_replan`, `ReplanPreviewScreen` (`G`), CLI `carpediem replan` |
+| M5 Calendar & Intelligence | Done | `FixedEvent`/`events_to_busy` in `src/carpediem/planner/`, `day_window` in config, `WeekReviewScreen` (`W`) |
 | M6 Personal Time Model | **Parziale** | calibrazione e storico fatti; il *temporal fit* manca → #43 resta aperta |
 | M6 Decomposition | Not planned | #44 chiusa: modello di stima non pronto, in conflitto con la direzione del progetto |
 | M6 AI Layer | Not planned | #45 chiusa per scelta architetturale (§9.1: nessun AI/LLM nel percorso di pianificazione) |

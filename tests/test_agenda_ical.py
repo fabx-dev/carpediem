@@ -2,9 +2,9 @@
 
 from datetime import datetime, timedelta
 
-import src.app as app_module
-from src.lang import T
-from src.models import Priority
+import carpediem.app as app_module
+from carpediem.lang import T
+from carpediem.models import Priority
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 

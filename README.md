@@ -68,7 +68,7 @@ carpediem --help
 carpediem list
 ```
 
-Common issues: `pipx: command not found` (install pipx first), old Python (<3.12), separate data dir with `TASKO_HOME=/tmp/carpediem-demo carpediem`. Docker (`docker compose up`) is dev-only, not the main install path.
+Common issues: `pipx: command not found` (install pipx first), old Python (<3.12), separate data dir with `CARPEDIEM_HOME=/tmp/carpediem-demo carpediem` (`TASKO_HOME` still works as legacy alias). Docker (`docker compose up`) is dev-only, not the main install path.
 
 Requires Python 3.12+. Built with Textual; data stays in local JSON (see Data below).
 
@@ -101,7 +101,7 @@ Planner notes: deterministic (same input → same plan) and explainable (every r
 - `Goals` — daily/weekly targets with streaks.
 
 ### Data: backup, transfer, archive
-- `Backup now` / `Restore backup` — automatic zip snapshots in `~/Tasko_backups/` (14 kept), restore validates before touching disk with rollback.
+- `Backup now` / `Restore backup` — automatic zip snapshots in `<data>/backups/` (14 kept), restore validates before touching disk with rollback.
 - `Export: Markdown` (`ctrl+e`) / `CSV` / `stats CSV` / `iCal` — the `.ics` covers active tasks with due dates; files land in `~/CarpeDiem_screenshots/`. Exports are readable summaries, not full backups (no recurrences/plan/actuals): use `Backup` snapshots for complete state. Exports are always plaintext, even with encryption on.
 - `Import: CSV` — idempotent on `(source, external_id)` (re-import skips, internal ids untouched; rows without external id are always new).
 - `Archive` — done tasks aside with viewer and restore.
@@ -154,21 +154,23 @@ Use the TUI for the daily loop and the CLI for quick capture and scripts: `list 
 
 ## Data
 
-Everything lives in local JSON next to your home (offline-first):
+Everything lives in local JSON (offline-first), in platform-standard locations:
 
 | File | Content |
 |---|---|
-| `~/.todo_app.json` | Tasks (+ `.bak.json` previous copy; fields include `actual_pomo/minutes`, `source/external_id`) |
-| `~/.todo_templates.json` | Templates |
-| `~/.todo_pomodoro.json` | Timer session + cycle |
-| `~/.todo_config.json` | Theme, filters, goals, language, `day_hours`, `kanban_mode`, `smart_lists` (max 10), `day_window` (`{date, start, end, events[]}`) |
-| `~/.todo_archive.json` | Archived done tasks |
-| `~/.todo_executions.json` | Pomodoro execution history (calibration; never backed up) |
-| `~/.todo_outlook_token.json` | Outlook token, owner-only, never backed up |
-| `~/Tasko_backups/` | Automatic zip snapshots (14 kept) |
+| Linux `~/.local/share/carpediem/todos.json` · macOS `~/Library/Application Support/CarpeDiem/todos.json` · Windows `%LOCALAPPDATA%\CarpeDiem\todos.json` | Tasks (+ `.bak.json` previous copy; fields include `actual_pomo/minutes`, `source/external_id`) |
+| `.../templates.json` | Templates |
+| `.../pomodoro.json` | Timer session + cycle |
+| `.../archive.json` | Archived done tasks |
+| `.../executions.json` | Pomodoro execution history (calibration; never backed up) |
+| `.../outlook-token.json` | Outlook token, owner-only, never backed up |
+| config: Linux `~/.config/carpediem/config.json` · macOS app dir · Windows `%APPDATA%\CarpeDiem\config.json` | Theme, filters, goals, language, `day_hours`, `kanban_mode`, `smart_lists` (max 10), `day_window` (`{date, start, end, events[]}`) |
+| `<data>/backups/carpediem_*.zip` | Automatic zip snapshots (14 kept) |
 | `~/CarpeDiem_screenshots/` | SVG screenshots, CSV/Markdown exports |
 
-Single-writer `commit()` with inter-process lock and three-way per-id merge (CLI and TUI never overwrite each other). Restore a backup any time from the menu (`Backup: restore`). Optional encryption from `System` → `Security`. Language follows the system (Italian or English), override with `TASKO_LANG=it|en` or in Settings; isolate data with `TASKO_HOME=/tmp/demo`.
+Legacy installs stored everything next to home (`~/.todo_app.json`, `~/.todo_config.json`, …, `~/Tasko_backups/`). On startup CarpeDiem copies those files once into the new locations (byte-identical, verified, never deleting the originals); existing new files always win, so nothing is ever overwritten.
+
+Single-writer `commit()` with inter-process lock and three-way per-id merge (CLI and TUI never overwrite each other). Restore a backup any time from the menu (`Backup: restore`). Optional encryption from `System` → `Security`. Language follows the system (Italian or English), override with `CARPEDIEM_LANG=it|en` (`TASKO_LANG` still works) or in Settings; isolate data with `CARPEDIEM_HOME=/tmp/demo` (`TASKO_HOME` still works).
 
 ## Dev
 

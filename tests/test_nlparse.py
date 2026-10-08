@@ -2,8 +2,8 @@
 
 from datetime import datetime, timedelta
 
-from src.models import Priority, Recurrence
-from src.nlparse import parse
+from carpediem.models import Priority, Recurrence
+from carpediem.nlparse import parse
 
 
 def _today(offset: int = 0) -> str:
@@ -252,7 +252,7 @@ def test_doppio_slash_non_in_url():
 
 
 def test_parse_with_found():
-    from src.nlparse import parse_with_found
+    from carpediem.nlparse import parse_with_found
 
     res, found = parse_with_found("call domani *p", "it")
     assert found == {"title", "due", "project"}

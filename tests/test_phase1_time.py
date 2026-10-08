@@ -9,14 +9,14 @@ import random
 import sys
 from datetime import date, datetime
 
-import src.planner.service as service_mod
-from src.planner import Planner
-from src.planner.models import TimeWindow
-from src.planner.replan import replan
+import carpediem.planner.service as service_mod
+from carpediem.planner import Planner
+from carpediem.planner.models import TimeWindow
+from carpediem.planner.replan import replan
 from tests.conftest import make_todo
 
 # Vedi test_phase1_characterization.py: import-as lega la funzione, non il modulo.
-replan_mod = sys.modules["src.planner.replan"]
+replan_mod = sys.modules["carpediem.planner.replan"]
 
 TODAY = "2026-09-10"
 DAY = (2026, 9, 10)
@@ -41,7 +41,7 @@ def _freeze_clock(monkeypatch, at=FROZEN_NOW):
 
 
 def test_t4_parse_day_accetta_date_e_datetime():
-    from src.planner import scoring
+    from carpediem.planner import scoring
 
     assert scoring.parse_day(TODAY) == date(*DAY)
     assert scoring.parse_day(date(*DAY)) == date(*DAY)
@@ -131,10 +131,14 @@ def _top_args(call):
 
 
 def test_t4_audit_caller_produzione_espliciti():
-    for path in ("src/screens/plan.py", "src/screens/views.py", "src/app.py"):
+    for path in (
+        "src/carpediem/screens/plan.py",
+        "src/carpediem/screens/views.py",
+        "src/carpediem/app.py",
+    ):
         for call in _calls_from(path, "Planner"):
             assert "today=" in call, f"{path}: {call[:60]}"
-    for path in ("src/screens/plan.py", "src/cli.py"):
+    for path in ("src/carpediem/screens/plan.py", "src/carpediem/cli.py"):
         calls = _calls_from(path, "replan")
         assert calls, f"{path}: nessun replan( trovato"
         for call in calls:

@@ -7,10 +7,10 @@ qui con pilot.click (che passa coordinate vere all'handler)."""
 
 from datetime import datetime, timedelta
 
-import src.app as app_mod
-import src.screens.views as views_mod
-from src.models import TodoItem
-from src.storage import load_todos
+import carpediem.app as app_mod
+import carpediem.screens.views as views_mod
+from carpediem.models import TodoItem
+from carpediem.storage import load_todos
 from tests.conftest import run
 
 

@@ -12,9 +12,9 @@ import random
 import time
 from datetime import datetime
 
-from src.models import Priority
-from src.planner import Planner
-from src.planner.models import TimeWindow
+from carpediem.models import Priority
+from carpediem.planner import Planner
+from carpediem.planner.models import TimeWindow
 from tests.conftest import make_todo
 
 TODAY = "2026-09-10"

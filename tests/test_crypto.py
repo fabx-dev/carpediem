@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-import src.main as m
-from src import crypto as crypto_mod
+import carpediem.main as m
+from carpediem import crypto as crypto_mod
 from tests.conftest import make_app, make_todo
 
 
@@ -53,7 +53,7 @@ def test_save_load_cifrati(tmp_files, locked_down):
 
 
 def test_cambio_chiave_commit_non_perde_item(tmp_files, locked_down):
-    from src.store import TodoStore
+    from carpediem.store import TodoStore
 
     crypto_mod.set_key(crypto_mod.encode_password("vecchia"))
     m._save_todos_plain([make_todo("A", todo_id=1)])

@@ -2,11 +2,11 @@
 
 from datetime import datetime
 
-from src.planner import capacity, constraints
-from src.planner.decisions import decide, refine_with_schedule
-from src.planner.models import DayPlan, PlanItem, TaskView, TimeWindow
-from src.planner.scheduler import schedule
-from src.planner.scoring import OVERDUE_SCORE, rank_key
+from carpediem.planner import capacity, constraints
+from carpediem.planner.decisions import decide, refine_with_schedule
+from carpediem.planner.models import DayPlan, PlanItem, TaskView, TimeWindow
+from carpediem.planner.scheduler import schedule
+from carpediem.planner.scoring import OVERDUE_SCORE, rank_key
 
 DAY_S = "2026-10-08"
 
@@ -21,7 +21,7 @@ def view(tid, due="", estimate=1):
 
 def test_pesi_primari_congelati():
     assert OVERDUE_SCORE == 100
-    import src.planner.scoring as s
+    import carpediem.planner.scoring as s
 
     assert (s.DUE_TODAY_SCORE, s.DUE_TOMORROW_SCORE) == (60, 30)
     assert (s.PRIO_SCORES["alta"], s.STALE_SCORE, s.PLANNED_SCORE) == (20, 15, 5)

@@ -19,7 +19,7 @@ jobs:
       - run: ruff check src/ tests/
       - run: ruff format --check src/ tests/
       - run: mypy src/
-      - run: python -m pytest tests/ -q --cov=src --cov-report=term-missing --cov-fail-under=75
+      - run: python -m pytest tests/ -q --cov=carpediem --cov-report=term-missing --cov-fail-under=75
 
   test-windows:
     runs-on: windows-latest
@@ -49,7 +49,9 @@ jobs:
       - run: /tmp/smoke-venv/bin/pip install dist/*.whl
       - run: /tmp/smoke-venv/bin/carpediem --help
       # cd /tmp: l'import deve risolversi dalla wheel installata, mai dal checkout.
-      - run: cd /tmp && /tmp/smoke-venv/bin/python -c "import src.main, src.planner, src.storage, src.crypto, src.domain, src.screens.plan, src.integrations.outlook_auth, src.import_csv, src.export_ical; print('smoke import ok')"
+      - run: cd /tmp && /tmp/smoke-venv/bin/python -c "import carpediem, carpediem.main, carpediem.planner, carpediem.storage, carpediem.crypto, carpediem.domain, carpediem.screens.plan, carpediem.integrations.outlook_auth, carpediem.import_csv, carpediem.export_ical; print('smoke import ok')"
       # CLI reale su HOME isolata: oltre --help, add/list scrivono e leggono davvero.
-      - run: export TASKO_HOME=$(mktemp -d) && /tmp/smoke-venv/bin/carpediem add "smoke test" && /tmp/smoke-venv/bin/carpediem list --porcelain
+      - run: export CARPEDIEM_HOME=$(mktemp -d) && /tmp/smoke-venv/bin/carpediem add "smoke test" && /tmp/smoke-venv/bin/carpediem list --porcelain && test -z "$(ls -A $CARPEDIEM_HOME | grep -i -E '^\.todo|tasko' || true)"
+      # Compat legacy: TASKO_HOME resta supportato come alias.
+      - run: export TASKO_HOME=$(mktemp -d) && /tmp/smoke-venv/bin/carpediem add "legacy smoke" && /tmp/smoke-venv/bin/carpediem list --porcelain
       - run: test -f dist/*.whl && test -f dist/*.tar.gz

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from textual.widgets import Input, ListView
 
-from src.models import Recurrence
+from carpediem.models import Recurrence
 from tests.conftest import make_app, make_todo, run, screen_texts
 
 

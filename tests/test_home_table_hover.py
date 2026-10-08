@@ -10,7 +10,7 @@ Regressioni legate al mouse e al radar:
   le colonne compatte finche' un evento (mouse/cambio tab) non ridipinge.
 """
 
-from src.lang import T
+from carpediem.lang import T
 from tests.conftest import make_app, make_todo, run
 
 

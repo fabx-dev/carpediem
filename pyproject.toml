@@ -27,8 +27,8 @@ Repository = "https://github.com/fabx-dev/carpediem"
 Changelog = "https://github.com/fabx-dev/carpediem/blob/main/CHANGELOG.md"
 
 [project.scripts]
-carpediem = "src.main:main"
+carpediem = "carpediem.main:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+where = ["src"]
+include = ["carpediem*"]

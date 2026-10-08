@@ -22,9 +22,9 @@ indica un ambito diverso, usa quello.
 
 Controlla, nell'ordine:
 
-1. **i18n** (`src/lang.py`): ogni stringa UI via `T()`; chiavi nuove presenti
+1. **i18n** (`src/carpediem/lang.py`): ogni stringa UI via `T()`; chiavi nuove presenti
    sia in `it` che in `en` (parita' imposta da `test_parita_chiavi`).
-2. **CSS/modali** (`src/app.py` TodoApp.CSS + `src/screens.py`): nuovi
+2. **CSS/modali** (`src/carpediem/app.py` TodoApp.CSS + `src/carpediem/screens/`): nuovi
    `#x-box`/`#x-title`/`#x-close` aggiunti ai gruppi condivisi, specifico solo
    in screen; liste scrollabili con box `height: 90%` + figlio `height: 1fr`
    (mai box auto + `max-height` con figli auto).
@@ -35,7 +35,7 @@ Controlla, nell'ordine:
 4. **Robustezza**: niente crash da UI (except ampi intenzionali); date
    wall-time `YYYY-MM-DD [HH:MM]`; flusso dati muta oggetti -> `store` ->
    `_save_data()`; le screen non scrivono mai su disco.
-5. **Test**: fixture `tmp_files`/`TASKO_HOME` (mai file reali di `~`); import
+5. **Test**: fixture `tmp_files`/`CARPEDIEM_HOME` (mai file reali di `~`); import
    di modulo non `from` (reload in conftest); Pilot con doppia `pause()` dopo
    le action modali; testi via `screen_texts()` e `T(chiave)`, mai `.content`
    diretto ne' stringhe hardcodate.

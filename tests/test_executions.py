@@ -8,7 +8,7 @@ i moduli in place: le classi from-importate restano stale per isinstance).
 import json
 import threading
 
-import src.storage as st
+import carpediem.storage as st
 
 
 def test_file_assente_e_vuoto():

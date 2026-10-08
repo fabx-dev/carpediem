@@ -2,9 +2,9 @@
 
 from datetime import date, timedelta
 
-import src.storage as st
-from src.lang import T
-from src.models import TaskExecution
+import carpediem.storage as st
+from carpediem.lang import T
+from carpediem.models import TaskExecution
 from tests.conftest import make_app, make_todo, run, screen_texts, wait_for
 
 
@@ -94,6 +94,6 @@ def _one(size):
 def test_weekreview_vincolo_no_import_network():
     import pathlib
 
-    src = pathlib.Path("src/screens/views.py").read_text(encoding="utf-8")
+    src = pathlib.Path("src/carpediem/screens/views.py").read_text(encoding="utf-8")
     for banned in ("integrations", "urllib", "requests", "http"):
         assert banned not in src

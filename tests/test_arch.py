@@ -4,14 +4,14 @@ Non vieta ordinamenti/filtri di presentazione (legittimi in review/agenda):
 vieta la duplicazione di merito/capacita'/scheduling e il percorso legacy.
 Nessun vincolo su QUALI screen possano usare il Planner: oggi PlanProposalScreen
 e' il consumer ufficiale (Fasi 6.5/7), domani altre screen potranno esserlo —
-purché attraverso il boundary src/planner, non reimplementandolo.
+purché attraverso il boundary carpediem/planner, non reimplementandolo.
 """
 
 import pathlib
 import re
 
-UI_FILES = sorted(pathlib.Path("src/screens").glob("*.py")) + [
-    pathlib.Path("src/app.py")
+UI_FILES = sorted(pathlib.Path("src/carpediem/screens").glob("*.py")) + [
+    pathlib.Path("src/carpediem/app.py")
 ]
 
 # Costanti di merito/capacita': se una screen le usa, sta ricalcolando il merito.
@@ -56,7 +56,7 @@ APP_FORBIDDEN = (
     "calibration_summary",
 )
 
-FAIL_MSG = "La UI e' consumer del Planner (Fase 9): niente merito/capacita'/scheduling duplicati; usa src/planner, non plan_day()."
+FAIL_MSG = "La UI e' consumer del Planner (Fase 9): niente merito/capacita'/scheduling duplicati; usa carpediem/planner, non plan_day()."
 FAIL_EXEC_MSG = "M2: la UI consuma execution/stats/calibration pronte, non le costruisce (dominio/planner la fonte)."
 
 
@@ -80,9 +80,9 @@ def test_no_reimplementazione_planner_nelle_screen():
             assert pat not in src, f"{path}: '{pat}' duplica il boundary. {FAIL_MSG}"
 
 
-# "src.plan" ma non "src.planner"; "plan_day(" come chiamata, non come
+# "carpediem.plan" ma non "carpediem.planner"; "plan_day(" come chiamata, non come
 # suffisso di un identificatore (es. action_plan_day e' wiring, non planning).
-_LEGACY_PLAN = re.compile(r"src\.plan(?!ner)")
+_LEGACY_PLAN = re.compile(r"carpediem\.plan(?!ner)")
 _PLAN_DAY_CALL = re.compile(r"(?<![\w])plan_day\(")
 
 
@@ -92,7 +92,7 @@ def test_no_plan_day_legacy_nella_produzione_ui():
             f"{path}: usa il Planner, non plan_day(). {FAIL_MSG}"
         )
         assert not _LEGACY_PLAN.search(src), (
-            f"{path}: legacy src/plan vietato dalla Fase 9. {FAIL_MSG}"
+            f"{path}: legacy carpediem/plan vietato dalla Fase 9. {FAIL_MSG}"
         )
 
 
@@ -103,9 +103,11 @@ def test_no_execution_logic_nelle_screen():
 
 
 def test_no_execution_stats_in_app():
-    src = pathlib.Path("src/app.py").read_text(encoding="utf-8")
+    src = pathlib.Path("src/carpediem/app.py").read_text(encoding="utf-8")
     for name in APP_FORBIDDEN:
-        assert name not in src, f"src/app.py: '{name}' nell'app. {FAIL_EXEC_MSG}"
+        assert name not in src, (
+            f"src/carpediem/app.py: '{name}' nell'app. {FAIL_EXEC_MSG}"
+        )
 
 
 # M3 Why nel Detail: views.py consuma solo il boundary (Planner + decide),
@@ -120,10 +122,10 @@ _M3_VIEWS_BANNED = (
 
 
 def test_no_stadi_planner_in_views():
-    src = pathlib.Path("src/screens/views.py").read_text(encoding="utf-8")
+    src = pathlib.Path("src/carpediem/screens/views.py").read_text(encoding="utf-8")
     for name in _M3_VIEWS_BANNED:
         assert name not in src, (
-            f"src/screens/views.py: '{name}' nel Detail. "
+            f"src/carpediem/screens/views.py: '{name}' nel Detail. "
             "Il Why consuma PlanningDecision dal boundary, non gli stadi."
         )
 
@@ -146,7 +148,7 @@ _PLANNER_NO_STORAGE_TOKENS = (
     "TodoItem",
     "Priority",
     "_due_date_part",
-    "src.models",
+    "carpediem.models",
 )
 
 _PLANNER_NO_COMMIT_TOKENS = (
@@ -160,7 +162,9 @@ _PLANNER_NO_COMMIT_TOKENS = (
 
 def _planner_lines(name):
     return (
-        pathlib.Path(f"src/planner/{name}.py").read_text(encoding="utf-8").splitlines()
+        pathlib.Path(f"src/carpediem/planner/{name}.py")
+        .read_text(encoding="utf-8")
+        .splitlines()
     )
 
 
@@ -177,13 +181,13 @@ def test_phase1_core_senza_modello_storage():
         for line in _import_lines(name):
             for token in _PLANNER_NO_STORAGE_TOKENS:
                 assert token not in line, (
-                    f"src/planner/{name}.py: '{token}' negli import del core. "
+                    f"src/carpediem/planner/{name}.py: '{token}' negli import del core. "
                     "Usa TaskView/projection."
                 )
 
 
 def test_phase1_planner_senza_commit_o_persistenza():
-    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+    for path in sorted(pathlib.Path("src/carpediem/planner").glob("*.py")):
         for line in path.read_text(encoding="utf-8").splitlines():
             s = line.strip()
             if s.startswith(("from ", "import ")):
@@ -198,7 +202,7 @@ def test_phase2_estimation_math_solo_in_capacity():
     """D1: la matematica estimation di domain entra nel planner da un solo
     seam (capacity.estimate/normalize_factor), documentato e sotto contratto
     (tests/test_phase2_estimation.py). Trasloco vietato fino a Phase 5."""
-    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+    for path in sorted(pathlib.Path("src/carpediem/planner").glob("*.py")):
         for line in path.read_text(encoding="utf-8").splitlines():
             s = line.strip()
             if s.startswith(("from ", "import ")) and (
@@ -217,9 +221,9 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
     nessuna decisione): allocate/estimate restano vietati qui, SALVO
     l'unico ripiego orfani in scheduled_for_today (B4: riuso della policy
     ufficiale invece di duplicare la matematica di stima in UI)."""
-    files = sorted(pathlib.Path("src/screens").glob("*.py")) + [
-        pathlib.Path("src/app.py"),
-        pathlib.Path("src/cli.py"),
+    files = sorted(pathlib.Path("src/carpediem/screens").glob("*.py")) + [
+        pathlib.Path("src/carpediem/app.py"),
+        pathlib.Path("src/carpediem/cli.py"),
     ]
     banned = (
         "planner.scoring",
@@ -231,9 +235,9 @@ def test_phase2_niente_stadi_interni_fuori_boundary():
         for token in banned:
             assert token not in src, (
                 f"{path}: '{token}' fuori dal boundary. "
-                "Decisioni solo in src/planner, la UI consuma il risultato."
+                "Decisioni solo in carpediem/planner, la UI consuma il risultato."
             )
-    plan_src = pathlib.Path("src/screens/plan.py").read_text(encoding="utf-8")
+    plan_src = pathlib.Path("src/carpediem/screens/plan.py").read_text(encoding="utf-8")
     assert plan_src.count("capacity.estimate") == 1, (
         "capacity.estimate consentito solo nel ripiego orfani B4, "
         "mai come scoring/capacita' duplicati in UI."
@@ -245,14 +249,14 @@ def test_phase6_diagnose_unica_costruttrice():
     Ammessi: il modulo stesso + il test di forma D1 (costruzioni fittizie
     per frozen/field-shape, mai logica)."""
     allowed = {
-        "src/planner/diagnostics.py",
+        "src/carpediem/planner/diagnostics.py",
         "tests/test_phase6_types.py",
         # Double fittizi per _blocked_line/_noslot_sentence (mai logica).
         "tests/test_phase6_diagnostics.py",
         "tests/test_plan_noslot.py",
     }
     exempt = {"tests/test_arch.py"}  # questo guard cita i nomi nel suo codice
-    for path in sorted(pathlib.Path("src").rglob("*.py")) + sorted(
+    for path in sorted(pathlib.Path("src/carpediem").rglob("*.py")) + sorted(
         pathlib.Path("tests").glob("test_*.py")
     ):
         # as_posix: su Windows str(path) usa backslash (lezione CI P6).
@@ -271,13 +275,13 @@ def test_phase6_diagnose_unica_costruttrice():
 
 
 def test_phase5_planner_senza_domain():
-    """G4: direzione unica app -> core. Niente in src/planner/ importa
+    """G4: direzione unica app -> core. Niente in carpediem/planner/ importa
     src.domain (dal P5-1 la matematica vive in planner.estimation e domain
     delega). Docstring/commenti possono nominarlo (documentano il passato)."""
-    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+    for path in sorted(pathlib.Path("src/carpediem/planner").glob("*.py")):
         for line in path.read_text(encoding="utf-8").splitlines():
             s = line.strip()
-            if s.startswith(("from ", "import ")) and "src.domain" in s:
+            if s.startswith(("from ", "import ")) and "carpediem.domain" in s:
                 raise AssertionError(
                     f"{path}: import da src.domain. "
                     "Il core non dipende dall'app (docs/planner-phase5-plan.md §3)."
@@ -290,14 +294,14 @@ def test_phase4_constraint_sites_allowlisted():
     Righe docstring/elenco (che iniziano per - # " ' *) documentano,
     non decidono. Window ±6: i blocchi di derivazione (models.py) tengono
     un marker solo in testa — guard euristico come T8, dichiarato qui.
-    Limiti noti (non bloccanti): scope solo src/planner/ (un sito in
+    Limiti noti (non bloccanti): scope solo carpediem/planner/ (un sito in
     app/domain/screens passa); vede solo letterali quotati (filtri su
     booleani .done/.paused o costanti evadono senza marker)."""
     import re
 
     pat = re.compile(r"""["'](?:attivo|completato|in_sospeso)["']""")
     checked = 0
-    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+    for path in sorted(pathlib.Path("src/carpediem/planner").glob("*.py")):
         lines = path.read_text(encoding="utf-8").splitlines()
         for i, line in enumerate(lines):
             s = line.strip()
@@ -315,8 +319,8 @@ def test_phase4_constraint_sites_allowlisted():
 
 def test_phase3_core_senza_aware():
     """G2: il core resta naive (convenzione storage): niente aritmetica di
-    zona in src/planner/ — conversioni solo ai bordi (Outlook edge)."""
-    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+    zona in carpediem/planner/ — conversioni solo ai bordi (Outlook edge)."""
+    for path in sorted(pathlib.Path("src/carpediem/planner").glob("*.py")):
         src = path.read_text(encoding="utf-8")
         for token in ("tzinfo", "astimezone", "ZoneInfo", "utcoffset"):
             assert token not in src, (
@@ -327,7 +331,7 @@ def test_phase3_core_senza_aware():
 
 def test_phase1_wall_clock_solo_allowlisted():
     found = []
-    for path in sorted(pathlib.Path("src/planner").glob("*.py")):
+    for path in sorted(pathlib.Path("src/carpediem/planner").glob("*.py")):
         lines = path.read_text(encoding="utf-8").splitlines()
         for i, line in enumerate(lines):
             if "datetime.now()" in line or "date.today()" in line:

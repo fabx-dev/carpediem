@@ -6,9 +6,9 @@ della calibrazione su todos (min 5, mediana, clamp); predicted mai riscrive
 la stima utente.
 """
 
-import src.domain as domain
-import src.models as models
-from src.domain import calibration_summary
+import carpediem.domain as domain
+import carpediem.models as models
+from carpediem.domain import calibration_summary
 
 
 def _exec(i, actual, estimate=2, planned=60, completed=True):

@@ -1,0 +1,113 @@
+"""Schermate modali. Re-export per compatibilita'.
+
+Le classi vivono nei sottomoduli per area; questo package riesporta i nomi
+pubblici cosi' `from carpediem.screens import X` resta invariato (app, test, main).
+"""
+
+__all__ = [
+    "ActualScreen",
+    "AgendaScreen",
+    "ArchiveScreen",
+    "BriefingScreen",
+    "CalendarScreen",
+    "CloseMixin",
+    "ConfirmScreen",
+    "DailyPlanScreen",
+    "DayScreen",
+    "DetailScreen",
+    "GoalsScreen",
+    "HealthScreen",
+    "ImportCsvScreen",
+    "KanbanScreen",
+    "KeysScreen",
+    "LockScreen",
+    "MenuRow",
+    "MenuScreen",
+    "NLHelpScreen",
+    "OutlookHooks",
+    "OutlookSetupScreen",
+    "PasswordScreen",
+    "PlanProposalScreen",
+    "plan_context",
+    "plan_decisions",
+    "PomodoroScreen",
+    "RadarPickScreen",
+    "ReplanPreviewScreen",
+    "RestoreScreen",
+    "ReviewScreen",
+    "SearchScreen",
+    "SecurityScreen",
+    "SettingsScreen",
+    "SmartListScreen",
+    "StateChoiceScreen",
+    "StatsScreen",
+    "TemplateCreateScreen",
+    "TemplateProjectScreen",
+    "TemplateScreen",
+    "ThemeListScreen",
+    "TodoFormScreen",
+    "WeekScreen",
+    "WeekReviewScreen",
+    "WelcomeScreen",
+    "WorkflowScreen",
+    "_hero_row",
+]
+
+from carpediem.screens._shared import (
+    CloseMixin,
+    _hero_row,
+)
+from carpediem.screens.form import (
+    ActualScreen,
+    ConfirmScreen,
+    NLHelpScreen,
+    RadarPickScreen,
+    SearchScreen,
+    StateChoiceScreen,
+    ThemeListScreen,
+    TodoFormScreen,
+)
+from carpediem.screens.menu import (
+    MenuRow,
+    MenuScreen,
+)
+from carpediem.screens.plan import (
+    BriefingScreen,
+    DailyPlanScreen,
+    OutlookHooks,
+    PlanProposalScreen,
+    ReplanPreviewScreen,
+    ReviewScreen,
+)
+from carpediem.screens.system import (
+    ArchiveScreen,
+    GoalsScreen,
+    HealthScreen,
+    KeysScreen,
+    LockScreen,
+    OutlookSetupScreen,
+    PasswordScreen,
+    RestoreScreen,
+    SecurityScreen,
+    SettingsScreen,
+    StatsScreen,
+    WelcomeScreen,
+)
+from carpediem.screens.views import (
+    AgendaScreen,
+    CalendarScreen,
+    DayScreen,
+    DetailScreen,
+    ImportCsvScreen,
+    KanbanScreen,
+    PomodoroScreen,
+    SmartListScreen,
+    TemplateCreateScreen,
+    TemplateProjectScreen,
+    TemplateScreen,
+    WeekReviewScreen,
+    WeekScreen,
+    WorkflowScreen,
+    plan_context,
+    plan_decisions,
+)

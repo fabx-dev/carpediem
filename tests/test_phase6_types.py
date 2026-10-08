@@ -7,7 +7,7 @@ import dataclasses
 
 import pytest
 
-from src.planner import models as m
+from carpediem.planner import models as m
 
 
 def test_d1_liste_campi_esatte():
@@ -70,8 +70,8 @@ def test_d1_frozen_e_default():
 
 def test_b11_probe_order_documentato():
     """B11: _PROBE_ORDER e docstring PlanAlternative allineati (tasks incluso)."""
-    import src.planner.diagnostics as dg
-    import src.planner.models as m
+    import carpediem.planner.diagnostics as dg
+    import carpediem.planner.models as m
 
     assert dg._PROBE_ORDER == (
         m.BLOCKED_DURATION,

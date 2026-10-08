@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from src.planner import (
+from carpediem.planner import (
     DayPlan,
     FixedEvent,
     PlanItem,
@@ -13,7 +13,7 @@ from src.planner import (
     events_to_busy,
     schedule,
 )
-from src.screens.plan import parse_event_lines
+from carpediem.screens.plan import parse_event_lines
 
 DAY = "2026-09-10"
 

@@ -30,8 +30,8 @@ def test_version_present_and_shaped():
 
 def test_entry_point():
     scripts = _pyproject()["project"]["scripts"]
-    assert scripts["carpediem"] == "src.main:main"
-    import src.main as m
+    assert scripts["carpediem"] == "carpediem.main:main"
+    import carpediem.main as m
 
     assert callable(m.main)
 
@@ -126,9 +126,11 @@ def test_readme_and_license_present():
 
 
 def test_package_layout_matches_build():
-    # Il Dockerfile e il build includono ./src: l'entry-point deve esistere.
-    assert (ROOT / "src" / "main.py").exists()
-    assert (ROOT / "src" / "__init__.py").exists()
+    # Il build include src/carpediem: l'entry-point deve esistere e src/
+    # non deve essere un package applicativo.
+    assert (ROOT / "src" / "carpediem" / "main.py").exists()
+    assert (ROOT / "src" / "carpediem" / "__init__.py").exists()
+    assert not (ROOT / "src" / "__init__.py").exists()
 
 
 def test_sdist_contiene_integrations():
@@ -143,5 +145,6 @@ def test_sdist_contiene_integrations():
         pytest.skip("nessuna sdist in dist/")
     with tarfile.open(dists[-1]) as tf:
         names = tf.getnames()
-    assert any(n.endswith("src/integrations/outlook_auth.py") for n in names)
-    assert any(n.endswith("src/integrations/outlook.py") for n in names)
+    assert any(n.endswith("carpediem/integrations/outlook_auth.py") for n in names)
+    assert any(n.endswith("carpediem/integrations/outlook.py") for n in names)
+    assert not any(n.endswith("src/__init__.py") or "/src/app.py" in n for n in names)

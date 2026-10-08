@@ -2,7 +2,7 @@
 
 import asyncio
 
-from src.screens import StatsScreen
+from carpediem.screens import StatsScreen
 from tests.conftest import make_app, make_todo
 
 
