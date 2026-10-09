@@ -5,6 +5,10 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Changed
+- Footer key order is now `n, s, /, P, p, o, R, h, q, m`;
+  subtask (`s`) and quit (`q`) are shown in the footer.
+
 ## [0.21.1] - 2026-10-08
 
 ### Changed
