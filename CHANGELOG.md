@@ -5,6 +5,15 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+### Added
+- Native Ubuntu Snap packaging (`snap/snapcraft.yaml`, `core24`, strict
+  confinement, single version source adopted from `pyproject.toml`) with
+  persistent user data under `SNAP_USER_COMMON` (`~/snap/carpediem/common`)
+  surviving restarts and `snap refresh`, plus GitHub Actions workflows for
+  Snap CI (`.github/workflows/snap.yml`), automated Snap Store releases
+  (`.github/workflows/snap-release.yml`), and full documentation in
+  `docs/snap.md`.
+
 ### Changed
 - Footer key order is now `n, s, /, P, p, o, R, h, q, m`;
   subtask (`s`) and quit (`q`) are shown in the footer.

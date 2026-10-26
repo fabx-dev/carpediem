@@ -56,7 +56,16 @@ pipx install git+https://github.com/fabx-dev/carpediem.git
 python3 -m venv .venv
 .venv/bin/pip install .
 ```
-4. Start the TUI:
+4. Ubuntu / Linux Snap package (strictly confined `core24` Snap; see [docs/snap.md](docs/snap.md) for local build and Store release setup):
+```bash
+# Once published to the Snap Store:
+sudo snap install carpediem
+
+# Or build and install locally from the checkout:
+snapcraft pack
+sudo snap install --dangerous ./carpediem_*.snap
+```
+5. Start the TUI:
 ```bash
 carpediem
 ```
@@ -170,7 +179,7 @@ Everything lives in local JSON (offline-first), in platform-standard locations:
 
 Legacy installs stored everything next to home (`~/.todo_app.json`, `~/.todo_config.json`, …, `~/Tasko_backups/`). On startup CarpeDiem copies those files once into the new locations (byte-identical, verified, never deleting the originals); existing new files always win, so nothing is ever overwritten.
 
-Single-writer `commit()` with inter-process lock and three-way per-id merge (CLI and TUI never overwrite each other). Restore a backup any time from the menu (`Backup: restore`). Optional encryption from `System` → `Security`. Language follows the system (Italian or English), override with `CARPEDIEM_LANG=it|en` (`TASKO_LANG` still works) or in Settings; isolate data with `CARPEDIEM_HOME=/tmp/demo` (`TASKO_HOME` still works).
+Single-writer `commit()` with inter-process lock and three-way per-id merge (CLI and TUI never overwrite each other). Restore a backup any time from the menu (`Backup: restore`). Optional encryption from `System` → `Security`. Language follows the system (Italian or English), override with `CARPEDIEM_LANG=it|en` (`TASKO_LANG` still works) or in Settings; isolate data with `CARPEDIEM_HOME=/tmp/demo` (`TASKO_HOME` still works). When running as a strictly confined Snap, all data, config, backups, and exports live under `~/snap/carpediem/common/` (`$SNAP_USER_COMMON`) so state persists across Snap refreshes (see [docs/snap.md](docs/snap.md) for details and migration from `pipx`/`pip`).
 
 ## Dev
 

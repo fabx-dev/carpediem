@@ -56,7 +56,16 @@ pipx install git+https://github.com/fabx-dev/carpediem.git
 python3 -m venv .venv
 .venv/bin/pip install .
 ```
-4. Avvia la TUI:
+4. Pacchetto Snap per Ubuntu / Linux (Snap `core24` con confinamento stretto; vedi [docs/snap.md](docs/snap.md) per build locale e pubblicazione sullo Store):
+```bash
+# Una volta pubblicato sullo Snap Store:
+sudo snap install carpediem
+
+# Oppure build e installazione locale dal checkout:
+snapcraft pack
+sudo snap install --dangerous ./carpediem_*.snap
+```
+5. Avvia la TUI:
 ```bash
 carpediem
 ```
@@ -170,7 +179,7 @@ Tutto in JSON locali (offline-first), in percorsi standard per piattaforma:
 
 Le installazioni precedenti tenevano tutto vicino alla home (`~/.todo_app.json`, `~/.todo_config.json`, …, `~/Tasko_backups/`). All'avvio CarpeDiem copia quei file una volta nei nuovi percorsi (byte-identici, verificati, senza mai cancellare gli originali); i file nuovi esistenti vincono sempre, niente viene mai sovrascritto.
 
-Scrittura a punto unico `commit()` con lock inter-processo e merge three-way per id (CLI e TUI non si sovrascrivono). Ripristino dal menu (`Backup: ripristina`). Cifratura opzionale da `Sistema` → `Sicurezza`. Lingua automatica dal sistema, forzabile con `CARPEDIEM_LANG=it|en` (`TASKO_LANG` resta valido) o dalle Impostazioni; dati isolabili con `CARPEDIEM_HOME=/tmp/demo` (`TASKO_HOME` resta valido).
+Scrittura a punto unico `commit()` con lock inter-processo e merge three-way per id (CLI e TUI non si sovrascrivono). Ripristino dal menu (`Backup: ripristina`). Cifratura opzionale da `Sistema` → `Sicurezza`. Lingua automatica dal sistema, forzabile con `CARPEDIEM_LANG=it|en` (`TASKO_LANG` resta valido) o dalle Impostazioni; dati isolabili con `CARPEDIEM_HOME=/tmp/demo` (`TASKO_HOME` resta valido). Dentro il pacchetto Snap confinato, dati, configurazione, backup ed export risiedono sotto `~/snap/carpediem/common/` (`$SNAP_USER_COMMON`), persistendo attraverso gli aggiornamenti `snap refresh` (vedi [docs/snap.md](docs/snap.md) per dettagli e migrazione da `pipx`/`pip`).
 
 ## Sviluppo
 
