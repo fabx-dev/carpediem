@@ -275,7 +275,7 @@ jobs:
           key = crypto.encode_password("snap-ci-secret")
           crypto.set_key(key)
           try:
-              enc = crypto.protect_text('{"ok": true}')
+              enc = crypto.protect_text("{\"ok\": true}")
               dec, was_encrypted = crypto.unprotect_text(enc)
               assert dec == {"ok": True}
               assert was_encrypted is True
