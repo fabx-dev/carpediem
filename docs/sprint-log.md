@@ -839,4 +839,11 @@
   e `.github/workflows/snap-release.yml` (su `release: published` e
   `workflow_dispatch`, environment `snap-store`, `SNAPCRAFT_STORE_CREDENTIALS`,
   action Canonical pinnate a SHA); guida in `docs/snap.md`.
+  Prima pubblicazione riuscita con la 0.22.0 (2026-10-26): CI + Snap CI verdi,
+  PyPI pubblicato, `carpediem_0.22.0_amd64.snap` su canale `stable`.
+  Lezioni CI: `unprotect_text` ritorna il JSON parsato (smoke test del workflow
+  confrontava la stringa); niente single-quote dentro heredoc delimitati da
+  single-quote (SyntaxError); `SNAP_USER_COMMON` va onorato prima dei rami di
+  piattaforma (il test di migrazione falliva solo su Windows); il secret Store
+  va impostato via `gh secret set ... < file` (copia-incolla tronca il base64).
 

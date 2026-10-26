@@ -2,7 +2,7 @@
 
 This document describes how CarpeDiem is packaged as a strictly confined Ubuntu Snap (`snap/snapcraft.yaml`), how data and confinement paths work at runtime, how to build and test the Snap locally, and how the GitHub Actions CI/CD pipelines (`snap.yml` and `snap-release.yml`) validate and publish versioned releases to the Snap Store.
 
-> **Status note**: The `carpediem` Snap package definition and automated publishing pipeline are included in this repository. Installing directly from the Snap Store (`sudo snap install carpediem`) requires the maintainer to complete the one-time Snap Store name registration and `SNAPCRAFT_STORE_CREDENTIALS` secret setup described below, followed by publishing a GitHub Release.
+> **Status note**: The `carpediem` Snap is published on the Snap Store (`stable` channel, first published with v0.22.0 on 2026-10-26): install it with `sudo snap install carpediem`. The one-time Store name registration and `SNAPCRAFT_STORE_CREDENTIALS` setup below are already completed by the maintainer.
 
 ---
 
