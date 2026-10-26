@@ -5,6 +5,8 @@ Entries in English from now on.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-26
+
 ### Added
 - Native Ubuntu Snap packaging (`snap/snapcraft.yaml`, `core24`, strict
   confinement, single version source adopted from `pyproject.toml`) with
