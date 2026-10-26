@@ -310,6 +310,9 @@ ENV_HOME_NEW = "CARPEDIEM_HOME"
 ENV_HOME_LEGACY = "TASKO_HOME"
 ENV_LANG_NEW = "CARPEDIEM_LANG"
 ENV_LANG_LEGACY = "TASKO_LANG"
+ENV_SNAP_USER_COMMON = "SNAP_USER_COMMON"
+ENV_SNAP_USER_DATA = "SNAP_USER_DATA"
+ENV_SNAP_REAL_HOME = "SNAP_REAL_HOME"
 
 NEW_BACKUP_PREFIX = "carpediem_"
 LEGACY_BACKUP_DIRNAME = "Tasko_backups"
@@ -336,12 +339,26 @@ def home_override() -> Path | None:
     return Path(val).expanduser() if val else None
 
 
+def _snap_user_dir() -> Path | None:
+    """Base dati per-utente in ambiente Snap confinato.
+
+    Preferisce SNAP_USER_COMMON (non versionata: persiste direttamente
+    attraverso i `snap refresh` senza duplicare snapshot per revisione),
+    con fallback a SNAP_USER_DATA. Nessun mkdir, nessuna scrittura.
+    """
+    val = _env_first(ENV_SNAP_USER_COMMON, ENV_SNAP_USER_DATA)
+    return Path(val).expanduser() if val else None
+
+
 def _home() -> Path:
-    """Base dati legacy-compatibile: override se impostato, altrimenti home reale."""
+    """Base dati legacy-compatibile: override se impostato, altrimenti home reale (o Snap common)."""
     override = home_override()
     if override is not None:
         override.mkdir(parents=True, exist_ok=True)
         return override
+    snap_dir = _snap_user_dir()
+    if snap_dir is not None:
+        return snap_dir
     return Path.home()
 
 
@@ -363,6 +380,12 @@ def _platform_base() -> tuple[Path, Path]:
         )
         dat = Path(local) / "CarpeDiem" if local else cfg
         return cfg, dat
+    snap_dir = _snap_user_dir()
+    if snap_dir is not None:
+        return (
+            snap_dir / ".config" / "carpediem",
+            snap_dir / ".local" / "share" / "carpediem",
+        )
     xdg_cfg = os.environ.get("XDG_CONFIG_HOME", "").strip()
     xdg_data = os.environ.get("XDG_DATA_HOME", "").strip()
     cfg = (
@@ -1355,11 +1378,28 @@ _LEGACY_MAP: tuple[tuple[str, str, _Callable[[], Path], str], ...] = (
     ("outlook_token", ".todo_outlook_token.json", outlook_token_file, "any"),
 )
 
+# (kind, path relativo in SNAP_USER_DATA, target, shape attesa)
+_SNAP_DATA_MAP: tuple[tuple[str, str, _Callable[[], Path], str], ...] = (
+    ("todos", ".local/share/carpediem/todos.json", todos_file, "list"),
+    ("templates", ".local/share/carpediem/templates.json", templates_file, "dict"),
+    ("config", ".config/carpediem/config.json", config_file, "dict"),
+    ("pomodoro", ".local/share/carpediem/pomodoro.json", pomodoro_file, "dict"),
+    ("archive", ".local/share/carpediem/archive.json", archive_file, "list"),
+    ("executions", ".local/share/carpediem/executions.json", executions_file, "list"),
+    (
+        "outlook_token",
+        ".local/share/carpediem/outlook-token.json",
+        outlook_token_file,
+        "any",
+    ),
+)
+
 
 def _legacy_candidate_bases() -> list[Path]:
     """Basi in cui cercare dati legacy. Con override attivo si guarda SOLO
     nelle dir di override (mai nella home reale: un test con HOME temporanea
-    non deve importare i dati veri dell'utente); senza override, la home."""
+    non deve importare i dati veri dell'utente); senza override, la home
+    (e le dir Snap se in esecuzione in uno Snap)."""
     import os
 
     if _env_first(ENV_HOME_NEW, ENV_HOME_LEGACY):
@@ -1371,7 +1411,18 @@ def _legacy_candidate_bases() -> list[Path]:
                 if p not in bases:
                     bases.append(p)
         return bases
-    return [Path.home()]
+    bases = []
+    for raw in (
+        _env_first(ENV_SNAP_USER_COMMON),
+        _env_first(ENV_SNAP_USER_DATA),
+        str(Path.home()),
+        _env_first(ENV_SNAP_REAL_HOME),
+    ):
+        if raw:
+            p = Path(raw).expanduser()
+            if p not in bases:
+                bases.append(p)
+    return bases or [Path.home()]
 
 
 def _verify_state_bytes(raw: bytes, expect: str) -> bool:
@@ -1413,7 +1464,11 @@ def _migrate_one_file(kind: str, src: Path, target: Path, expect: str) -> str:
     """
     if target.exists():
         return "skipped_target_exists"
-    if not src.exists():
+    try:
+        exists = src.exists()
+    except OSError:
+        return "skipped_no_legacy"
+    if not exists:
         return "skipped_no_legacy"
     try:
         raw = src.read_bytes()
@@ -1489,6 +1544,33 @@ def _migrate_one_backup(zpath: Path) -> str:
     return "migrated"
 
 
+def _record_migration_outcome(
+    report: dict[str, list[str]], kind: str, outcome: str
+) -> None:
+    if outcome == "migrated":
+        if kind not in report["migrated"]:
+            report["migrated"].append(kind)
+        if kind in report["skipped_no_legacy"]:
+            report["skipped_no_legacy"].remove(kind)
+    elif outcome == "skipped_target_exists":
+        if (
+            kind not in report["migrated"]
+            and kind not in report["skipped_target_exists"]
+        ):
+            report["skipped_target_exists"].append(kind)
+    elif outcome == "skipped_no_legacy":
+        if (
+            kind not in report["migrated"]
+            and kind not in report["skipped_target_exists"]
+            and kind not in report["skipped_no_legacy"]
+        ):
+            report["skipped_no_legacy"].append(kind)
+    elif outcome.startswith("skipped_invalid"):
+        report["skipped_invalid"].append(f"{kind}: {outcome}")
+    else:
+        report["skipped_error"].append(f"{kind}: {outcome}")
+
+
 def migrate_legacy() -> dict[str, list[str]]:
     """Migra i dati legacy verso i nuovi path. Idempotente, mai distruttiva.
 
@@ -1505,28 +1587,40 @@ def migrate_legacy() -> dict[str, list[str]]:
         "skipped_error": [],
         "backups": [],
     }
+    if not _env_first(ENV_HOME_NEW, ENV_HOME_LEGACY):
+        snap_common = _env_first(ENV_SNAP_USER_COMMON)
+        snap_data = _env_first(ENV_SNAP_USER_DATA)
+        if snap_common and snap_data:
+            p_common = Path(snap_common).expanduser()
+            p_data = Path(snap_data).expanduser()
+            if p_common != p_data:
+                for kind, rel, target_fn, expect in _SNAP_DATA_MAP:
+                    outcome = _migrate_one_file(kind, p_data / rel, target_fn(), expect)
+                    _record_migration_outcome(report, kind, outcome)
+                try:
+                    snap_zips = sorted(
+                        (p_data / ".local/share/carpediem/backups").glob("*.zip")
+                    )
+                except OSError:
+                    snap_zips = []
+                for zpath in snap_zips:
+                    if zpath.is_file() and _migrate_one_backup(zpath) == "migrated":
+                        report["backups"].append(zpath.name)
     for base in _legacy_candidate_bases():
         for kind, lname, target_fn, expect in _LEGACY_MAP:
             target = target_fn()
             outcome = _migrate_one_file(kind, base / lname, target, expect)
-            if outcome == "migrated":
-                report["migrated"].append(kind)
-            elif outcome == "skipped_target_exists":
-                if kind not in report["skipped_target_exists"]:
-                    report["skipped_target_exists"].append(kind)
-            elif outcome == "skipped_no_legacy":
-                if kind not in report["skipped_no_legacy"]:
-                    report["skipped_no_legacy"].append(kind)
-            elif outcome.startswith("skipped_invalid"):
-                report["skipped_invalid"].append(f"{kind}: {outcome}")
-            else:
-                report["skipped_error"].append(f"{kind}: {outcome}")
+            _record_migration_outcome(report, kind, outcome)
         try:
             zips = sorted((base / LEGACY_BACKUP_DIRNAME).glob("tasko_*.zip"))
         except OSError:
             zips = []
         for zpath in zips:
-            if not zpath.is_file():
+            try:
+                is_f = zpath.is_file()
+            except OSError:
+                is_f = False
+            if not is_f:
                 continue
             outcome = _migrate_one_backup(zpath)
             if outcome == "migrated":

@@ -60,7 +60,13 @@ def _use_dirs(monkeypatch, legacy, new):
         "home_override",
     ):
         monkeypatch.setattr(st, name, _ORIG[name])
-    monkeypatch.delenv("CARPEDIEM_HOME", raising=False)
+    for var in (
+        "CARPEDIEM_HOME",
+        "SNAP_USER_COMMON",
+        "SNAP_USER_DATA",
+        "SNAP_REAL_HOME",
+    ):
+        monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("TASKO_HOME", str(legacy))
     # I target reali punterebbero a `legacy`: redirezionarli su `new`.
     monkeypatch.setattr(st, "config_dir", lambda: new)
@@ -342,3 +348,33 @@ def test_cli_subprocess_migra(tmp_path):
     assert r.returncode == 0, r.stderr
     assert (home / "todos.json").exists()
     assert "Prova" in r.stdout
+
+
+def test_snap_user_data_verso_snap_user_common(tmp_path, monkeypatch):
+    """Dati presenti in SNAP_USER_DATA migrano in SNAP_USER_COMMON senza perdite."""
+    for name in _ORIG:
+        if name not in ("_write_atomic", "_write_bytes_locked"):
+            monkeypatch.setattr(st, name, _ORIG[name])
+    for var in ("CARPEDIEM_HOME", "TASKO_HOME", "SNAP_REAL_HOME"):
+        monkeypatch.delenv(var, raising=False)
+    snap_common = tmp_path / "snap" / "carpediem" / "common"
+    snap_data = tmp_path / "snap" / "carpediem" / "x1"
+    monkeypatch.setenv("HOME", str(snap_data))
+    monkeypatch.setenv("SNAP_USER_COMMON", str(snap_common))
+    monkeypatch.setenv("SNAP_USER_DATA", str(snap_data))
+    src_data = snap_data / ".local" / "share" / "carpediem"
+    src_cfg = snap_data / ".config" / "carpediem"
+    src_data.mkdir(parents=True)
+    src_cfg.mkdir(parents=True)
+    (src_data / "todos.json").write_text(json.dumps([TASK]), encoding="utf-8")
+    (src_cfg / "config.json").write_text(json.dumps({"lang": "it"}), encoding="utf-8")
+    report = st.migrate_legacy()
+    assert "todos" in report["migrated"]
+    assert "config" in report["migrated"]
+    assert json.loads(
+        (snap_common / ".local" / "share" / "carpediem" / "todos.json").read_text(
+            encoding="utf-8"
+        )
+    ) == [TASK]
+    # Sorgente intatta.
+    assert json.loads((src_data / "todos.json").read_text(encoding="utf-8")) == [TASK]

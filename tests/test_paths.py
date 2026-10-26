@@ -26,6 +26,7 @@ _ORIG = {
         "executions_file",
         "outlook_token_file",
         "home_override",
+        "_home",
     )
 }
 
@@ -38,6 +39,9 @@ def real_paths(monkeypatch):
     for var in (
         "CARPEDIEM_HOME",
         "TASKO_HOME",
+        "SNAP_USER_COMMON",
+        "SNAP_USER_DATA",
+        "SNAP_REAL_HOME",
         "XDG_CONFIG_HOME",
         "XDG_DATA_HOME",
         "APPDATA",
@@ -177,3 +181,60 @@ def test_fresh_non_crea_nulla(monkeypatch, tmp_path, real_paths):
     st.load_todos()
     assert not (tmp_path / "home" / ".config").exists()
     assert not (tmp_path / "home" / ".local").exists()
+
+
+def test_linux_snap_user_common(monkeypatch, tmp_path, real_paths):
+    """In Snap confinato, SNAP_USER_COMMON ospita config, dati, backup ed export."""
+    home = _home(monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, "platform", "linux")
+    snap_common = home / "snap" / "carpediem" / "common"
+    snap_data = home / "snap" / "carpediem" / "x1"
+    monkeypatch.setenv("SNAP_USER_COMMON", str(snap_common))
+    monkeypatch.setenv("SNAP_USER_DATA", str(snap_data))
+    # Anche se la sessione host esporta XDG verso dotfile bloccati da AppArmor,
+    # lo Snap usa la propria directory persistente scrivibile.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(home / ".local" / "share"))
+    assert st.config_dir() == snap_common / ".config" / "carpediem"
+    assert st.data_dir() == snap_common / ".local" / "share" / "carpediem"
+    assert st.backup_dir() == snap_common / ".local" / "share" / "carpediem" / "backups"
+    assert st._home() == snap_common
+
+
+def test_linux_snap_refresh_persistence(monkeypatch, tmp_path, real_paths):
+    """Attraverso uno `snap refresh` (revisione x1 -> x2), i path restano identici."""
+    home = _home(monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, "platform", "linux")
+    snap_common = home / "snap" / "carpediem" / "common"
+    monkeypatch.setenv("SNAP_USER_COMMON", str(snap_common))
+    monkeypatch.setenv("SNAP_USER_DATA", str(home / "snap" / "carpediem" / "x1"))
+    monkeypatch.setenv("HOME", str(home / "snap" / "carpediem" / "x1"))
+    before = (st.todos_file(), st.config_file(), st.backup_dir(), st._home())
+    # Simulazione refresh alla revisione x2
+    monkeypatch.setenv("SNAP_USER_DATA", str(home / "snap" / "carpediem" / "x2"))
+    monkeypatch.setenv("HOME", str(home / "snap" / "carpediem" / "x2"))
+    after = (st.todos_file(), st.config_file(), st.backup_dir(), st._home())
+    assert before == after
+
+
+def test_linux_snap_user_data_fallback(monkeypatch, tmp_path, real_paths):
+    """Se solo SNAP_USER_DATA e' presente, viene usata come fallback."""
+    home = _home(monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, "platform", "linux")
+    snap_data = home / "snap" / "carpediem" / "x1"
+    monkeypatch.setenv("SNAP_USER_DATA", str(snap_data))
+    assert st.config_dir() == snap_data / ".config" / "carpediem"
+    assert st.data_dir() == snap_data / ".local" / "share" / "carpediem"
+    assert st._home() == snap_data
+
+
+def test_carpediem_home_override_wins_over_snap(monkeypatch, tmp_path, real_paths):
+    """CARPEDIEM_HOME e TASKO_HOME hanno sempre precedenza anche dentro uno Snap."""
+    home = _home(monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setenv("SNAP_USER_COMMON", str(home / "snap" / "carpediem" / "common"))
+    custom = tmp_path / "custom"
+    monkeypatch.setenv("CARPEDIEM_HOME", str(custom))
+    assert st.config_dir() == custom
+    assert st.data_dir() == custom
+    assert st._home() == custom
