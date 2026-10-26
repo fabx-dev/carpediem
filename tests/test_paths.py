@@ -228,6 +228,18 @@ def test_linux_snap_user_data_fallback(monkeypatch, tmp_path, real_paths):
     assert st._home() == snap_data
 
 
+def test_snap_vars_win_on_any_platform(monkeypatch, tmp_path, real_paths):
+    """Le variabili Snap vincono anche su piattaforme non-Linux (caso CI Windows)."""
+    home = _home(monkeypatch, tmp_path)
+    snap_common = home / "snap" / "carpediem" / "common"
+    monkeypatch.setenv("SNAP_USER_COMMON", str(snap_common))
+    for platform in ("linux", "darwin", "win32"):
+        monkeypatch.setattr(sys, "platform", platform)
+        assert st.config_dir() == snap_common / ".config" / "carpediem"
+        assert st.data_dir() == snap_common / ".local" / "share" / "carpediem"
+        assert st._home() == snap_common
+
+
 def test_carpediem_home_override_wins_over_snap(monkeypatch, tmp_path, real_paths):
     """CARPEDIEM_HOME e TASKO_HOME hanno sempre precedenza anche dentro uno Snap."""
     home = _home(monkeypatch, tmp_path)

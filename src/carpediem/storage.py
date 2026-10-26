@@ -367,6 +367,14 @@ def _platform_base() -> tuple[Path, Path]:
     import os
     import sys
 
+    # Lo Snap esiste solo su Linux, ma se le variabili Snap sono impostate
+    # valgono su qualunque piattaforma (test inclusi).
+    snap_dir = _snap_user_dir()
+    if snap_dir is not None:
+        return (
+            snap_dir / ".config" / "carpediem",
+            snap_dir / ".local" / "share" / "carpediem",
+        )
     if sys.platform == "darwin":
         base = Path.home() / "Library" / "Application Support" / "CarpeDiem"
         return base, base
@@ -380,12 +388,6 @@ def _platform_base() -> tuple[Path, Path]:
         )
         dat = Path(local) / "CarpeDiem" if local else cfg
         return cfg, dat
-    snap_dir = _snap_user_dir()
-    if snap_dir is not None:
-        return (
-            snap_dir / ".config" / "carpediem",
-            snap_dir / ".local" / "share" / "carpediem",
-        )
     xdg_cfg = os.environ.get("XDG_CONFIG_HOME", "").strip()
     xdg_data = os.environ.get("XDG_DATA_HOME", "").strip()
     cfg = (
