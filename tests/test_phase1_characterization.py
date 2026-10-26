@@ -33,7 +33,7 @@ from tests.conftest import make_todo
 
 # NOTA shadowing: `import carpediem.planner.replan as x` lega la FUNZIONE replan
 # (attributo del package dopo gli import di __init__), non il modulo —
-# usare sys.modules (lezione AGENTS.md §7, M4).
+# usare sys.modules (lezione docs/sprint-log.md, M4).
 replan_mod = sys.modules["carpediem.planner.replan"]
 
 TODAY = "2026-09-10"

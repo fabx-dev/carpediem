@@ -14,8 +14,8 @@ against the real code. Only #6 (the M6 umbrella) and #43 (the missing
 *temporal fit*) remain open, and they are maintainer-owned.
 
 So please do not treat the open issue count as a roadmap, and do not file a
-planning issue. The development plan is tracked in `AGENTS.md` §9, the
-milestone status in §9.12, and every user-visible change in `CHANGELOG.md`.
+planning issue. The development plan is tracked in `docs/roadmap.md`, the
+milestone status in its §9.12, and every user-visible change in `CHANGELOG.md`.
 
 What belongs in Issues:
 
