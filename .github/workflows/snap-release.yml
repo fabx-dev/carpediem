@@ -1,0 +1,147 @@
+# Automated Snap Store release workflow.
+#
+# Triggered when a GitHub Release is published (or manually via workflow_dispatch
+# for a specific version tag). Reuses `.github/workflows/snap.yml` to run all
+# tests, linters, Snap build, and installation smoke tests on the exact tagged
+# commit before publishing to the Snap Store.
+#
+# Required secret (in the `snap-store` GitHub Environment or repository secrets):
+#   SNAPCRAFT_STORE_CREDENTIALS
+# See docs/snap.md for credential generation and environment protection setup.
+
+name: Snap Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to build and publish (e.g. v0.21.1)"
+        required: true
+        type: string
+      channel:
+        description: "Snap Store channel to release to"
+        required: true
+        default: "stable"
+        type: choice
+        options:
+          - stable
+          - candidate
+          - beta
+          - edge
+
+permissions:
+  contents: read
+
+concurrency:
+  group: snap-release-${{ github.event.release.tag_name || inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-and-build:
+    name: Gate and Build Snap on Release Tag
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/snap.yml
+    with:
+      checkout_ref: ${{ github.event.release.tag_name || inputs.tag }}
+      expected_tag: ${{ github.event.release.tag_name || inputs.tag }}
+
+  publish-snap:
+    name: Publish Snap to Snap Store
+    needs: verify-and-build
+    if: (github.event_name == 'release' && !github.event.release.draft && !github.event.release.prerelease) || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: snap-store
+    steps:
+      - name: Check out tagged release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Download built Snap artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: ${{ needs.verify-and-build.outputs.artifact_name }}
+          path: .
+
+      - name: Validate release tag, artifact integrity, and Store credentials
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          EXPECTED_VERSION: ${{ needs.verify-and-build.outputs.version }}
+          SNAP_FILE: ${{ needs.verify-and-build.outputs.snap_filename }}
+          EXPECTED_SHA256: ${{ needs.verify-and-build.outputs.snap_sha256 }}
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]; then
+            echo "::error::SNAPCRAFT_STORE_CREDENTIALS is not set or is empty. Configure the secret in the 'snap-store' GitHub Environment or repository secrets (see docs/snap.md)."
+            exit 1
+          fi
+          PYPROJECT_VERSION="$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")"
+          if [ "${RELEASE_TAG}" != "v${PYPROJECT_VERSION}" ] || [ "${EXPECTED_VERSION}" != "${PYPROJECT_VERSION}" ]; then
+            echo "::error::Tag/version mismatch: tag='${RELEASE_TAG}', pyproject='${PYPROJECT_VERSION}', built='${EXPECTED_VERSION}'."
+            exit 1
+          fi
+          if [ ! -f "${SNAP_FILE}" ]; then
+            echo "::error::Expected Snap artifact '${SNAP_FILE}' not found."
+            exit 1
+          fi
+          ACTUAL_SHA256="$(sha256sum "${SNAP_FILE}" | awk '{print $1}')"
+          if [ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]; then
+            echo "::error::SHA-256 mismatch for '${SNAP_FILE}': expected ${EXPECTED_SHA256}, got ${ACTUAL_SHA256}."
+            exit 1
+          fi
+          unsquashfs -d /tmp/snap-verify "${SNAP_FILE}" meta/snap.yaml
+          python3 - "${PYPROJECT_VERSION}" <<'PY'
+          import pathlib, re, sys
+          ver = sys.argv[1]
+          meta = pathlib.Path("/tmp/snap-verify/meta/snap.yaml").read_text(encoding="utf-8")
+          if not re.search(rf"^version:\s*['\"]?{re.escape(ver)}['\"]?\s*$", meta, re.MULTILINE):
+              sys.exit(f"Embedded meta/snap.yaml version does not match {ver}:\n{meta}")
+          PY
+          rm -rf /tmp/snap-verify
+          echo "Validated '${SNAP_FILE}' (version ${PYPROJECT_VERSION}, tag ${RELEASE_TAG}, sha256 ${ACTUAL_SHA256})."
+
+      - name: Publish Snap to Snap Store
+        uses: canonical/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1.2.0
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ needs.verify-and-build.outputs.snap_filename }}
+          release: ${{ github.event_name == 'release' && 'stable' || inputs.channel }}
+
+      - name: Record published revision and build information
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          VERSION: ${{ needs.verify-and-build.outputs.version }}
+          SNAP_FILE: ${{ needs.verify-and-build.outputs.snap_filename }}
+          SNAP_SHA256: ${{ needs.verify-and-build.outputs.snap_sha256 }}
+          TARGET_CHANNEL: ${{ github.event_name == 'release' && 'stable' || inputs.channel }}
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          COMMIT_SHA="$(git rev-parse HEAD)"
+          echo "=== Snap Release Summary ==="
+          echo "Snap name:      carpediem"
+          echo "Version:        ${VERSION}"
+          echo "Git tag:        ${RELEASE_TAG}"
+          echo "Git commit:     ${COMMIT_SHA}"
+          echo "Channel:        ${TARGET_CHANNEL}"
+          echo "Artifact:       ${SNAP_FILE}"
+          echo "SHA-256:        ${SNAP_SHA256}"
+          echo "=== Snap Store Channel Map ==="
+          snapcraft status carpediem || true
+          {
+            echo "## Snap Release Published"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Snap Name | \`carpediem\` |"
+            echo "| Version | \`${VERSION}\` |"
+            echo "| Git Tag | \`${RELEASE_TAG}\` |"
+            echo "| Commit SHA | \`${COMMIT_SHA}\` |"
+            echo "| Target Channel | \`${TARGET_CHANNEL}\` |"
+            echo "| Artifact | \`${SNAP_FILE}\` |"
+            echo "| SHA-256 | \`${SNAP_SHA256}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"

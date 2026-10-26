@@ -1,0 +1,51 @@
+name: carpediem
+base: core24
+adopt-info: carpediem
+title: CarpeDiem
+summary: Terminal todo manager and deterministic day planner
+description: |
+  CarpeDiem turns quick notes into a realistic day plan: natural-language
+  capture, a smart morning proposal with real time slots, Pomodoro focus
+  during the day, and an evening closing review.
+
+  Features:
+  - Deterministic, explainable day planner with HH:MM-HH:MM time slots
+  - Natural-language task capture in English and Italian
+  - Persistent Pomodoro timer and pace calibration from execution history
+  - Kanban board, due-date radar, chronological agenda, and calendar views
+  - Local-first JSON storage with optional Fernet encryption and zip backups
+  - Non-interactive CLI (add, list, done, show, replan) and interactive TUI
+  - Optional Microsoft Outlook calendar import (OAuth2 PKCE)
+license: MIT
+grade: stable
+confinement: strict
+
+contact: https://github.com/fabx-dev/carpediem/issues
+issues: https://github.com/fabx-dev/carpediem/issues
+source-code: https://github.com/fabx-dev/carpediem
+website: https://github.com/fabx-dev/carpediem
+
+platforms:
+  amd64:
+
+apps:
+  carpediem:
+    command: bin/carpediem
+    plugs:
+      - home
+      - network
+      - network-bind
+    environment:
+      PYTHONUTF8: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      XDG_CONFIG_HOME: $SNAP_USER_COMMON/.config
+      XDG_DATA_HOME: $SNAP_USER_COMMON/.local/share
+
+parts:
+  carpediem:
+    plugin: python
+    source: .
+    override-pull: |
+      PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}/usr/lib/python3.12/site-packages" craftctl default
+      version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+      PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}/usr/lib/python3.12/site-packages" craftctl set version="$version"

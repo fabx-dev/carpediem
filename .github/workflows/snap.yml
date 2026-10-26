@@ -1,0 +1,300 @@
+# Snap CI and reusable build/test workflow.
+#
+# Runs on pull requests and pushes to `main`, manual `workflow_dispatch`,
+# and via `workflow_call` from `snap-release.yml`.
+# Never publishes to the Snap Store.
+
+name: Snap CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: "Git ref (tag or commit SHA) to check out and build"
+        required: false
+        type: string
+        default: ""
+      expected_tag:
+        description: "Expected release tag (e.g. v0.21.1) to validate against pyproject.toml"
+        required: false
+        type: string
+        default: ""
+    outputs:
+      version:
+        description: "Verified application version from pyproject.toml"
+        value: ${{ jobs.gate.outputs.version }}
+      artifact_name:
+        description: "GitHub Actions artifact name containing the built .snap"
+        value: ${{ jobs.build-snap.outputs.artifact_name }}
+      snap_filename:
+        description: "Filename of the built .snap package"
+        value: ${{ jobs.build-snap.outputs.snap_filename }}
+      snap_sha256:
+        description: "SHA-256 checksum of the built .snap package"
+        value: ${{ jobs.build-snap.outputs.snap_sha256 }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: snap-ci-${{ github.event.release.tag_name || inputs.expected_tag || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gate:
+    name: Test, Lint, and Validate Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      commit_sha: ${{ steps.meta.outputs.commit_sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Verify version consistency and Snapcraft manifest
+        id: meta
+        env:
+          EXPECTED_TAG: ${{ inputs.expected_tag }}
+        run: |
+          set -euo pipefail
+          COMMIT_SHA="$(git rev-parse HEAD)"
+          VERSION="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")"
+          echo "Resolved commit: ${COMMIT_SHA}"
+          echo "Resolved pyproject.toml version: ${VERSION}"
+          if [ -n "${EXPECTED_TAG}" ]; then
+            if [ "${EXPECTED_TAG}" != "v${VERSION}" ]; then
+              echo "::error::Release tag '${EXPECTED_TAG}' does not match pyproject.toml version 'v${VERSION}'."
+              exit 1
+            fi
+            echo "Verified tag '${EXPECTED_TAG}' matches pyproject.toml version '${VERSION}'."
+          fi
+          python -c "
+          import pathlib, re, sys
+          text = pathlib.Path('snap/snapcraft.yaml').read_text(encoding='utf-8')
+          required = [
+              r'^name:\s*carpediem\s*$',
+              r'^base:\s*core24\s*$',
+              r'^adopt-info:\s*carpediem\s*$',
+              r'^confinement:\s*strict\s*$',
+              r'^grade:\s*stable\s*$',
+              r'^\s+command:\s*bin/carpediem\s*$',
+              r'^\s+plugin:\s*python\s*$',
+          ]
+          for pat in required:
+              if not re.search(pat, text, re.MULTILINE):
+                  sys.exit(f'Missing required pattern in snap/snapcraft.yaml: {pat}')
+          if re.search(r'^version:\s*', text, re.MULTILINE):
+              sys.exit('snap/snapcraft.yaml must adopt version from pyproject.toml rather than hardcoding version')
+          print('snap/snapcraft.yaml static validation passed.')
+          "
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "commit_sha=${COMMIT_SHA}" >> "${GITHUB_OUTPUT}"
+
+      - name: Install development and test dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run Ruff lint checks
+        run: ruff check src/ tests/
+
+      - name: Run Ruff format checks
+        run: ruff format --check src/ tests/
+
+      - name: Run Mypy type checks
+        run: mypy src/
+
+      - name: Run test suite
+        run: python -m pytest tests/ -q --cov=carpediem --cov-report=term-missing --cov-fail-under=75
+
+  build-snap:
+    name: Build and Smoke-Test Snap
+    needs: gate
+    runs-on: ubuntu-latest
+    outputs:
+      snap_filename: ${{ steps.snap-info.outputs.snap_filename }}
+      snap_sha256: ${{ steps.snap-info.outputs.snap_sha256 }}
+      artifact_name: ${{ steps.snap-info.outputs.artifact_name }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+
+      - name: Build Snap package
+        id: build
+        uses: canonical/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
+        with:
+          build-info: "true"
+
+      - name: Collect Snapcraft diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/snap-build-logs
+          for d in "$HOME/.local/state/snapcraft/log" "$HOME/snap/snapcraft/common/.local/state/snapcraft/log" "/root/.local/state/snapcraft/log"; do
+            if [ -d "$d" ]; then
+              cp -r "$d"/* /tmp/snap-build-logs/ 2>/dev/null || true
+            fi
+          done
+          snap version > /tmp/snap-build-logs/snap-version.txt 2>&1 || true
+          snap list > /tmp/snap-build-logs/snap-list.txt 2>&1 || true
+          sudo journalctl -u snap.lxd.daemon -n 200 --no-pager > /tmp/snap-build-logs/lxd-journal.txt 2>&1 || true
+          for f in /tmp/snap-build-logs/*.log; do
+            if [ -f "$f" ]; then
+              echo "=== $f (last 100 lines) ==="
+              tail -n 100 "$f" || true
+            fi
+          done
+
+      - name: Upload Snapcraft diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snap-build-diagnostics-${{ github.run_id }}
+          path: /tmp/snap-build-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Verify built Snap metadata
+        id: snap-info
+        env:
+          SNAP_PATH: ${{ steps.build.outputs.snap }}
+          EXPECTED_VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -f "${SNAP_PATH}"
+          SNAP_FILENAME="$(basename "${SNAP_PATH}")"
+          SNAP_SHA256="$(sha256sum "${SNAP_PATH}" | awk '{print $1}')"
+          echo "Built Snap file: ${SNAP_FILENAME}"
+          echo "SHA-256: ${SNAP_SHA256}"
+          unsquashfs -d /tmp/snap-extract "${SNAP_PATH}" meta/snap.yaml
+          cat /tmp/snap-extract/meta/snap.yaml
+          python3 - "${EXPECTED_VERSION}" <<'PY'
+          import pathlib, re, sys
+          expected = sys.argv[1]
+          meta = pathlib.Path("/tmp/snap-extract/meta/snap.yaml").read_text(encoding="utf-8")
+          assert re.search(rf"^version:\s*['\"]?{re.escape(expected)}['\"]?\s*$", meta, re.MULTILINE), (
+              f"Snap version in meta/snap.yaml does not match {expected}:\n{meta}"
+          )
+          assert re.search(r"^name:\s*carpediem\s*$", meta, re.MULTILINE)
+          assert re.search(r"^confinement:\s*strict\s*$", meta, re.MULTILINE)
+          assert re.search(r"^grade:\s*stable\s*$", meta, re.MULTILINE)
+          assert re.search(r"^base:\s*core24\s*$", meta, re.MULTILINE)
+          PY
+          rm -rf /tmp/snap-extract
+          ARTIFACT_NAME="carpediem-snap-${EXPECTED_VERSION}"
+          echo "snap_filename=${SNAP_FILENAME}" >> "${GITHUB_OUTPUT}"
+          echo "snap_sha256=${SNAP_SHA256}" >> "${GITHUB_OUTPUT}"
+          echo "artifact_name=${ARTIFACT_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Install and smoke-test Snap package
+        env:
+          SNAP_PATH: ${{ steps.build.outputs.snap }}
+        run: |
+          set -euo pipefail
+          sudo snap install --dangerous "${SNAP_PATH}"
+          snap list carpediem
+          snap connections carpediem
+
+          # 1. Verify CLI entry point and default persistence in SNAP_USER_COMMON
+          /snap/bin/carpediem --help
+          TASK_ID="$(/snap/bin/carpediem add "Snap CI smoke task tomorrow #ci *packaging !high ~2")"
+          test -n "${TASK_ID}"
+          /snap/bin/carpediem list --porcelain | grep -F "Snap CI smoke task"
+          /snap/bin/carpediem show "${TASK_ID}" | grep -F "packaging"
+          /snap/bin/carpediem replan --now 09:00 | grep -F "Snap CI smoke task"
+          /snap/bin/carpediem done "${TASK_ID}"
+          /snap/bin/carpediem list --state done --porcelain | grep -F "Snap CI smoke task"
+
+          SNAP_COMMON_DIR="${HOME}/snap/carpediem/common"
+          test -f "${SNAP_COMMON_DIR}/.local/share/carpediem/todos.json"
+          test -f "${SNAP_COMMON_DIR}/.local/share/carpediem/executions.json"
+
+          # 2. Verify CARPEDIEM_HOME and legacy TASKO_HOME overrides inside confined Snap
+          CUSTOM_HOME="${SNAP_COMMON_DIR}/custom-override"
+          CARPEDIEM_HOME="${CUSTOM_HOME}" /snap/bin/carpediem add "Override smoke"
+          CARPEDIEM_HOME="${CUSTOM_HOME}" /snap/bin/carpediem list --porcelain | grep -F "Override smoke"
+          test -f "${CUSTOM_HOME}/todos.json"
+
+          LEGACY_HOME="${SNAP_COMMON_DIR}/legacy-override"
+          TASKO_HOME="${LEGACY_HOME}" /snap/bin/carpediem add "Legacy override smoke"
+          TASKO_HOME="${LEGACY_HOME}" /snap/bin/carpediem list --porcelain | grep -F "Legacy override smoke"
+          test -f "${LEGACY_HOME}/todos.json"
+
+          # 3. Verify TUI operation, CSV export, zip backup, encryption, and Outlook loopback inside Snap sandbox
+          snap run --shell carpediem -c '"$SNAP/bin/python3" - << "PY"
+          import asyncio
+          import os
+          from pathlib import Path
+          from carpediem import crypto
+          from carpediem.app import TodoApp
+          from carpediem.integrations.outlook_auth import LoopbackListener
+          from carpediem.storage import (
+              _home,
+              config_file,
+              create_backup,
+              load_todos,
+              save_config,
+              load_config,
+              todos_file,
+          )
+
+          assert str(todos_file()).startswith(os.environ["SNAP_USER_COMMON"]), todos_file()
+          assert str(config_file()).startswith(os.environ["SNAP_USER_COMMON"]), config_file()
+          assert len(load_todos()) >= 1
+
+          async def run_tui():
+              app = TodoApp()
+              async with app.run_test(size=(120, 40)) as pilot:
+                  await pilot.pause()
+                  app.action_export_csv()
+                  await pilot.pause()
+
+          asyncio.run(run_tui())
+
+          save_config(load_config())
+          assert config_file().exists()
+          backup_zip = create_backup()
+          assert backup_zip.exists()
+
+          exports = list((_home() / "CarpeDiem_screenshots").glob("*.csv"))
+          assert exports, "Expected CSV export in CarpeDiem_screenshots"
+
+          key = crypto.encode_password("snap-ci-secret")
+          crypto.set_key(key)
+          try:
+              enc = crypto.protect_text("{\"ok\": true}")
+              dec, _ = crypto.unprotect_text(enc)
+              assert dec == "{\"ok\": true}"
+          finally:
+              crypto.set_key(None)
+
+          listener = LoopbackListener()
+          try:
+              assert listener.port > 0
+              assert listener.redirect_uri.startswith("http://127.0.0.1:")
+          finally:
+              listener.close()
+
+          print("All confined Snap runtime checks (TUI, persistence, backup, export, crypto, Outlook loopback) passed.")
+          PY'
+
+      - name: Upload Snap package artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.snap-info.outputs.artifact_name }}
+          path: ${{ steps.build.outputs.snap }}
+          if-no-files-found: error
+          retention-days: 30

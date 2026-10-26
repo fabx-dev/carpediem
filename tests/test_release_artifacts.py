@@ -148,3 +148,59 @@ def test_sdist_contiene_integrations():
     assert any(n.endswith("carpediem/integrations/outlook_auth.py") for n in names)
     assert any(n.endswith("carpediem/integrations/outlook.py") for n in names)
     assert not any(n.endswith("src/__init__.py") or "/src/app.py" in n for n in names)
+
+
+def test_snapcraft_manifest_contract():
+    """Verifica statica del manifest Snap: strict confinement, core24,
+    entry-point carpediem e versione derivata da pyproject.toml."""
+    import re
+
+    manifest_path = ROOT / "snap" / "snapcraft.yaml"
+    assert manifest_path.exists()
+    text = manifest_path.read_text(encoding="utf-8")
+    assert re.search(r"^name:\s*carpediem\s*$", text, re.MULTILINE)
+    assert re.search(r"^base:\s*core24\s*$", text, re.MULTILINE)
+    assert re.search(r"^confinement:\s*strict\s*$", text, re.MULTILINE)
+    assert re.search(r"^grade:\s*stable\s*$", text, re.MULTILINE)
+    assert re.search(r"^license:\s*MIT\s*$", text, re.MULTILINE)
+    assert re.search(r"^adopt-info:\s*carpediem\s*$", text, re.MULTILINE)
+    # Nessuna versione hardcodata che possa divergere da pyproject.toml.
+    assert not re.search(r"^version:\s*", text, re.MULTILINE)
+    assert "craftctl set version=" in text
+    assert "pyproject.toml" in text
+    assert re.search(r"^\s+command:\s*bin/carpediem\s*$", text, re.MULTILINE)
+    assert re.search(r"^\s+plugin:\s*python\s*$", text, re.MULTILINE)
+    # Confinamento stretto reale: niente classic/devmode/personal-files.
+    assert "classic" not in text
+    assert "devmode" not in text
+    assert "personal-files" not in text
+    assert "system-files" not in text
+
+
+def test_snap_workflows_contract():
+    """Verifica statica dei workflow GitHub Actions per Snap CI e Release."""
+    import re
+
+    ci_wf = ROOT / ".github" / "workflows" / "snap.yml"
+    rel_wf = ROOT / ".github" / "workflows" / "snap-release.yml"
+    assert ci_wf.exists()
+    assert rel_wf.exists()
+
+    ci_text = ci_wf.read_text(encoding="utf-8")
+    rel_text = rel_wf.read_text(encoding="utf-8")
+
+    # Il workflow CI non deve mai pubblicare sullo Snap Store.
+    assert "action-publish" not in ci_text
+    assert "SNAPCRAFT_STORE_CREDENTIALS" not in ci_text
+    assert re.search(r"canonical/action-build@[0-9a-f]{40}", ci_text), (
+        "action-build deve essere pinnata a SHA immutabile"
+    )
+
+    # Il workflow di release deve verificare il tag, usare environment snap-store
+    # e pubblicare su stable al rilascio con action-publish pinnata a SHA.
+    assert "environment: snap-store" in rel_text
+    assert "SNAPCRAFT_STORE_CREDENTIALS" in rel_text
+    assert re.search(r"canonical/action-publish@[0-9a-f]{40}", rel_text), (
+        "action-publish deve essere pinnata a SHA immutabile"
+    )
+    assert "pull_request" not in rel_text
